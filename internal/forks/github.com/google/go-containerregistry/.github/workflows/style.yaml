@@ -1,0 +1,55 @@
+name: Code Style
+
+on:
+  pull_request:
+    branches: ['main']
+
+jobs:
+
+  goimports:
+    name: check goimports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          check-latest: true
+      - uses: actions/checkout@v3
+      - uses: chainguard-dev/actions/goimports@5e21cb47971231c078a677dfe89a348371cb880c # main
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          check-latest: true
+
+      - uses: golangci/golangci-lint-action@v3.2.0
+        with:
+          version: v1.45.2
+
+      - uses: reviewdog/action-misspell@v1
+        if: ${{ always() }}
+        with:
+          github_token: ${{ secrets.github_token }}
+          fail_on_error: true
+          locale: "US"
+          exclude: ./vendor/*
+
+      - uses: chainguard-dev/actions/trailing-space@5e21cb47971231c078a677dfe89a348371cb880c # main
+        if: ${{ always() }}
+
+      - uses: chainguard-dev/actions/eof-newline@5e21cb47971231c078a677dfe89a348371cb880c # main
+        if: ${{ always() }}
+
+      - uses: get-woke/woke-action-reviewdog@v0
+        if: ${{ always() }}
+        with:
+          github-token: ${{ secrets.github_token }}
+          reporter: github-pr-check
+          level: error
+          fail-on-error: true

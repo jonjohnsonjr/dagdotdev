@@ -1,0 +1,93 @@
+name: ECR Authentication test
+
+on:
+  pull_request_target:
+    branches: [ 'main' ]
+
+permissions:
+  # This lets us clone the repo
+  contents: read
+  # This lets us mint identity tokens.
+  id-token: write
+
+jobs:
+  krane:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCOUNT: 479305788615
+      AWS_REGION: us-east-2
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+          check-latest: true
+
+      - name: Install krane
+        working-directory: ./cmd/krane
+        run: go install .
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1.7.0
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT }}:role/federated-ecr-readonly
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Test krane + ECR
+        run: |
+          # List the tags
+          krane ls ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/go-containerregistry-test
+
+      - name: Test krane auth get + ECR
+        shell: bash
+        run: |
+          CRED1=$(krane auth get ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com)
+          CRED2=$(krane auth get ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com)
+          if [[ "$CRED1" == "" ]] ; then
+            exit 1
+          fi
+          if [[ "$CRED1" == "$CRED2" ]] ; then
+            echo "credentials are cached by infrastructure"
+          fi
+
+  crane-ecr-login:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCOUNT: 479305788615
+      AWS_REGION: us-east-2
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+          check-latest: true
+
+      - name: Install crane
+        working-directory: ./cmd/crane
+        run: go install .
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1.7.0
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT }}:role/federated-ecr-readonly
+          aws-region: ${{ env.AWS_REGION }}
+
+      - run: |
+          wget https://amazon-ecr-credential-helper-releases.s3.us-east-2.amazonaws.com/0.5.0/linux-amd64/docker-credential-ecr-login
+          chmod +x ./docker-credential-ecr-login
+          mv docker-credential-ecr-login /usr/local/bin
+
+          cat > $HOME/.docker/config.json <<EOF
+          {
+            "credHelpers": {
+              "${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com": "ecr-login"
+            }
+          }
+          EOF
+
+      - name: Test crane + ECR
+        run: |
+          # List the tags
+          crane ls ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/go-containerregistry-test

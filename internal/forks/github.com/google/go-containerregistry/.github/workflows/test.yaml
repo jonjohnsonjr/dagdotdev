@@ -1,0 +1,28 @@
+name: Test
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+jobs:
+
+  test:
+    strategy:
+      matrix:
+        go-version: [1.18] # TODO: add 1.19
+
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+
+      - run: go test -coverprofile=coverage.txt -covermode=atomic -race ./...
+
+      - uses: codecov/codecov-action@v3.1.1
