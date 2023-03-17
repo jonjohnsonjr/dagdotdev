@@ -2,13 +2,17 @@ package soci
 
 import (
 	"archive/tar"
+	"bufio"
 	"encoding/json"
 	"errors"
 	"io"
 
 	"github.com/klauspost/compress/zstd"
 
+	ogzip "compress/gzip"
+
 	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dag.dev/internal/and"
 	"github.com/jonjohnsonjr/dag.dev/internal/forks/compress/flate"
 	"github.com/jonjohnsonjr/dag.dev/internal/forks/compress/gzip"
 	"golang.org/x/sync/errgroup"
@@ -23,7 +27,9 @@ type Indexer struct {
 	zr       checkpointReader
 	tr       *tar.Reader
 	w        io.WriteCloser
+	bw       io.Writer
 	tw       *tar.Writer
+	zw       *ogzip.Writer
 	cw       *countWriter
 	finished bool
 	written  bool
@@ -36,6 +42,12 @@ type Indexer struct {
 // Error (maybe nil)
 func NewIndexer(rc io.ReadCloser, w io.WriteCloser, span int64, mediaType string) (*Indexer, string, io.ReadCloser, io.ReadCloser, error) {
 	logs.Debug.Printf("NewIndexer")
+
+	kind, pr, tpr, err := Peek(rc)
+	if err != nil {
+		return nil, kind, pr, tpr, err
+	}
+
 	// TODO: Allow binding writer after detection.
 
 	toc := &TOC{
@@ -48,13 +60,20 @@ func NewIndexer(rc io.ReadCloser, w io.WriteCloser, span int64, mediaType string
 	i := &Indexer{
 		toc: toc,
 		in:  rc,
-		w:   w,
 	}
 
-	kind, pr, tpr, err := Peek(rc)
+	bw := bufio.NewWriterSize(w, 1<<16)
+	zw, err := ogzip.NewWriterLevel(bw, ogzip.BestSpeed)
 	if err != nil {
-		return nil, kind, pr, tpr, err
+		return nil, "", nil, nil, err
 	}
+	flushClose := func() error {
+		return errors.Join(zw.Close(), bw.Flush())
+	}
+
+	i.bw = bw
+	i.zw = zw
+	i.w = &and.WriteCloser{zw, flushClose}
 
 	logs.Debug.Printf("Peeked: %s", kind)
 	if kind == "tar+gzip" {
@@ -84,7 +103,7 @@ func NewIndexer(rc io.ReadCloser, w io.WriteCloser, span int64, mediaType string
 
 	i.toc.Type = kind
 
-	i.cw = &countWriter{w, 0}
+	i.cw = &countWriter{i.w, 0}
 	i.tw = tar.NewWriter(i.cw)
 
 	i.g.Go(i.processUpdates)
@@ -123,7 +142,7 @@ func (i *Indexer) Read(p []byte) (int, error) {
 
 func (i *Indexer) Close() error {
 	// TODO: racey?
-	return i.in.Close()
+	return errors.Join(i.in.Close(), i.w.Close())
 }
 
 func (i *Indexer) Size() int64 {
@@ -150,13 +169,20 @@ func (i *Indexer) TOC() (*TOC, error) {
 		return nil, err
 	}
 	tocSize := int64(len(b))
-	// TODO: Reset gzip writer at this point.
 	if err := i.tw.WriteHeader(&tar.Header{
 		Name: tocFile,
 		Size: tocSize,
 	}); err != nil {
 		return nil, err
 	}
+
+	// Reset our gzip writer to force a checkpoint right before TOC.
+	// This allows us to seek here for free if we index this index.
+	if err := i.zw.Close(); err != nil {
+		return nil, err
+	}
+	i.zw.Reset(i.bw)
+
 	if _, err := i.tw.Write(b); err != nil {
 		return nil, err
 	}
@@ -189,6 +215,13 @@ func (i *Indexer) processUpdates() error {
 				}); err != nil {
 					return err
 				}
+				// Reset our gzip writer to force a checkpoint right before this.
+				// This allows us to seek here for free if we index this index.
+				if err := i.zw.Close(); err != nil {
+					return err
+				}
+				i.zw.Reset(i.bw)
+
 				if _, err := i.tw.Write(b); err != nil {
 					return err
 				}

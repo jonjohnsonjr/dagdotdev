@@ -1,8 +1,6 @@
 package explore
 
 import (
-	"bufio"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -14,7 +12,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/jonjohnsonjr/dag.dev/internal/and"
 	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
 	"github.com/jonjohnsonjr/dag.dev/internal/soci"
 )
@@ -33,23 +30,11 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 	key := indexKey(dig.Identifier(), 0)
 
 	// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
-	ocw, err := h.indexCache.Writer(r.Context(), key)
+	cw, err := h.indexCache.Writer(r.Context(), key)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("indexCache.Writer: %w", err)
 	}
-	defer ocw.Close()
-	zw, err := gzip.NewWriterLevel(ocw, gzip.BestSpeed)
-	if err != nil {
-		return "", nil, nil, err
-	}
-	bw := bufio.NewWriterSize(zw, 1<<16)
-	flushClose := func() error {
-		if err := bw.Flush(); err != nil {
-			return err
-		}
-		return zw.Close()
-	}
-	cw := &and.WriteCloser{bw, flushClose}
+	defer cw.Close()
 
 	mt := r.URL.Query().Get("mt")
 	indexer, kind, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
@@ -166,26 +151,11 @@ func (h *handler) getIndexN(ctx context.Context, prefix string, idx int) (index 
 
 func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64, prefix string, idx int, mediaType string) (soci.Index, error) {
 	key := indexKey(prefix, idx)
-	ocw, err := h.indexCache.Writer(ctx, key)
+	cw, err := h.indexCache.Writer(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("indexCache.Writer: %w", err)
 	}
-	defer ocw.Close()
-
-	zw, err := gzip.NewWriterLevel(ocw, gzip.BestSpeed)
-	if err != nil {
-		return nil, fmt.Errorf("ogzip.NewWriterLevel: %w", err)
-	}
-
-	bw := bufio.NewWriterSize(zw, 1<<16)
-	flushClose := func() error {
-		if err := bw.Flush(); err != nil {
-			logs.Debug.Printf("Flush: %v", err)
-			return err
-		}
-		return zw.Close()
-	}
-	cw := &and.WriteCloser{bw, flushClose}
+	defer cw.Close()
 
 	// TODO: Better?
 	indexer, _, _, _, err := soci.NewIndexer(rc, cw, spanSize, mediaType)
@@ -216,8 +186,8 @@ func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64,
 	}
 	logs.Debug.Printf("index size: %d", indexer.Size())
 
-	if err := ocw.Close(); err != nil {
-		return nil, fmt.Errorf("ocw.Close: %w", err)
+	if err := cw.Close(); err != nil {
+		return nil, fmt.Errorf("cw.Close: %w", err)
 	}
 
 	return h.getIndexN(ctx, prefix, idx)
