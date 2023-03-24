@@ -128,7 +128,8 @@ That's not a question.
 <p>Great question! See <a href="https://github.com/madler/zlib/blob/master/examples/zran.c">here</a>.</p>
 <p>Tl;dr, you can seek to an arbitrary position in a gzip stream if you know the 32KiB of uncompressed data that comes just before it, so by storing ~1% of the uncompressed layer size, I can jump ahead to predetermined locations and start reading from there rather than reading the entire layer.</p>
 <p>Thanks <a href="https://github.com/aidansteele">@aidansteele</a>!</p>
-</p>
+<h4>Is this open source?</h4>
+<p>Yes! See <a href="https://github.com/jonjohnsonjr/dag.dev">here</a>.</p>
 </body>
 </html>
 `
