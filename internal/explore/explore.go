@@ -491,7 +491,7 @@ func (h *handler) renderManifest(w http.ResponseWriter, r *http.Request, image s
 		header.JQ += ` | jq '.history[] | .v1Compatibility' -r | jq '.container_config.Cmd | join(" ")' -r | tac`
 	}
 
-	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.String(), desc.MediaType, desc.Size)
+	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.Context().Digest(desc.Digest.String()).String(), desc.MediaType, desc.Size)
 
 	if err := bodyTmpl.Execute(w, header); err != nil {
 		return fmt.Errorf("bodyTmpl: %w", err)
@@ -1276,7 +1276,7 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref name.R
 
 		header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags + " " + filelink
 	}
-	header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.String(), mediaType, int64(size))
+	header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
 	return bodyTmpl.Execute(w, header)
 }
@@ -1329,7 +1329,7 @@ func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType typ
 	// TODO: Make filename clickable to go up a directory.
 	header.JQ = crane("export") + " " + ref.String() + " | " + tarflags + " " + filename
 
-	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.String(), mediaType, int64(size))
+	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
 	return bodyTmpl.Execute(w, header)
 }
