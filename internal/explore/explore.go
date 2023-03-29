@@ -771,6 +771,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
 	}
+
 	if index == nil {
 		// Determine if this is actually a filesystem thing.
 		blob, _, err := h.fetchBlob(w, r)
@@ -792,28 +793,38 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+
 	des, err := fs.Everything()
 	if err != nil {
 		return err
 	}
-	f := renderDirSize(w, r, index.TOC().Csize, dig, index.TOC().Type, types.MediaType(mt))
+
+	f := renderDirSize(w, r, index.TOC().Csize, dig, index.TOC().Type, types.MediaType(mt), len(des))
 	return httpserve.DirList(w, r, ref, des, f)
 }
 
 func (h *handler) renderFats(w http.ResponseWriter, r *http.Request) error {
-	_, ref, err := h.getDigest(w, r)
-	if err != nil {
-		return fmt.Errorf("getDigest: %w", err)
-	}
-
-	mfs, f, err := h.multiFS(w, r)
+	dig, ref, err := h.getDigest(w, r)
 	if err != nil {
 		return err
 	}
+
+	desc, err := h.fetchManifest(w, r, dig)
+	if err != nil {
+		return err
+	}
+
+	mfs, err := h.multiFS(w, r, dig, desc, ref)
+	if err != nil {
+		return err
+	}
+
 	des, err := mfs.Everything()
 	if err != nil {
 		return err
 	}
+
+	f := renderDirSize(w, r, desc.Size, dig, "tar", desc.MediaType, len(des))
 	return httpserve.DirList(w, r, ref, des, f)
 }
 
@@ -959,24 +970,14 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, dig name.Dig
 	return fs, nil
 }
 
-func (h *handler) multiFS(w http.ResponseWriter, r *http.Request) (*soci.MultiFS, func() error, error) {
-	dig, ref, err := h.getDigest(w, r)
+func (h *handler) multiFS(w http.ResponseWriter, r *http.Request, dig name.Digest, desc *remote.Descriptor, ref string) (*soci.MultiFS, error) {
+	m, err := v1.ParseManifest(bytes.NewReader(desc.Manifest))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	opts := h.remoteOptions(w, r, dig.Context().Name())
 	opts = append(opts, remote.WithMaxSize(tooBig))
-
-	desc, err := h.fetchManifest(w, r, dig)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	m, err := v1.ParseManifest(bytes.NewReader(desc.Manifest))
-	if err != nil {
-		return nil, nil, err
-	}
 
 	fss := make([]*soci.SociFS, len(m.Layers))
 	var g errgroup.Group
@@ -1028,19 +1029,26 @@ func (h *handler) multiFS(w http.ResponseWriter, r *http.Request) (*soci.MultiFS
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	prefix := strings.TrimPrefix(ref, "/")
-	mfs := soci.NewMultiFS(fss, prefix, dig, desc.Size, desc.MediaType, renderDir)
-
-	f := renderDirSize(w, r, desc.Size, dig, "tar", desc.MediaType)
-	return mfs, f, nil
+	return soci.NewMultiFS(fss, prefix, dig, desc.Size, desc.MediaType, renderDir), nil
 }
 
 // Flatten layers of an image and serve as a filesystem.
 func (h *handler) renderLayers(w http.ResponseWriter, r *http.Request) error {
-	mfs, _, err := h.multiFS(w, r)
+	dig, ref, err := h.getDigest(w, r)
+	if err != nil {
+		return err
+	}
+
+	desc, err := h.fetchManifest(w, r, dig)
+	if err != nil {
+		return err
+	}
+
+	mfs, err := h.multiFS(w, r, dig, desc, ref)
 	if err != nil {
 		return err
 	}
@@ -1334,7 +1342,7 @@ func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType typ
 	return bodyTmpl.Execute(w, header)
 }
 
-func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref name.Reference, kind string, mediaType types.MediaType) func() error {
+func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref name.Reference, kind string, mediaType types.MediaType, num int) func() error {
 	return func() error {
 		// This must be a directory because it wasn't part of a filesystem
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1378,6 +1386,10 @@ func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref name.
 			header.JQ = crane("export") + " " + ref.String() + " | " + tarflags
 		} else {
 			header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags
+		}
+
+		if num > httpserve.TooBig {
+			header.JQ += fmt.Sprintf(" | head -n %d", httpserve.TooBig)
 		}
 
 		return bodyTmpl.Execute(w, header)

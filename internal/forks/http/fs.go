@@ -243,6 +243,10 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 	}
 	sort.Slice(dirs, less)
 
+	if len(dirs) > TooBig {
+		dirs = dirs[0:TooBig]
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	if render != nil {
