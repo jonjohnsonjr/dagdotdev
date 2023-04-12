@@ -529,6 +529,8 @@ func (h *handler) renderReferrers(w http.ResponseWriter, r *http.Request, src st
 	}
 
 	header := h.manifestHeader(ref.Digest(desc.Digest.String()), *desc)
+	header.Referrers = false
+	header.Subject = ref.Identifier()
 
 	if err := headerTmpl.Execute(w, TitleData{src}); err != nil {
 		return fmt.Errorf("headerTmpl: %w", err)
