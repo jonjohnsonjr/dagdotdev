@@ -17,7 +17,6 @@ package remote
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +29,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -246,7 +246,7 @@ func fallbackTag(d name.Digest) name.Tag {
 	return d.Context().Tag(strings.Replace(d.DigestStr(), ":", "-", 1))
 }
 
-func (f *fetcher) fetchReferrers(ctx context.Context, filter map[string]string, d name.Digest) (*v1.IndexManifest, error) {
+func (f *fetcher) fetchReferrers(ctx context.Context, filter map[string]string, d name.Digest) (v1.ImageIndex, error) {
 	// Check the Referrers API endpoint first.
 	u := f.url("referrers", d.DigestStr())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
@@ -259,36 +259,49 @@ func (f *fetcher) fetchReferrers(ctx context.Context, filter map[string]string, 
 	if err != nil {
 		return nil, err
 	}
+
+	if got, want := resp.ContentLength, f.options.maxSize; got > want {
+		return nil, fmt.Errorf("too big: %d > %d", got, want)
+	}
 	defer resp.Body.Close()
 
 	if err := transport.CheckError(resp, http.StatusOK, http.StatusNotFound, http.StatusBadRequest); err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == http.StatusOK {
-		var im v1.IndexManifest
-		if err := json.NewDecoder(resp.Body).Decode(&im); err != nil {
+
+	var b []byte
+	if resp.StatusCode == http.StatusOK && resp.Header.Get("docker-distribution-api-version") != "" {
+		b, err = io.ReadAll(io.LimitReader(resp.Body, f.options.maxSize))
+		if err != nil {
 			return nil, err
 		}
-		return filterReferrersResponse(filter, &im), nil
+	} else {
+		// The registry doesn't support the Referrers API endpoint, so we'll use the fallback tag scheme.
+		b, _, err = f.fetchManifest(fallbackTag(d), []types.MediaType{types.OCIImageIndex})
+		var terr *transport.Error
+		if ok := errors.As(err, &terr); ok && terr.StatusCode == http.StatusNotFound {
+			// Not found just means there are no attachments yet. Start with an empty manifest.
+			return empty.Index, nil
+		} else if err != nil {
+			return nil, err
+		}
 	}
 
-	// The registry doesn't support the Referrers API endpoint, so we'll use the fallback tag scheme.
-	b, _, err := f.fetchManifest(fallbackTag(d), []types.MediaType{types.OCIImageIndex})
+	h, sz, err := v1.SHA256(bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
-	var terr *transport.Error
-	if ok := errors.As(err, &terr); ok && terr.StatusCode == http.StatusNotFound {
-		// Not found just means there are no attachments yet. Start with an empty manifest.
-		return &v1.IndexManifest{MediaType: types.OCIImageIndex}, nil
+	idx := &remoteIndex{
+		fetcher:   *f,
+		manifest:  b,
+		mediaType: types.OCIImageIndex,
+		descriptor: &v1.Descriptor{
+			Digest:    h,
+			MediaType: types.OCIImageIndex,
+			Size:      sz,
+		},
 	}
-
-	var im v1.IndexManifest
-	if err := json.Unmarshal(b, &im); err != nil {
-		return nil, err
-	}
-
-	return filterReferrersResponse(filter, &im), nil
+	return filterReferrersResponse(filter, idx), nil
 }
 
 func (f *fetcher) fetchManifest(ref name.Reference, acceptable []types.MediaType) ([]byte, *v1.Descriptor, error) {
@@ -520,19 +533,6 @@ func (f *fetcher) blobExists(h v1.Hash) (bool, error) {
 
 // If filter applied, filter out by artifactType.
 // See https://github.com/opencontainers/distribution-spec/blob/main/spec.md#listing-referrers
-func filterReferrersResponse(filter map[string]string, origIndex *v1.IndexManifest) *v1.IndexManifest {
-	newIndex := origIndex
-	if filter == nil {
-		return newIndex
-	}
-	if v, ok := filter["artifactType"]; ok {
-		tmp := []v1.Descriptor{}
-		for _, desc := range newIndex.Manifests {
-			if desc.ArtifactType == v {
-				tmp = append(tmp, desc)
-			}
-		}
-		newIndex.Manifests = tmp
-	}
-	return newIndex
+func filterReferrersResponse(filter map[string]string, in v1.ImageIndex) v1.ImageIndex {
+	return in
 }

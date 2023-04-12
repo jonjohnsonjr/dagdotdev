@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/google"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -172,6 +173,9 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	}
 	if repo := qs.Get("repo"); repo != "" {
 		return h.renderRepo(w, r, repo)
+	}
+	if image := qs.Get("referrers"); image != "" {
+		return h.renderReferrers(w, r, image)
 	}
 
 	// Cache landing page for 5 minutes.
@@ -492,6 +496,63 @@ func (h *handler) renderManifest(w http.ResponseWriter, r *http.Request, image s
 	}
 
 	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.Context().Digest(desc.Digest.String()).String(), desc.MediaType, desc.Size)
+
+	if err := bodyTmpl.Execute(w, header); err != nil {
+		return fmt.Errorf("bodyTmpl: %w", err)
+	}
+
+	if err := h.renderContent(w, r, ref, b, output, u); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, footer)
+
+	return nil
+}
+
+func (h *handler) renderReferrers(w http.ResponseWriter, r *http.Request, src string) error {
+	ref, err := name.NewDigest(src)
+	if err != nil {
+		return err
+	}
+
+	opts := h.remoteOptions(w, r, ref.Context().Name())
+
+	idx, err := remote.Referrers(ref, opts...)
+	if err != nil {
+		return err
+	}
+
+	desc, err := partial.Descriptor(idx)
+	if err != nil {
+		return err
+	}
+
+	header := h.manifestHeader(ref.Digest(desc.Digest.String()), *desc)
+
+	if err := headerTmpl.Execute(w, TitleData{src}); err != nil {
+		return fmt.Errorf("headerTmpl: %w", err)
+	}
+
+	u := *r.URL
+
+	output := &jsonOutputter{
+		w:     w,
+		u:     &u,
+		fresh: []bool{},
+		repo:  ref.Context().String(),
+		mt:    string(types.OCIImageIndex),
+	}
+
+	b, err := idx.RawManifest()
+	if err != nil {
+		return err
+	}
+
+	b, err = h.jq(output, b, r, header)
+	if err != nil {
+		return fmt.Errorf("h.jq: %w", err)
+	}
 
 	if err := bodyTmpl.Execute(w, header); err != nil {
 		return fmt.Errorf("bodyTmpl: %w", err)
@@ -1137,6 +1198,7 @@ func (h *handler) getTags(repo name.Repository) ([]string, bool) {
 func (h *handler) manifestHeader(ref name.Reference, desc v1.Descriptor) *HeaderData {
 	header := headerData(ref, desc)
 	header.JQ = crane("manifest") + " " + ref.String()
+	header.Referrers = true
 
 	// Handle clicking repo to list tags and such.
 	if strings.Contains(ref.String(), "@") && strings.Index(ref.String(), "@") < strings.Index(ref.String(), ":") {
@@ -1169,7 +1231,7 @@ func (h *handler) manifestHeader(ref name.Reference, desc v1.Descriptor) *Header
 				// Referrers tag schema
 				header.CosignTags = append(header.CosignTags, CosignTag{
 					Tag:   tag,
-					Short: "referrers",
+					Short: "fallback",
 				})
 			} else if strings.HasPrefix(tag, prefix) {
 				// Cosign tag schema
