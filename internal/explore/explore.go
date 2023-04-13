@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/digitorus/timestamp"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
@@ -681,10 +682,28 @@ func (h *handler) renderBlobJSON(w http.ResponseWriter, r *http.Request, blobRef
 	}
 
 	if err := h.renderContent(w, r, ref, b, output, *r.URL); err != nil {
-		return fmt.Errorf("renderContent: %w", err)
+		if r.URL.Query().Get("render") == "xxd" {
+			return fmt.Errorf("renderContent: %w", err)
+		}
+
+		r.URL.Query().Set("render", "xxd")
+		fmt.Fprintf(w, "NOTE: failed to render: %v\n", err)
+		if err := renderOctets(w, r, b); err != nil {
+			return fmt.Errorf("renderContent fallback: %w", err)
+		}
 	}
 
 	fmt.Fprintf(w, footer)
+
+	return nil
+}
+
+func renderOctets(w http.ResponseWriter, r *http.Request, b []byte) error {
+	fmt.Fprintf(w, "<pre>")
+	if _, err := io.Copy(xxd.NewWriter(w, int64(len(b))), bytes.NewReader(b)); err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "</pre>")
 
 	return nil
 }
@@ -716,11 +735,17 @@ func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref name
 		}
 		fmt.Fprintf(w, "</pre>")
 	case "xxd":
-		fmt.Fprintf(w, "<pre>")
-		if _, err := io.Copy(xxd.NewWriter(w, int64(len(b))), bytes.NewReader(b)); err != nil {
+		return renderOctets(w, r, b)
+	case "timestamp":
+		ts, err := timestamp.Parse(b)
+		if err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "</pre>")
+		j, err := json.Marshal(ts)
+		if err != nil {
+			return err
+		}
+		return renderJSON(output, j)
 	default:
 		return renderJSON(output, b)
 	}

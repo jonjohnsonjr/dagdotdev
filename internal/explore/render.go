@@ -1185,7 +1185,7 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 					qs.Add("jq", strings.Join(w.jq, ""))
 					qs.Add("jq", "base64 -d")
 					if k == "io.cncf.notary.timestampSignature" {
-						qs.Set("render", "xxd")
+						qs.Set("render", "timestamp")
 					} else if !(len(s) > 2 && s[0] == 'e' && s[1] == 'y') {
 						qs.Set("render", "xxd")
 					}
