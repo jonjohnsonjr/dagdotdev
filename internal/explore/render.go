@@ -1184,8 +1184,10 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 					qs := u.Query()
 					qs.Add("jq", strings.Join(w.jq, ""))
 					qs.Add("jq", "base64 -d")
-					if !(len(s) > 2 && s[0] == 'e' && s[1] == 'y') {
-						qs.Set("render", "raw")
+					if k == "io.cncf.notary.timestampSignature" {
+						qs.Set("render", "xxd")
+					} else if !(len(s) > 2 && s[0] == 'e' && s[1] == 'y') {
+						qs.Set("render", "xxd")
 					}
 					u.RawQuery = qs.Encode()
 					w.BlueDoc(u.String(), s)
@@ -1418,8 +1420,10 @@ func renderList(w *jsonOutputter, raw *json.RawMessage) error {
 				qs := u.Query()
 				qs.Add("jq", strings.Join(w.jq, ""))
 				qs.Add("jq", "base64 -d")
-				if !(len(s) > 2 && s[0] == 'e' && s[1] == 'y') {
-					qs.Set("render", "raw")
+				if w.jth(-1) == "[\"33\"]" {
+					qs.Set("render", "der")
+				} else if !(len(s) > 2 && s[0] == 'e' && s[1] == 'y') {
+					qs.Set("render", "xxd")
 				}
 				u.RawQuery = qs.Encode()
 				w.BlueDoc(u.String(), s)

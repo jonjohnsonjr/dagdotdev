@@ -30,6 +30,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dag.dev/internal/forks/safefilepath"
+	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
 )
 
 const TooBig = 1 << 15
@@ -793,16 +794,15 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	if r.Method != "HEAD" {
 		if render != nil && r.URL.Query().Get("dl") == "" {
 			logs.Debug.Printf("ctype=%q", ctype)
-			buf := bufio.NewWriter(w)
 			if sendSize < 0 || sendSize > TooBig {
 				sendSize = TooBig
 			}
 
 			var w io.Writer
 			if strings.HasPrefix(ctype, "text/") || strings.Contains(ctype, "json") {
-				w = &dumbEscaper{buf: buf}
+				w = &dumbEscaper{buf: bufio.NewWriter(w)}
 			} else {
-				w = &octetPrinter{buf: buf, size: sendSize}
+				w = xxd.NewWriter(w, sendSize)
 			}
 			if sendSize < 0 {
 				if _, err := io.Copy(w, sendContent); err != nil {
@@ -1529,89 +1529,4 @@ func (d *dumbEscaper) Write(p []byte) (n int, err error) {
 		}
 	}
 	return len(p), d.buf.Flush()
-}
-
-type octetPrinter struct {
-	buf    *bufio.Writer
-	size   int64
-	cursor int64
-	ascii  []byte
-}
-
-// TODO: restrict to some reasonable number
-func (o *octetPrinter) Write(p []byte) (n int, err error) {
-	left := int(o.cursor % 16)
-	if left != 0 {
-		logs.Debug.Printf("left = %d", left)
-	}
-	for _, r := range p {
-		if o.size != 0 && o.cursor >= o.size {
-			break
-		}
-		if o.cursor%16 == 0 {
-			line := fmt.Sprintf("%08x:", o.cursor)
-			if _, err := o.buf.WriteString(line); err != nil {
-				return 0, err
-			}
-			o.ascii = []byte{' ', ' '}
-		}
-		if o.cursor%2 == 0 {
-			if err := o.buf.WriteByte(' '); err != nil {
-				return 0, err
-			}
-		}
-
-		if r < 32 || r > 126 {
-			o.ascii = append(o.ascii, '.')
-		} else {
-			switch r {
-			case '&':
-				o.ascii = append(o.ascii, amp...)
-			case '<':
-				o.ascii = append(o.ascii, lt...)
-			case '>':
-				o.ascii = append(o.ascii, gt...)
-			case '"':
-				o.ascii = append(o.ascii, dq...)
-			case '\'':
-				o.ascii = append(o.ascii, sq...)
-			default:
-				o.ascii = append(o.ascii, r)
-			}
-		}
-
-		o.cursor++
-
-		line := fmt.Sprintf("%02x", r)
-		if _, err := o.buf.WriteString(line); err != nil {
-			return 0, err
-		}
-		if o.cursor%16 == 0 {
-			o.ascii = append(o.ascii, '\n')
-			if _, err := o.buf.Write(o.ascii); err != nil {
-				return 0, err
-			}
-		}
-	}
-
-	if o.size > 0 && o.cursor >= o.size {
-		pos := o.size % 16
-		if pos != 0 {
-			for i := pos; i < 16; i++ {
-				if i%2 == 0 {
-					if err := o.buf.WriteByte(' '); err != nil {
-						return 0, err
-					}
-				}
-				if _, err := o.buf.Write([]byte("  ")); err != nil {
-					return 0, err
-				}
-			}
-			if _, err := o.buf.Write(o.ascii); err != nil {
-				return 0, err
-			}
-		}
-	}
-
-	return len(p), o.buf.Flush()
 }

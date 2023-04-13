@@ -33,6 +33,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
 	"github.com/jonjohnsonjr/dag.dev/internal/soci"
+	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
 	hgzip "github.com/nanmu42/gzip"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
@@ -671,6 +672,8 @@ func (h *handler) renderBlobJSON(w http.ResponseWriter, r *http.Request, blobRef
 		header.JQ += " | jq '.history[] | .created_by' -r"
 	} else if r.URL.Query().Get("render") == "der" {
 		header.JQ += " | openssl x509 -inform der -text -noout"
+	} else if r.URL.Query().Get("render") == "xxd" {
+		header.JQ += " | xxd"
 	}
 
 	if err := bodyTmpl.Execute(w, header); err != nil {
@@ -709,6 +712,12 @@ func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref name
 	case "created_by":
 		fmt.Fprintf(w, "<pre>")
 		if err := renderCreatedBy(w, b); err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "</pre>")
+	case "xxd":
+		fmt.Fprintf(w, "<pre>")
+		if _, err := io.Copy(xxd.NewWriter(w, int64(len(b))), bytes.NewReader(b)); err != nil {
 			return err
 		}
 		fmt.Fprintf(w, "</pre>")
