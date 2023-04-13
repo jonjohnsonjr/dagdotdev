@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -642,6 +643,23 @@ func (h *handler) renderBlobJSON(w http.ResponseWriter, r *http.Request, blobRef
 		return err
 	}
 
+	if string(mediaType) == "application/cose" {
+		var v interface{}
+		if err := cbor.Unmarshal(input, &v); err != nil {
+			return err
+		}
+		j, err := jsonify(v)
+		if err != nil {
+			return fmt.Errorf("jsonify: %w", err)
+		}
+		b, err := json.Marshal(j)
+		if err != nil {
+			return fmt.Errorf("json.Marshal: %w", err)
+		}
+
+		input = b
+	}
+
 	// Mutates header for bodyTmpl.
 	b, err := h.jq(output, input, r, header)
 	if err != nil {
@@ -651,7 +669,6 @@ func (h *handler) renderBlobJSON(w http.ResponseWriter, r *http.Request, blobRef
 	if r.URL.Query().Get("render") == "history" {
 		header.JQ = strings.TrimSuffix(header.JQ, " | jq .")
 		header.JQ += " | jq '.history[] | .created_by' -r"
-
 	} else if r.URL.Query().Get("render") == "der" {
 		header.JQ += " | openssl x509 -inform der -text -noout"
 	}
@@ -776,6 +793,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref name.Di
 
 func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	mt := r.URL.Query().Get("mt")
+
 	dig, ref, err := h.getDigest(w, r)
 	if err != nil {
 		return fmt.Errorf("getDigest: %w", err)
@@ -811,12 +829,12 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	}
 	if unwrapped != nil {
 		logs.Debug.Printf("unwrapped, kind = %q", kind)
-		seek := &sizeSeeker{unwrapped, -1, ref, nil, false}
+		seek := &sizeSeeker{unwrapped, -1}
 		return h.renderFile(w, r, dig, kind, seek)
 	}
 	if original != nil {
 		logs.Debug.Printf("original")
-		seek := &sizeSeeker{original, blob.size, ref, nil, false}
+		seek := &sizeSeeker{original, blob.size}
 		return h.renderFile(w, r, dig, kind, seek)
 	}
 

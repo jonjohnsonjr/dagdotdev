@@ -6,7 +6,6 @@ import (
 	ogzip "compress/gzip"
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/jonjohnsonjr/dag.dev/internal/gzip"
 	"github.com/jonjohnsonjr/dag.dev/internal/zstd"
@@ -15,66 +14,20 @@ import (
 // Pretends to implement Seek because ServeContent only cares about checking
 // for the size by calling Seek(0, io.SeekEnd)
 type sizeSeeker struct {
-	rc     io.Reader
-	size   int64
-	debug  string
-	buf    *bufio.Reader
-	seeked bool
+	rc   io.Reader
+	size int64
 }
 
 func (s *sizeSeeker) Seek(offset int64, whence int) (int64, error) {
-	if debug {
-		log.Printf("sizeSeeker.Seek(%d, %d)", offset, whence)
-	}
-	s.seeked = true
-	if offset == 0 && whence == io.SeekEnd {
-		return s.size, nil
-	}
-	if offset == 0 && whence == io.SeekStart {
-		return 0, nil
-	}
-
-	return 0, fmt.Errorf("ServeContent(%q): Seek(%d, %d)", s.debug, offset, whence)
+	return 0, fmt.Errorf("not implemented")
 }
 
 func (s *sizeSeeker) Read(p []byte) (int, error) {
-	if debug {
-		log.Printf("sizeSeeker.Read(%d)", len(p))
-	}
-	// Handle first read.
-	if s.buf == nil {
-		if debug {
-			log.Println("first read")
-		}
-		if len(p) <= bufferLen {
-			s.buf = bufio.NewReaderSize(s.rc, bufferLen)
-		} else {
-			s.buf = bufio.NewReaderSize(s.rc, len(p))
-		}
+	return s.rc.Read(p)
+}
 
-		// Currently, http will sniff before it seeks for size. If we haven't seen
-		// a Read() but have seen a Seek already, that means we shouldn't peek.
-		if !s.seeked {
-			// Peek to handle the first content sniff.
-			b, err := s.buf.Peek(len(p))
-			if err != nil {
-				if err == io.EOF {
-					n, _ := bytes.NewReader(b).Read(p)
-					return n, io.EOF
-				} else {
-					return 0, err
-				}
-			}
-			return bytes.NewReader(b).Read(p)
-		}
-	}
-
-	// TODO: We assume they will always sniff then reset.
-	n, err := s.buf.Read(p)
-	if debug {
-		log.Printf("sizeSeeker.Read(%d): (%d, %v)", len(p), n, err)
-	}
-	return n, err
+func (s *sizeSeeker) Size() int64 {
+	return s.size
 }
 
 type sizeBlob struct {

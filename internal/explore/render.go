@@ -484,7 +484,7 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 		} else {
 			w.Key(k)
 		}
-		if strings.Contains(k, ".") {
+		if _, err := strconv.Atoi(k); err == nil || strings.Contains(k, ".") {
 			if len(w.jq) == 0 {
 				w.jpush(fmt.Sprintf(".[%q]", k))
 			} else {
@@ -1177,6 +1177,24 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 			}
 		}
 
+		if w.mt == "application/cose" {
+			if v, ok := o[k]; ok {
+				if s, ok := v.(string); ok {
+					u := *w.u
+					qs := u.Query()
+					qs.Add("jq", strings.Join(w.jq, ""))
+					qs.Add("jq", "base64 -d")
+					if !(len(s) > 2 && s[0] == 'e' && s[1] == 'y') {
+						qs.Set("render", "raw")
+					}
+					u.RawQuery = qs.Encode()
+					w.BlueDoc(u.String(), s)
+
+					continue
+				}
+			}
+		}
+
 		if err := renderRaw(w, &v); err != nil {
 			return err
 		}
@@ -1389,6 +1407,29 @@ func renderList(w *jsonOutputter, raw *json.RawMessage) error {
 	w.StartArray()
 	for index, v := range rawList {
 		w.jpush(fmt.Sprintf("[%d]", index))
+
+		if w.mt == "application/cose" {
+			var i interface{}
+			if err := json.Unmarshal(v, &i); err != nil {
+				return err
+			}
+			if s, ok := i.(string); ok {
+				u := *w.u
+				qs := u.Query()
+				qs.Add("jq", strings.Join(w.jq, ""))
+				qs.Add("jq", "base64 -d")
+				if !(len(s) > 2 && s[0] == 'e' && s[1] == 'y') {
+					qs.Set("render", "raw")
+				}
+				u.RawQuery = qs.Encode()
+				w.BlueDoc(u.String(), s)
+
+				w.jpop()
+				continue
+
+			}
+		}
+
 		if err := renderRaw(w, &v); err != nil {
 			return err
 		}
@@ -1422,7 +1463,7 @@ func handlerForMT(s string) string {
 	case "application/vnd.oci.artifact.manifest.v1+json":
 		return `?image=`
 	}
-	if strings.HasSuffix(s, "+json") {
+	if strings.HasSuffix(s, "+json") || strings.HasSuffix(s, "cose") || strings.HasSuffix(s, "cbor") {
 		return `?blob=`
 	}
 

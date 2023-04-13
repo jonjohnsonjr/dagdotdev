@@ -48,6 +48,12 @@ func NewIndexer(rc io.ReadCloser, w io.WriteCloser, span int64, mediaType string
 		return nil, kind, pr, tpr, err
 	}
 
+	logs.Debug.Printf("Peeked: %q", kind)
+	if kind == "" {
+		// Not a wrapped tar!
+		return nil, kind, pr, tpr, nil
+	}
+
 	// TODO: Allow binding writer after detection.
 
 	toc := &TOC{
@@ -75,7 +81,6 @@ func NewIndexer(rc io.ReadCloser, w io.WriteCloser, span int64, mediaType string
 	i.zw = zw
 	i.w = &and.WriteCloser{zw, flushClose}
 
-	logs.Debug.Printf("Peeked: %s", kind)
 	if kind == "tar+gzip" {
 		i.updates = make(chan *flate.Checkpoint, 10)
 		zr, err := gzip.NewReaderWithSpans(pr, span, i.updates)
