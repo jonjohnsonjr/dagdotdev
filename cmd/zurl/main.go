@@ -67,10 +67,9 @@ func cat() *cobra.Command {
 		end        int64
 	)
 	cmd := &cobra.Command{
-		Use:     "cat LAYER -f FILE --offset OFFSET --range RANGE --size SIZE",
-		Short:   "Read a blob from the registry by using seekable gzip",
-		Example: "crane seek ubuntu@sha256:4c1d20cdee96111c8acf1858b62655a37ce81ae48648993542b7ac363ac5c0e5 > blob.tar.gz",
-		Args:    cobra.ExactArgs(1),
+		Use:   "cat LAYER -f FILE --offset OFFSET --range RANGE --size SIZE",
+		Short: "Read a blob from the registry by using seekable gzip",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			return run(ctx, args[0], checkpoint, start, end)
