@@ -798,12 +798,14 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 				sendSize = TooBig
 			}
 
+			rw := w
 			var w io.Writer
 			if strings.HasPrefix(ctype, "text/") || strings.Contains(ctype, "json") {
-				w = &dumbEscaper{buf: bufio.NewWriter(w)}
+				w = &dumbEscaper{buf: bufio.NewWriter(rw)}
 			} else {
-				w = xxd.NewWriter(w, sendSize)
+				w = xxd.NewWriter(rw, sendSize)
 			}
+
 			if sendSize < 0 {
 				if _, err := io.Copy(w, sendContent); err != nil {
 					logs.Debug.Printf("Copy: %v", err)
