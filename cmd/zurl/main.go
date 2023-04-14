@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -35,6 +36,12 @@ func run(ctx context.Context, src, checkpoint string, start, end int64) error {
 	opts := []remote.Option{remote.WithAuthFromKeychain(authn.DefaultKeychain)}
 	blob := remote.LazyBlob(ref, "", nil, opts...)
 
+	if checkpoint[0] == '"' {
+		checkpoint, err = strconv.Unquote(checkpoint)
+		if err != nil {
+			return err
+		}
+	}
 	from := flate.Checkpoint{}
 	if err := json.Unmarshal([]byte(checkpoint), &from); err != nil {
 		return err

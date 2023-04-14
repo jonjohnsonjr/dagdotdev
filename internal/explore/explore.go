@@ -1588,7 +1588,7 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		fmt.Fprintf(w, "zurl cat %s --start %d --end %d --checkpoint '%s'", dig.Context().Digest(digest.String()), cp.File.Offset, cp.File.Offset+cp.File.Size, string(b))
+		fmt.Fprintf(w, "zurl cat %s --start %d --end %d --checkpoint %q", dig.Context().Digest(digest.String()), cp.File.Offset, cp.File.Offset+cp.File.Size, string(b))
 		return nil
 	}
 
