@@ -45,10 +45,10 @@ type TOCFile struct {
 func (toc *TOC) Checkpoint(tf *TOCFile) *Checkpointer {
 	if len(toc.Checkpoints) == 0 {
 		return &Checkpointer{
-			checkpoint: &flate.Checkpoint{
+			Checkpoint: &flate.Checkpoint{
 				Empty: true,
 			},
-			tf:    tf,
+			File:  tf,
 			start: tf.Offset,
 			end:   tf.Offset + tf.Size,
 		}
@@ -81,22 +81,22 @@ func (toc *TOC) Checkpoint(tf *TOCFile) *Checkpointer {
 	}
 
 	return &Checkpointer{
-		checkpoint: from,
-		tf:         tf,
+		Checkpoint: from,
+		File:       tf,
 		index:      index,
 		start:      start,
 		end:        end,
-		discard:    discard,
+		Discard:    discard,
 	}
 }
 
 type Checkpointer struct {
-	checkpoint *flate.Checkpoint
-	tf         *TOCFile
+	Checkpoint *flate.Checkpoint
+	File       *TOCFile
 	index      int
 	start      int64
 	end        int64
-	discard    int64
+	Discard    int64
 }
 
 func TarHeader(header *TOCFile) *tar.Header {

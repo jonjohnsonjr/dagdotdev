@@ -112,13 +112,15 @@ func New(opts ...Option) http.Handler {
 
 	mux.HandleFunc("/oauth", h.oauthHandler)
 
+	mux.HandleFunc("/zurl/", h.errHandler(h.renderZurl))
+
 	h.mux = hgzip.DefaultHandler().WrapHandler(mux)
 
 	return &h
 }
 
 func splitFsURL(p string) (string, string, error) {
-	for _, prefix := range []string{"/fs/", "/layers/", "/https/", "/http/", "/blob/", "/cache/", "/size/", "/sizes/"} {
+	for _, prefix := range []string{"/fs/", "/layers/", "/https/", "/http/", "/blob/", "/cache/", "/size/", "/sizes/", "/zurl/"} {
 		if strings.HasPrefix(p, prefix) {
 			return strings.TrimPrefix(p, prefix), prefix, nil
 		}
@@ -1510,4 +1512,86 @@ func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref name.
 
 		return bodyTmpl.Execute(w, header)
 	}
+}
+
+func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
+	dig, ref, err := h.getDigest(w, r)
+	if err != nil {
+		return err
+	}
+
+	filename := strings.TrimPrefix(r.URL.Path, ref)
+	filename = strings.TrimPrefix(filename, "/")
+
+	desc, err := h.fetchManifest(w, r, dig)
+	if err != nil {
+		return err
+	}
+
+	m, err := v1.ParseManifest(bytes.NewReader(desc.Manifest))
+	if err != nil {
+		return err
+	}
+
+	opts := h.remoteOptions(w, r, dig.Context().Name())
+	opts = append(opts, remote.WithMaxSize(tooBig))
+
+	layers := m.Layers
+	for i := len(layers) - 1; i >= 0; i-- {
+		layer := layers[i]
+		digest := layer.Digest
+		index, err := h.getIndex(r.Context(), digest.String())
+		if err != nil {
+			return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
+		}
+		if index == nil {
+			layerRef := dig.Context().Digest(layer.Digest.String())
+			l, err := remote.Layer(layerRef)
+			if err != nil {
+				return err
+			}
+			rc, err := l.Compressed()
+			if err != nil {
+				return err
+			}
+
+			index, err = h.createIndex(r.Context(), rc, layer.Size, digest.String(), 0, string(layer.MediaType))
+			if err != nil {
+				return fmt.Errorf("createIndex: %w", err)
+			}
+			if index == nil {
+				logs.Debug.Printf("index was nil")
+				// Non-indexable blobs are filtered later.
+				continue
+			}
+		}
+
+		toc := index.TOC()
+		if toc == nil {
+			continue
+		}
+
+		tf, err := index.Locate(filename)
+		if err != nil {
+			return err
+		}
+
+		cp := toc.Checkpoint(tf)
+
+		dict, err := index.Dict(cp)
+
+		from := cp.Checkpoint
+		from.SetHistory(dict)
+
+		b, err := json.Marshal(from)
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(w, "zurl cat %s --start %d --end %d --checkpoint '%s'", dig.Context().Digest(digest.String()), cp.File.Offset, cp.File.Offset+cp.File.Size, string(b))
+		return nil
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+	return fmt.Errorf("could not find %s", filename)
 }

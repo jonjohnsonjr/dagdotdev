@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dag.dev/internal/and"
+	"github.com/jonjohnsonjr/dag.dev/internal/forks/compress/flate"
 	"github.com/jonjohnsonjr/dag.dev/internal/forks/compress/gzip"
 	"github.com/klauspost/compress/zstd"
 )
@@ -92,10 +93,10 @@ func (t *tree) Open(name string) (io.ReadCloser, error) {
 
 // TODO: Make things other than dict access lazy.
 func (t *tree) Dict(cp *Checkpointer) ([]byte, error) {
-	if cp.index == 0 || cp.checkpoint.IsEmpty() {
+	if cp.index == 0 || cp.Checkpoint.IsEmpty() {
 		return nil, nil
 	}
-	if hist := cp.checkpoint.History(); hist != nil {
+	if hist := cp.Checkpoint.History(); hist != nil {
 		return hist, nil
 	}
 
@@ -110,9 +111,32 @@ func (t *tree) Dict(cp *Checkpointer) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Open(%q).ReadAll(): %w", filename, err)
 	}
-	cp.checkpoint.SetHistory(b)
+	cp.Checkpoint.SetHistory(b)
 
 	return b, nil
+}
+
+func ExtractCheckpoint(ctx context.Context, from *flate.Checkpoint, bs BlobSeeker, start, end int64) (io.ReadCloser, error) {
+	discard := start - from.Out
+	fileSize := end - start
+	rc, err := bs.Reader(ctx, from.In, from.In+start+end)
+	if err != nil {
+		return nil, fmt.Errorf("Reader(): %w", err)
+	}
+
+	logs.Debug.Printf("ExtractFile: Calling gzip.Continue")
+	r, err := gzip.Continue(rc, 1<<22, from, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	logs.Debug.Printf("ExtractFile: Discarding %d bytes", discard)
+	if _, err := io.CopyN(io.Discard, r, discard); err != nil {
+		return nil, err
+	}
+
+	lr := io.LimitedReader{R: r, N: fileSize}
+	return &and.ReadCloser{Reader: &lr, CloseFunc: rc.Close}, nil
 }
 
 func ExtractFile(ctx context.Context, t Index, bs BlobSeeker, tf *TOCFile) (io.ReadCloser, error) {
@@ -134,14 +158,14 @@ func ExtractFile(ctx context.Context, t Index, bs BlobSeeker, tf *TOCFile) (io.R
 		return nil, fmt.Errorf("Reader(): %w", err)
 	}
 
-	from := cp.checkpoint
+	from := cp.Checkpoint
 	from.SetHistory(dict)
 
 	kind := t.TOC().Type
 	logs.Debug.Printf("Type = %q", kind)
 	if kind == "tar" {
-		logs.Debug.Printf("ExtractFile: Returning LimitedReader of size %d", cp.tf.Size)
-		lr := io.LimitedReader{rc, cp.tf.Size}
+		logs.Debug.Printf("ExtractFile: Returning LimitedReader of size %d", cp.File.Size)
+		lr := io.LimitedReader{rc, cp.File.Size}
 		return &and.ReadCloser{&lr, rc.Close}, nil
 	}
 
@@ -163,15 +187,15 @@ func ExtractFile(ctx context.Context, t Index, bs BlobSeeker, tf *TOCFile) (io.R
 	}
 
 	start2 := time.Now()
-	logs.Debug.Printf("ExtractFile: Discarding %d bytes", cp.discard)
-	n, err := io.CopyN(io.Discard, r, cp.discard)
+	logs.Debug.Printf("ExtractFile: Discarding %d bytes", cp.Discard)
+	n, err := io.CopyN(io.Discard, r, cp.Discard)
 	if err != nil {
 		return nil, err
 	}
 	log.Printf("Discarded %d bytes before %q (%s)", n, tf.Name, time.Since(start2))
 
-	logs.Debug.Printf("ExtractFile: Returning LimitedReader of size %d", cp.tf.Size)
-	lr := io.LimitedReader{r, cp.tf.Size}
+	logs.Debug.Printf("ExtractFile: Returning LimitedReader of size %d", cp.File.Size)
+	lr := io.LimitedReader{r, cp.File.Size}
 	return &and.ReadCloser{&lr, rc.Close}, nil
 }
 
@@ -255,10 +279,10 @@ func (t *leaf) init() error {
 }
 
 func (t *leaf) Dict(cp *Checkpointer) ([]byte, error) {
-	if cp.checkpoint.IsEmpty() {
+	if cp.Checkpoint.IsEmpty() {
 		return nil, nil
 	}
-	if hist := cp.checkpoint.History(); hist != nil {
+	if hist := cp.Checkpoint.History(); hist != nil {
 		return hist, nil
 	}
 	if t.dicts == nil {
@@ -273,7 +297,7 @@ func (t *leaf) Dict(cp *Checkpointer) ([]byte, error) {
 		return nil, fmt.Errorf("Dict(%d), %q not found", cp.index, dictName)
 	}
 
-	cp.checkpoint.SetHistory(hist)
+	cp.Checkpoint.SetHistory(hist)
 
 	return hist, nil
 }

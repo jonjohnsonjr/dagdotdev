@@ -11,6 +11,7 @@ require (
 	github.com/klauspost/compress v1.15.11
 	github.com/minio/sha256-simd v1.0.0
 	github.com/nanmu42/gzip v1.2.0
+	github.com/spf13/cobra v1.6.0
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
 	golang.org/x/oauth2 v0.1.0
 	golang.org/x/sync v0.1.0
@@ -38,6 +39,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
@@ -50,6 +52,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/signalsciences/ac v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ugorji/go/codec v1.2.6 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
