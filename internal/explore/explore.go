@@ -2,6 +2,7 @@ package explore
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
@@ -598,10 +599,7 @@ func (h *handler) renderBlobJSON(w http.ResponseWriter, r *http.Request, blobRef
 	if err != nil {
 		log.Printf("layer %s Size(): %v", ref, err)
 		return fmt.Errorf("cannot check blob size: %w", err)
-	} else if size > tooBig {
-		return fmt.Errorf("blob %s too big: %d > %d", ref, size, tooBig)
 	}
-
 	// Allow this to be cached for an hour.
 	w.Header().Set("Cache-Control", "max-age=3600, immutable")
 
@@ -640,6 +638,20 @@ func (h *handler) renderBlobJSON(w http.ResponseWriter, r *http.Request, blobRef
 		Child:     ref.Identifier(),
 	}
 	header.JQ = crane("blob") + " " + ref.String()
+
+	if size > tooBig {
+		header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
+		if err := bodyTmpl.Execute(w, header); err != nil {
+			return fmt.Errorf("bodyTmpl: %w", err)
+		}
+		dumb := &dumbEscaper{buf: bufio.NewWriter(w)}
+		if _, err := io.CopyN(dumb, blob, httpserve.TooBig); err != nil {
+			return err
+		}
+		fmt.Fprintf(w, footer)
+
+		return nil
+	}
 
 	// TODO: Can we do this in a streaming way?
 	input, err := ioutil.ReadAll(io.LimitReader(blob, tooBig))
@@ -1594,4 +1606,54 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 
 	w.WriteHeader(http.StatusNotFound)
 	return fmt.Errorf("could not find %s", filename)
+}
+
+// server.go
+var htmlReplacer = strings.NewReplacer(
+	"&", "&amp;",
+	"<", "&lt;",
+	">", "&gt;",
+	// "&#34;" is shorter than "&quot;".
+	`"`, "&#34;",
+	// "&#39;" is shorter than "&apos;" and apos was not in HTML until HTML5.
+	"'", "&#39;",
+)
+
+func htmlEscape(s string) string {
+	return htmlReplacer.Replace(s)
+}
+
+type dumbEscaper struct {
+	buf *bufio.Writer
+}
+
+var (
+	amp = []byte("&amp;")
+	lt  = []byte("&lt;")
+	gt  = []byte("&gt;")
+	dq  = []byte("&#34;")
+	sq  = []byte("&#39;")
+)
+
+func (d *dumbEscaper) Write(p []byte) (n int, err error) {
+	for i, b := range p {
+		switch b {
+		case '&':
+			_, err = d.buf.Write(amp)
+		case '<':
+			_, err = d.buf.Write(lt)
+		case '>':
+			_, err = d.buf.Write(gt)
+		case '"':
+			_, err = d.buf.Write(dq)
+		case '\'':
+			_, err = d.buf.Write(sq)
+		default:
+			err = d.buf.WriteByte(b)
+		}
+		if err != nil {
+			return i, err
+		}
+	}
+	return len(p), d.buf.Flush()
 }
