@@ -172,13 +172,13 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	qs := r.URL.Query()
 
 	if image := qs.Get("image"); image != "" {
-		return h.renderManifest(w, r, image)
+		return h.renderManifest(w, r, strings.TrimSpace(image))
 	}
 	if blob := qs.Get("blob"); blob != "" {
 		return h.renderBlobJSON(w, r, blob)
 	}
 	if repo := qs.Get("repo"); repo != "" {
-		return h.renderRepo(w, r, repo)
+		return h.renderRepo(w, r, strings.TrimSpace(repo))
 	}
 	if image := qs.Get("referrers"); image != "" {
 		return h.renderReferrers(w, r, image)
