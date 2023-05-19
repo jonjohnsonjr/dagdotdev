@@ -84,26 +84,26 @@ You can even drill down into layers to explore an image's filesystem.
 <p>
 Enter a <strong>public</strong> image, e.g. <tt>"ubuntu:latest"</tt>:
 </p>
-<form action="/" method="GET">
-<input type="text" name="image" value="ubuntu:latest"/>
+<form action="/" method="GET" autocomplete="off" spellcheck="false">
+<input size="100" type="text" name="image" value="ubuntu:latest"/>
 <input type="submit" />
 </form>
 <p>
 <p>
 Enter a <strong>public</strong> repository, e.g. <tt>"ubuntu"</tt>:
 </p>
-<form action="/" method="GET">
-<input type="text" name="repo" value="ubuntu"/>
+<form action="/" method="GET" autocomplete="off" spellcheck="false">
+<input size="100" type="text" name="repo" value="ubuntu"/>
 <input type="submit" />
 </form>
 <p>
 <h4>Interesting examples</h4>
 <ul>
+  <li><a href="/?image=cgr.dev/chainguard/static:latest-glibc">cgr.dev/chainguard/static:latest-glibc</a></li>
   <li><a href="/?image=gcr.io/distroless/static">gcr.io/distroless/static:latest</a></li>
   <li><a href="/?repo=ghcr.io/homebrew/core/crane">ghcr.io/homebrew/core/crane</a></li>
   <li><a href="/?repo=registry.k8s.io">registry.k8s.io</a></li>
   <li><a href="/?image=registry.k8s.io/bom/bom:sha256-499bdf4cc0498bbfb2395f8bbaf3b7e9e407cca605aecc46b2ef1b390a0bc4c4.sig">registry.k8s.io/bom/bom:sha256-499bdf4cc0498bbfb2395f8bbaf3b7e9e407cca605aecc46b2ef1b390a0bc4c4.sig</a></li>
-  <li><a href="/?image=cgr.dev/chainguard/ko:sha256-435f610505cd96eba44dcb13987509ee1ad80030ad970bb4583880259dc21b7e.sbom">cgr.dev/chainguard/ko:sha256-435f610505cd96eba44dcb13987509ee1ad80030ad970bb4583880259dc21b7e.sbom</a></li>
   <li><a href="/?image=docker/dockerfile:1.5.1">docker/dockerfile:1.5.1</a></li>
   <li><a href="/?image=pengfeizhou/test-oci:sha256-04eaff953b0066d7e4ea2e822eb5c31be0742fca494561336f0912fabc246760">pengfeizhou/test-oci:sha256-04eaff953b0066d7e4ea2e822eb5c31be0742fca494561336f0912fabc246760</a></li>
   <li><a href="/?image=tianon/true:oci">tianon/true:oci</a></li>
