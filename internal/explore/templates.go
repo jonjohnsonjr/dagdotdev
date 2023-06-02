@@ -245,6 +245,33 @@ pre {
 td {
 	vertical-align: top;
 }
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  background: #EEE;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+}
+input:checked + label {     /* white background for selected tab */
+  background: #FFF;
+  border-bottom: 1px solid transparent;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
 </style>
 </head>
 `
@@ -259,10 +286,24 @@ td {
 	<h2>{{.Reference}}{{ range .CosignTags }} (<a href="/?image={{$.Repo}}:{{.Tag}}">{{.Short}}</a>){{end}}{{if .Referrers}} <a href="/?referrers={{$.Repo}}@{{$.Descriptor.Digest}}">(referrers)</a>{{end}}</h2>
 {{ end }}
 {{ if .Descriptor }}
-Docker-Content-Digest: <a class="mt" href="/{{.Handler}}{{$.Repo}}@{{.Descriptor.Digest}}{{if .EscapedMediaType}}&mt={{.EscapedMediaType}}{{end}}&size={{.Descriptor.Size}}">{{.Descriptor.Digest}}<a><br>
-Content-Length: {{if .SizeLink}}<a class="mt" href="{{.SizeLink}}">{{.Descriptor.Size}}</a>{{else}}{{.Descriptor.Size}}{{end}}<br>
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
 Content-Type: {{if .MediaTypeLink}}<a class="mt" href="/{{.MediaTypeLink}}">{{.Descriptor.MediaType}}</a>{{else}}{{.Descriptor.MediaType}}{{end}}<br>
-	{{if $.Subject}}OCI-Subject: <a class="mt" href="/?image={{$.Repo}}@{{.Subject}}">{{.Subject}}</a>{{end}}
+Content-Length: {{if .SizeLink}}<a class="mt" href="{{.SizeLink}}">{{.Descriptor.Size}}</a>{{else}}{{.Descriptor.Size}}{{end}}<br>
+Docker-Content-Digest: <a class="mt" href="/{{.Handler}}{{$.Repo}}@{{.Descriptor.Digest}}{{if .EscapedMediaType}}&mt={{.EscapedMediaType}}{{end}}&size={{.Descriptor.Size}}">{{.Descriptor.Digest}}</a><br>
+{{if $.Subject}}OCI-Subject: <a class="mt" href="/?image={{$.Repo}}@{{.Subject}}">{{.Subject}}</a><br>{{end}}
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "{{.Descriptor.MediaType}}",<br>
+&nbsp;&nbsp;"size": {{.Descriptor.Size}},<br>
+&nbsp;&nbsp;"digest": "{{.Descriptor.Digest}}"<br>
+}<br>
+</div>
+
 {{end}}
 </div>
 {{ if .JQ }}
