@@ -198,6 +198,10 @@ func (h *handler) renderRepo(w http.ResponseWriter, r *http.Request, repo string
 		return err
 	}
 
+	if repo == "cgr.dev/chainguard" {
+		return h.renderChainguardRepo(w, r, repo)
+	}
+
 	reg := ref.RegistryStr()
 	googleRepo := reg == "registry.k8s.io" || reg == "mirror.gcr.io" || (isGoogle(reg) && ref.RepositoryStr() != "")
 	hubRepo := strings.HasPrefix(repo, "index.docker.io") || strings.HasPrefix(repo, "docker.io") && strings.Count(repo, "/") == 1
@@ -259,6 +263,51 @@ func (h *handler) renderRepo(w http.ResponseWriter, r *http.Request, repo string
 	b, err := json.Marshal(tags)
 	if err != nil {
 		return err
+	}
+	if err := renderJSON(output, b); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, footer)
+	return nil
+}
+
+func (h *handler) renderChainguardRepo(w http.ResponseWriter, r *http.Request, repo string) error {
+	// ls ../../chainguard-images/images/images | jq -Rn '{"child": [inputs] }' > cmd/oci/kodata/chainguard.json
+	fn := filepath.Join(os.Getenv("KO_DATA_PATH"), "chainguard.json")
+	b, err := os.ReadFile(fn)
+	if err != nil {
+		return err
+	}
+
+	if err := headerTmpl.Execute(w, TitleData{repo}); err != nil {
+		return err
+	}
+	header := HeaderData{
+		Repo:      repo,
+		Reference: repo,
+		JQ:        "chainctl img repo ls | jq . # kind of...",
+	}
+	if strings.Contains(repo, "/") {
+		base := path.Base(repo)
+		dir := path.Dir(strings.TrimRight(repo, "/"))
+		if base != "." && dir != "." {
+			header.Up = &RepoParent{
+				Parent:    dir,
+				Child:     base,
+				Separator: "/",
+			}
+		}
+	}
+	if err := bodyTmpl.Execute(w, header); err != nil {
+		return err
+	}
+
+	output := &jsonOutputter{
+		w:     w,
+		u:     r.URL,
+		fresh: []bool{},
+		repo:  repo,
 	}
 	if err := renderJSON(output, b); err != nil {
 		return err
