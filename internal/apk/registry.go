@@ -11,9 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/jonjohnsonjr/dag.dev/internal/verify"
 )
 
 func (h *handler) remoteOptions(w http.ResponseWriter, r *http.Request, repo string) []remote.Option {
@@ -92,10 +90,10 @@ func (h *handler) listCatalog(w http.ResponseWriter, r *http.Request, ref name.R
 }
 
 // Fetch blob from registry or URL.
-func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, string, error) {
+func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, string, string, error) {
 	path, root, err := splitFsURL(r.URL.Path)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 
 	expectedSize := int64(0)
@@ -108,52 +106,11 @@ func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, 
 		}
 	}
 
-	chunks := strings.SplitN(path, "@", 2)
-	if len(chunks) != 2 {
-		return nil, "", fmt.Errorf("not enough chunks: %s", path)
-	}
-	// 71 = len("sha256:") + 64
-	if len(chunks[1]) < 71 {
-		return nil, "", fmt.Errorf("second chunk too short: %s", chunks[1])
-	}
-
-	digest := chunks[1][:71]
-
-	ref := strings.Join([]string{chunks[0], digest}, "@")
-	if ref == "" {
-		return nil, "", fmt.Errorf("bad ref: %s", path)
-	}
-
 	if root == "/http/" || root == "/https/" {
-		return h.fetchUrl(root, ref, digest, chunks, expectedSize)
+		return h.fetchUrl(root, []string{path}, expectedSize)
 	}
 
-	blobRef, err := name.NewDigest(ref)
-	if err != nil {
-		return nil, "", err
-	}
-
-	opts := h.remoteOptions(w, r, blobRef.Context().Name())
-	l, err := remote.Layer(blobRef, opts...)
-	if err != nil {
-		return nil, "", err
-	}
-
-	rc, err := l.Compressed()
-	if err != nil {
-		return nil, "", err
-	}
-
-	size := expectedSize
-	if size == 0 {
-		size, err = l.Size()
-		if err != nil {
-			defer rc.Close()
-			return nil, "", err
-		}
-	}
-	sb := &sizeBlob{rc, size}
-	return sb, root + ref, err
+	return nil, "", "", fmt.Errorf("todo")
 }
 
 func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -205,10 +162,10 @@ func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, er
 	return l.Url, nil
 }
 
-func (h *handler) fetchUrl(root, ref, digest string, chunks []string, expectedSize int64) (*sizeBlob, string, error) {
+func (h *handler) fetchUrl(root string, chunks []string, expectedSize int64) (*sizeBlob, string, string, error) {
 	u, err := url.PathUnescape(chunks[0])
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 
 	scheme := "https://"
@@ -220,17 +177,9 @@ func (h *handler) fetchUrl(root, ref, digest string, chunks []string, expectedSi
 
 	resp, err := http.Get(u)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	if resp.StatusCode == http.StatusOK {
-		h, err := v1.NewHash(digest)
-		if err != nil {
-			return nil, "", err
-		}
-		checked, err := verify.ReadCloser(resp.Body, resp.ContentLength, h)
-		if err != nil {
-			return nil, "", err
-		}
 		size := expectedSize
 		if size != 0 {
 			if got := resp.ContentLength; got != -1 && got != size {
@@ -239,61 +188,24 @@ func (h *handler) fetchUrl(root, ref, digest string, chunks []string, expectedSi
 		} else {
 			size = resp.ContentLength
 		}
-		sb := &sizeBlob{checked, size}
-		return sb, root + ref, nil
+		sb := &sizeBlob{resp.Body, size}
+		return sb, root + chunks[0], resp.Header.Get("Etag"), nil
 	}
 	resp.Body.Close()
-	return nil, "", fmt.Errorf("GET %s failed: %s", u, resp.Status)
+	return nil, "", "", fmt.Errorf("GET %s failed: %s", u, resp.Status)
 }
 
 // parse ref out of r
 // this is duplicated and desperately needs refactoring
-func (h *handler) getDigest(w http.ResponseWriter, r *http.Request) (name.Digest, string, error) {
+func (h *handler) getDigest(w http.ResponseWriter, r *http.Request) (string, string, error) {
 	path, root, err := splitFsURL(r.URL.Path)
 	if err != nil {
-		return name.Digest{}, "", err
-	}
-
-	chunks := strings.SplitN(path, "@", 2)
-	if len(chunks) != 2 {
-		return name.Digest{}, "", fmt.Errorf("not enough chunks: %s", path)
-	}
-	// 71 = len("sha256:") + 64
-	if len(chunks[1]) < 71 {
-		return name.Digest{}, "", fmt.Errorf("second chunk too short: %s", chunks[1])
-	}
-
-	digest := chunks[1][:71]
-
-	ref := strings.Join([]string{chunks[0], digest}, "@")
-	if ref == "" {
-		return name.Digest{}, "", fmt.Errorf("bad ref: %s", path)
+		return "", "", err
 	}
 
 	if root == "/http/" || root == "/https/" {
-		fake := "example.com/foreign/layer" + "@" + digest
-		dig, err := name.NewDigest(fake)
-		if err != nil {
-			return name.Digest{}, "", err
-		}
-		return dig, root + ref, nil
-	}
-	if root == "/cache/" {
-		idx, ref, ok := strings.Cut(ref, "/")
-		if !ok {
-			return name.Digest{}, "", fmt.Errorf("strings.Cut(%q)", ref)
-		}
-		dig, err := name.NewDigest(ref)
-		if err != nil {
-			return name.Digest{}, "", err
-		}
-		return dig, idx, nil
+		return root, path, nil
 	}
 
-	dig, err := name.NewDigest(ref)
-	if err != nil {
-		return name.Digest{}, "", err
-	}
-
-	return dig, root + ref, nil
+	return "", "", fmt.Errorf("getDigest: todo")
 }

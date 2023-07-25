@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dag.dev/internal/explore"
+	"github.com/jonjohnsonjr/dag.dev/internal/apk"
 
 	sha256simd "github.com/minio/sha256-simd"
 )
@@ -46,10 +45,7 @@ func main() {
 	}
 	log.Printf("listening on %s", port)
 
-	opt := []explore.Option{explore.WithUserAgent(userAgent)}
-	if *auth || os.Getenv("AUTH") == "keychain" {
-		opt = append(opt, explore.WithKeychain(gcrane.Keychain))
-	}
+	opt := []apk.Option{apk.WithUserAgent(userAgent)}
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), explore.New(opt...)))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), apk.New(opt...)))
 }

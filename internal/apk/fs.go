@@ -46,12 +46,12 @@ type layerFS struct {
 	mt   types.MediaType
 }
 
-func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string, mt types.MediaType) *layerFS {
-	logs.Debug.Printf("size: %d, prefix: %q, ref: %q, kind: %q", size, prefix, ref, kind)
+func (h *handler) newLayerFS(tr tarReader, size int64, ref, kind string, mt types.MediaType) *layerFS {
+	logs.Debug.Printf("size: %d, prefix: %q, ref: %q, kind: %q", size, ref, ref, kind)
 	return &layerFS{
 		tr:      tr,
 		size:    size,
-		prefix:  prefix,
+		prefix:  ref,
 		ref:     ref,
 		kind:    kind,
 		mt:      mt,

@@ -26,8 +26,8 @@ func indexKey(prefix string, idx int) string {
 
 // Attempt to create a new index. If we fail, both readclosers will be nil.
 // TODO: Dedupe with createIndex.
-func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.Digest, ref string, blob *sizeBlob) (string, io.ReadCloser, io.ReadCloser, error) {
-	key := indexKey(dig.Identifier(), 0)
+func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, ref, etag string, blob *sizeBlob) (string, io.ReadCloser, io.ReadCloser, error) {
+	key := indexKey(etag, 0)
 
 	// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
 	cw, err := h.indexCache.Writer(r.Context(), key)
@@ -43,7 +43,7 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 	}
 
 	// Render FS the old way while generating the index.
-	fs := h.newLayerFS(indexer, blob.size, ref, dig.String(), indexer.Type(), types.MediaType(mt))
+	fs := h.newLayerFS(indexer, blob.size, ref, indexer.Type(), types.MediaType(mt))
 	httpserve.FileServer(fs).ServeHTTP(w, r)
 
 	for {
