@@ -26,8 +26,12 @@ func indexKey(prefix string, idx int) string {
 
 // Attempt to create a new index. If we fail, both readclosers will be nil.
 // TODO: Dedupe with createIndex.
-func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, ref, etag string, blob *sizeBlob) (string, io.ReadCloser, io.ReadCloser, error) {
-	key := indexKey(etag, 0)
+func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, ref string, blob *sizeBlob) (string, io.ReadCloser, io.ReadCloser, error) {
+	_, digest, ok := strings.Cut(ref, "@")
+	if !ok {
+		return "", nil, nil, fmt.Errorf("no @ in %q", ref)
+	}
+	key := indexKey(digest, 0)
 
 	// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
 	cw, err := h.indexCache.Writer(r.Context(), key)

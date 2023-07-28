@@ -90,10 +90,10 @@ func (h *handler) listCatalog(w http.ResponseWriter, r *http.Request, ref name.R
 }
 
 // Fetch blob from registry or URL.
-func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, string, string, error) {
+func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, string, error) {
 	path, root, err := splitFsURL(r.URL.Path)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", err
 	}
 
 	expectedSize := int64(0)
@@ -106,11 +106,26 @@ func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, 
 		}
 	}
 
-	if root == "/http/" || root == "/https/" {
-		return h.fetchUrl(root, []string{path}, expectedSize)
+	// TODO: Use sha1 for digest.
+	prefix, rest, ok := strings.Cut(path, "@")
+	if !ok {
+		return nil, "", fmt.Errorf("missing @: %s", path)
 	}
 
-	return nil, "", "", fmt.Errorf("todo")
+	digest, fp, ok := strings.Cut(rest, "/")
+	if !ok {
+		// Not a problem but no path component.
+	}
+
+	ref := prefix + "@" + digest
+
+	if root == "/http/" || root == "/https/" {
+		return h.fetchUrl(root, ref, digest, prefix, expectedSize)
+	}
+
+	// TODO
+	_ = fp
+	return nil, "", fmt.Errorf("todo")
 }
 
 func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -162,10 +177,10 @@ func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, er
 	return l.Url, nil
 }
 
-func (h *handler) fetchUrl(root string, chunks []string, expectedSize int64) (*sizeBlob, string, string, error) {
-	u, err := url.PathUnescape(chunks[0])
+func (h *handler) fetchUrl(root string, ref string, digest string, prefix string, expectedSize int64) (*sizeBlob, string, error) {
+	u, err := url.PathUnescape(prefix)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", err
 	}
 
 	scheme := "https://"
@@ -177,7 +192,7 @@ func (h *handler) fetchUrl(root string, chunks []string, expectedSize int64) (*s
 
 	resp, err := http.Get(u)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", err
 	}
 	if resp.StatusCode == http.StatusOK {
 		size := expectedSize
@@ -189,10 +204,10 @@ func (h *handler) fetchUrl(root string, chunks []string, expectedSize int64) (*s
 			size = resp.ContentLength
 		}
 		sb := &sizeBlob{resp.Body, size}
-		return sb, root + chunks[0], resp.Header.Get("Etag"), nil
+		return sb, root + prefix, nil
 	}
 	resp.Body.Close()
-	return nil, "", "", fmt.Errorf("GET %s failed: %s", u, resp.Status)
+	return nil, "", fmt.Errorf("GET %s failed: %s", u, resp.Status)
 }
 
 // parse ref out of r
@@ -203,9 +218,27 @@ func (h *handler) getDigest(w http.ResponseWriter, r *http.Request) (string, str
 		return "", "", err
 	}
 
-	if root == "/http/" || root == "/https/" {
-		return root, path, nil
+	// TODO: Use sha1 for digest.
+	prefix, rest, ok := strings.Cut(path, "@")
+	if !ok {
+		// If we don't have an @, that means we need to figure out some hash for this thing.
+		// That means we are probably dealing with an APKINDEX.tar.gz file.
+		// TODO: HEAD it and use `etag:$HEX` as the "hash"?
+		return "", "", fmt.Errorf("missing @: %s", path)
 	}
 
+	digest, fp, ok := strings.Cut(rest, "/")
+	if !ok {
+		// Not a problem but no path component.
+	}
+
+	ref := prefix + "@" + digest
+
+	if root == "/http/" || root == "/https/" {
+		return digest, root + ref, nil
+	}
+
+	// TODO
+	_ = fp
 	return "", "", fmt.Errorf("getDigest: todo")
 }

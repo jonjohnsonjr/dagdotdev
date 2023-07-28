@@ -156,7 +156,8 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Cache landing page for 5 minutes.
-	w.Header().Set("Cache-Control", "max-age=300")
+	// TODO: Uncomment this.
+	// w.Header().Set("Cache-Control", "max-age=300")
 	w.Write([]byte(landingPage))
 
 	return nil
@@ -375,6 +376,9 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 	return nil
 }
 
+// foo/bar/baz/APKINDEX.tar.gz => HEAD for etag, redirect.
+// foo/bar/baz/APKINDEX.tar.gz@etag:12345 => Fetch from cache by etag (backfill if missing), render as tarball fs.
+// foo/bar/baz/APKINDEX.tar.gz@etag:12345/{DESCRIPTION/APKINDEX} => As above, but render files.
 func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	ref := r.URL.String()
 	index, err := h.getIndex(r.Context(), ref)
@@ -392,12 +396,12 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Determine if this is actually a filesystem thing.
-	blob, ref, etag, err := h.fetchBlob(w, r)
+	blob, ref, err := h.fetchBlob(w, r)
 	if err != nil {
 		return fmt.Errorf("fetchBlob: %w", err)
 	}
 
-	kind, original, unwrapped, err := h.tryNewIndex(w, r, ref, etag, blob)
+	kind, original, unwrapped, err := h.tryNewIndex(w, r, ref, blob)
 	if err != nil {
 		return fmt.Errorf("failed to index blob %q: %w", ref, err)
 	}
