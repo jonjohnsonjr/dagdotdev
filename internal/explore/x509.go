@@ -245,7 +245,7 @@ var helpers = []oidHelper{
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 5}, "GitHub Workflow Repository", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726415--github-workflow-repository-deprecated"},
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 6}, "GitHub Workflow Ref", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726416--github-workflow-ref-deprecated"},
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 7}, "OtherName SAN", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726417--othername-san"},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 8}, "Fulcio Issuer (v2)", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726416--github-workflow-ref-deprecated"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 8}, "Fulcio Issuer (v2)", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726418--issuer-v2"},
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 9}, "Build Signer URI", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726419--build-signer-uri"},
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 10}, "Build Signer Digest", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264110--build-signer-digest"},
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 11}, "Runner Environment", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264111--runner-environment"},
