@@ -194,6 +194,7 @@ type oidHelper struct {
 	Id     asn1.ObjectIdentifier
 	Name   string
 	format func(*x509.Certificate, []byte) string
+	href   string
 }
 
 func (lhs *oidHelper) Equals(rhs asn1.ObjectIdentifier) bool {
@@ -223,39 +224,43 @@ func oidKey(id asn1.ObjectIdentifier) string {
 		return id.String()
 	}
 
-	return h.Name
+	if h.href == "" {
+		return h.Name
+	}
+
+	return fmt.Sprintf("<a href=%q>%s</a>", h.href, h.Name)
 }
 
 var helpers = []oidHelper{
-	{[]int{2, 5, 29, 15}, "X509v3 Key Usage", keyUsage},
-	{[]int{2, 5, 29, 37}, "X509v3 Extended Key Usage", extKeyUsage},
-	{[]int{2, 5, 29, 14}, "X509v3 Subject Key Identifier", octet},
-	{[]int{2, 5, 29, 35}, "X509v3 Authority Key Identifier", sequence},
-	{[]int{2, 5, 29, 17}, "X509v3 Subject Alternative Name", printSan},
-	{[]int{2, 5, 29, 19}, "X509v3 Basic Constraints", constraints},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 1}, "Fulcio Issuer", nil},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 2}, "GitHub Workflow Trigger", nil},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 3}, "GitHub Workflow SHA", nil},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 4}, "GitHub Workflow Name", nil},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 5}, "GitHub Workflow Repository", nil},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 6}, "GitHub Workflow Ref", nil},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 7}, "OtherName SAN", nil},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 8}, "Fulcio Issuer (v2)", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 9}, "Build Signer URI", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 10}, "Build Signer Digest", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 11}, "Runner Environment", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 12}, "Source Repository URI", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 13}, "Source Repository Digest", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 14}, "Source Repository Ref", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 15}, "Source Repository Identifier", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 16}, "Source Repository Owner URI", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 17}, "Source Repository Owner Identifier", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 18}, "Build Config URI", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 19}, "Build Config Digest", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 20}, "Build Trigger", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 21}, "Run Invocation URI", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 22}, "Source Repository Visibility At Signing", utf8},
-	{[]int{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}, "CT Precertificate SCTs", printSCTs},
+	{[]int{2, 5, 29, 15}, "X509v3 Key Usage", keyUsage, "https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.3"},
+	{[]int{2, 5, 29, 37}, "X509v3 Extended Key Usage", extKeyUsage, "https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.12"},
+	{[]int{2, 5, 29, 14}, "X509v3 Subject Key Identifier", octet, "https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.2"},
+	{[]int{2, 5, 29, 35}, "X509v3 Authority Key Identifier", sequence, "https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.1"},
+	{[]int{2, 5, 29, 17}, "X509v3 Subject Alternative Name", printSan, "https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.6"},
+	{[]int{2, 5, 29, 19}, "X509v3 Basic Constraints", constraints, "https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.9"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 1}, "Fulcio Issuer", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726411--issuer-deprecated"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 2}, "GitHub Workflow Trigger", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726412--github-workflow-trigger-deprecated"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 3}, "GitHub Workflow SHA", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726413--github-workflow-sha-deprecated"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 4}, "GitHub Workflow Name", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726414--github-workflow-name-deprecated"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 5}, "GitHub Workflow Repository", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726415--github-workflow-repository-deprecated"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 6}, "GitHub Workflow Ref", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726416--github-workflow-ref-deprecated"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 7}, "OtherName SAN", nil, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726417--othername-san"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 8}, "Fulcio Issuer (v2)", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726416--github-workflow-ref-deprecated"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 9}, "Build Signer URI", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726419--build-signer-uri"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 10}, "Build Signer Digest", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264110--build-signer-digest"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 11}, "Runner Environment", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264111--runner-environment"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 12}, "Source Repository URI", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264112--source-repository-uri"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 13}, "Source Repository Digest", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264113--source-repository-digest"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 14}, "Source Repository Ref", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264114--source-repository-ref"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 15}, "Source Repository Identifier", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264115--source-repository-identifier"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 16}, "Source Repository Owner URI", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264116--source-repository-owner-uri"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 17}, "Source Repository Owner Identifier", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264117--source-repository-owner-identifier"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 18}, "Build Config URI", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264118--build-config-uri"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 19}, "Build Config Digest", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264119--build-config-digest"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 20}, "Build Trigger", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264120--build-trigger"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 21}, "Run Invocation URI", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264121--run-invocation-uri"},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 22}, "Source Repository Visibility At Signing", utf8, "https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#13614157264122--source-repository-visibility-at-signing"},
+	{[]int{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}, "CT Precertificate SCTs", printSCTs, "https://www.rfc-editor.org/rfc/rfc6962.html#section-3.2"},
 }
 
 func constraints(cert *x509.Certificate, b []byte) string {
