@@ -239,6 +239,22 @@ var helpers = []oidHelper{
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 4}, "GitHub Workflow Name", nil},
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 5}, "GitHub Workflow Repository", nil},
 	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 6}, "GitHub Workflow Ref", nil},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 7}, "OtherName SAN", nil},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 8}, "Fulcio Issuer (v2)", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 9}, "Build Signer URI", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 10}, "Build Signer Digest", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 11}, "Runner Environment", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 12}, "Source Repository URI", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 13}, "Source Repository Digest", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 14}, "Source Repository Ref", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 15}, "Source Repository Identifier", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 16}, "Source Repository Owner URI", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 17}, "Source Repository Owner Identifier", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 18}, "Build Config URI", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 19}, "Build Config Digest", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 20}, "Build Trigger", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 21}, "Run Invocation URI", utf8},
+	{[]int{1, 3, 6, 1, 4, 1, 57264, 1, 22}, "Source Repository Visibility At Signing", utf8},
 	{[]int{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}, "CT Precertificate SCTs", printSCTs},
 }
 
@@ -580,6 +596,15 @@ func (s *sct) String() string {
 		}
 	}
 	return w.String()
+}
+
+func utf8(cert *x509.Certificate, b []byte) string {
+	cb := cryptobyte.String(b)
+	var out cryptobyte.String
+	if cb.ReadASN1(&out, casn1.UTF8String) {
+		return string(out)
+	}
+	return string(b)
 }
 
 func asn1debug(cert *x509.Certificate, b []byte) string {
