@@ -619,7 +619,6 @@ func (h *handler) manifestHeader(ref name.Reference, desc v1.Descriptor) *Header
 
 func headerData(ref string, desc v1.Descriptor) *HeaderData {
 	return &HeaderData{
-		Reference:        ref,
 		CosignTags:       []CosignTag{},
 		Descriptor:       &desc,
 		Handler:          handlerForMT(string(desc.MediaType)),
@@ -695,14 +694,6 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 	// 	Separator: "@",
 	// 	Child:     ref.Identifier(),
 	// }
-	// header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags + " " + filelink
-
-	if stat.Size() > httpserve.TooBig {
-		header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-	}
-	if ctype == "application/octet-stream" {
-		header.JQ += " | xxd"
-	}
 
 	if stat.IsDir() {
 		tarflags = "tar -tv "
@@ -711,8 +702,19 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 		} else if kind == "tar+zstd" {
 			tarflags = "tar --zstd -tv "
 		}
+	}
 
-		header.JQ = crane("blob") + " " + ref + " | " + tarflags + " " + filelink
+	before, _, ok := strings.Cut(ref, "@")
+	if ok {
+		u := "https://" + strings.TrimPrefix(before, "/https/")
+		header.JQ = "curl" + " " + u + " | " + tarflags + " " + filelink
+	}
+
+	if stat.Size() > httpserve.TooBig {
+		header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
+	}
+	if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
+		header.JQ += " | xxd"
 	}
 	// header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 

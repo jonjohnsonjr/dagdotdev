@@ -772,8 +772,8 @@ func (f *decompressor) finishBlock() {
 		// TODO(jon): What does final span look like.
 		if f.dict.availRead() > 0 {
 			f.toRead = f.dict.readFlush()
+			f.woffset += int64(len(f.toRead))
 		}
-		f.woffset += int64(len(f.toRead))
 		f.err = io.EOF
 	}
 	if f.updates != nil && (f.woffset-f.last > f.span) {
