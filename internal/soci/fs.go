@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
 )
@@ -26,7 +25,7 @@ const bufferLen = 2 << 16
 
 var up *sociDirEntry = &sociDirEntry{nil, "..", nil, "", "", 0}
 
-type RenderDir func(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, ref name.Reference, f httpserve.File, ctype string) error
+type RenderDir func(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, ref string, f httpserve.File, ctype string) error
 
 type MultiFS struct {
 	fss    []*SociFS
@@ -35,14 +34,14 @@ type MultiFS struct {
 	lastFs   *SociFS
 	lastFile string
 
-	ref name.Reference
+	ref string
 
 	render RenderDir
 	mt     types.MediaType
 	size   int64
 }
 
-func NewMultiFS(fss []*SociFS, prefix string, ref name.Reference, size int64, mt types.MediaType, render RenderDir) *MultiFS {
+func NewMultiFS(fss []*SociFS, prefix string, ref string, size int64, mt types.MediaType, render RenderDir) *MultiFS {
 	filtered := []*SociFS{}
 	for _, fs := range fss {
 		if fs != nil {
@@ -330,6 +329,7 @@ type BlobSeeker interface {
 }
 
 func FS(index Index, bs BlobSeeker, prefix string, ref string, maxSize int64, mt types.MediaType, render RenderFunc) *SociFS {
+	logs.Debug.Printf("soci.FS(): prefix=%q, ref=%q", prefix, ref)
 	fs := &SociFS{
 		index:   index,
 		bs:      bs,
@@ -347,7 +347,7 @@ func FS(index Index, bs BlobSeeker, prefix string, ref string, maxSize int64, mt
 	return fs
 }
 
-type RenderFunc func(w http.ResponseWriter, fname string, prefix string, ref name.Reference, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error
+type RenderFunc func(w http.ResponseWriter, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error
 
 type SociFS struct {
 	files []TOCFile
@@ -367,10 +367,6 @@ type SociFS struct {
 
 func (s *SociFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.File, ctype string) error {
 	if s.render != nil {
-		ref, err := name.ParseReference(s.ref)
-		if err != nil {
-			return err
-		}
 		kind := "tar+gzip"
 		if toc := s.index.TOC(); toc != nil && toc.Type != "" {
 			kind = toc.Type
@@ -378,7 +374,7 @@ func (s *SociFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.F
 				s.mt = types.MediaType(toc.MediaType)
 			}
 		}
-		return s.render(w, fname, s.prefix, ref, kind, s.mt, s.index.TOC().Csize, f, ctype)
+		return s.render(w, fname, s.prefix, s.ref, kind, s.mt, s.index.TOC().Csize, f, ctype)
 	}
 	return nil
 }
@@ -651,8 +647,8 @@ func (s *sociFile) Read(p []byte) (int, error) {
 	if s.buf == nil {
 		rc, err := s.fs.extractFile(s.fm)
 		if err != nil {
-			logs.Debug.Printf("extractFile: %v", err)
-			return 0, fmt.Errorf("extractFile:: %w", err)
+			logs.Debug.Printf("extractFile: %v fm: %+v", err, s.fm)
+			return 0, fmt.Errorf("extractFile: %w", err)
 		}
 		s.closer = rc.Close
 

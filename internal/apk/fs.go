@@ -12,13 +12,12 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
 )
 
 // Lots of debugging that we don't want to compile into the binary.
-const debug = false
+const debug = true
 
 func debugf(s string, i ...interface{}) {
 	if debug {
@@ -46,12 +45,12 @@ type layerFS struct {
 	mt   types.MediaType
 }
 
-func (h *handler) newLayerFS(tr tarReader, size int64, ref, kind string, mt types.MediaType) *layerFS {
-	logs.Debug.Printf("size: %d, prefix: %q, ref: %q, kind: %q", size, ref, ref, kind)
+func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string, mt types.MediaType) *layerFS {
+	logs.Debug.Printf("size: %d, prefix: %q, ref: %q, kind: %q", size, prefix, ref, kind)
 	return &layerFS{
 		tr:      tr,
 		size:    size,
-		prefix:  ref,
+		prefix:  prefix,
 		ref:     ref,
 		kind:    kind,
 		mt:      mt,
@@ -60,11 +59,7 @@ func (h *handler) newLayerFS(tr tarReader, size int64, ref, kind string, mt type
 }
 
 func (fs *layerFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.File, ctype string) error {
-	ref, err := name.ParseReference(fs.ref)
-	if err != nil {
-		return err
-	}
-	return renderHeader(w, fname, strings.Trim(fs.prefix, "/"), ref, fs.kind, fs.mt, fs.size, f, ctype)
+	return renderHeader(w, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size, f, ctype)
 }
 
 func (fs *layerFS) Open(original string) (httpserve.File, error) {

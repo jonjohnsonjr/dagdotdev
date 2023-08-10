@@ -21,24 +21,28 @@ const threshold = (1 << 20) * 5
 const spanSize = 1 << 22
 
 func indexKey(prefix string, idx int) string {
+	if _, digest, ok := strings.Cut(prefix, "@"); ok {
+		return fmt.Sprintf("%s.%d", digest, idx)
+	}
 	return fmt.Sprintf("%s.%d", prefix, idx)
 }
 
 // Attempt to create a new index. If we fail, both readclosers will be nil.
 // TODO: Dedupe with createIndex.
-func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, ref string, blob *sizeBlob) (string, io.ReadCloser, io.ReadCloser, error) {
-	_, digest, ok := strings.Cut(ref, "@")
-	if !ok {
-		return "", nil, nil, fmt.Errorf("no @ in %q", ref)
-	}
-	key := indexKey(digest, 0)
+func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, ref string, blob *sizeBlob) (string, io.ReadCloser, io.ReadCloser, error) {
+	key := "todo"
 
-	// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
+	if _, digest, ok := strings.Cut(ref, "@"); ok {
+		key = indexKey(digest, 0)
+	}
+
 	cw, err := h.indexCache.Writer(r.Context(), key)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("indexCache.Writer: %w", err)
 	}
 	defer cw.Close()
+
+	// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
 
 	mt := r.URL.Query().Get("mt")
 	indexer, kind, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
@@ -47,7 +51,7 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, ref string
 	}
 
 	// Render FS the old way while generating the index.
-	fs := h.newLayerFS(indexer, blob.size, ref, indexer.Type(), types.MediaType(mt))
+	fs := h.newLayerFS(indexer, blob.size, prefix, ref, indexer.Type(), types.MediaType(mt))
 	httpserve.FileServer(fs).ServeHTTP(w, r)
 
 	for {

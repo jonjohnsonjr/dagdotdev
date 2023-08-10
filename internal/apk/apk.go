@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -33,7 +34,6 @@ import (
 	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
 	hgzip "github.com/nanmu42/gzip"
 	"golang.org/x/oauth2"
-	"golang.org/x/sync/errgroup"
 )
 
 // We should not buffer blobs greater than 4MB
@@ -379,8 +379,47 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 // foo/bar/baz/APKINDEX.tar.gz => HEAD for etag, redirect.
 // foo/bar/baz/APKINDEX.tar.gz@etag:12345 => Fetch from cache by etag (backfill if missing), render as tarball fs.
 // foo/bar/baz/APKINDEX.tar.gz@etag:12345/{DESCRIPTION/APKINDEX} => As above, but render files.
+// foo/bar/baz/foo.apk => Fetch control hash from APKINDEX.tar.gz?
+// foo/bar/baz/foo.apk@sha1:abcd => Control section => TODO: Show signature _and_ control?
+// foo/bar/baz/foo.apk@sha256:def321 => Data section.
 func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
-	ref := r.URL.String()
+	p, root, err := splitFsURL(r.URL.Path)
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(r.URL.Path, "@") {
+		// TODO: We only _really_ want to do this for APKINDEX.tar.gz
+		// For the actual foo.apk fetch WITHOUT a hash (unlikely), we need to look up control section
+		// hash in the index and redirect to that.
+		etag, err := h.headUrl(root, p)
+		if err != nil {
+			return fmt.Errorf("resolving etag: %w", err)
+		}
+
+		// TODO: Consider caring about W/"..." vs "..."?
+		etagHex := hex.EncodeToString([]byte(etag))
+
+		redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
+
+		http.Redirect(w, r, redir, http.StatusFound)
+		return nil
+	}
+
+	// We want to get the part after @ but before the filepath.
+	before, rest, ok := strings.Cut(p, "@")
+	if !ok {
+		return fmt.Errorf("missing @ (this should not happen): %q", p)
+	}
+
+	ref := before + "@" + rest
+
+	if digest, _, ok := strings.Cut(rest, "/"); ok {
+		ref = before + "@" + digest
+	}
+
+	ref = root + ref
+
 	index, err := h.getIndex(r.Context(), ref)
 	if err != nil {
 		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
@@ -396,12 +435,12 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Determine if this is actually a filesystem thing.
-	blob, ref, err := h.fetchBlob(w, r)
+	blob, prefix, err := h.fetchBlob(w, r)
 	if err != nil {
 		return fmt.Errorf("fetchBlob: %w", err)
 	}
 
-	kind, original, unwrapped, err := h.tryNewIndex(w, r, ref, blob)
+	kind, original, unwrapped, err := h.tryNewIndex(w, r, prefix, ref, blob)
 	if err != nil {
 		return fmt.Errorf("failed to index blob %q: %w", ref, err)
 	}
@@ -460,126 +499,32 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 	if toc == nil {
 		return nil, fmt.Errorf("this should not happen")
 	}
-	mt := r.URL.Query().Get("mt")
-	if mt == "" {
-		mt = toc.MediaType
+	mt := toc.MediaType
+
+	p := r.URL.Path
+	scheme := "https://"
+	if strings.HasPrefix(r.URL.Path, "/http/") {
+		p = strings.TrimPrefix(p, "/http/")
+		scheme = "http://"
+	} else {
+		p = strings.TrimPrefix(p, "/https/")
 	}
-
-	opts := []remote.Option{}
-	foreign := strings.HasPrefix(r.URL.Path, "/http/") || strings.HasPrefix(r.URL.Path, "/https/")
-	opts = append(opts, remote.WithSize(toc.Csize))
-
-	cachedUrl := ""
-	// For foreign layers, we aren't hitting the registry. We want
-	// to reuse some code from remote.BlobSeeker but without the
-	// ping/token stuff, so we transport.Wrap a plain transport.
-	if foreign {
-		p := r.URL.Path
-		scheme := "https://"
-		if strings.HasPrefix(r.URL.Path, "/http/") {
-			p = strings.TrimPrefix(p, "/http/")
-			scheme = "http://"
-		} else {
-			p = strings.TrimPrefix(p, "/https/")
-		}
-		if before, _, ok := strings.Cut(p, "@"); ok {
-			u, err := url.PathUnescape(before)
-			if err != nil {
-				return nil, err
-			}
-			u = scheme + u
-			cachedUrl = u
-
-			t := remote.DefaultTransport
-			t = transport.NewRetry(t)
-			t = transport.NewUserAgent(t, h.userAgent)
-			if r.URL.Query().Get("trace") != "" {
-				t = transport.NewTracer(t)
-			}
-			t = transport.Wrap(t)
-			opts = append(opts, remote.WithTransport(t))
-		}
+	before, _, ok := strings.Cut(p, "@")
+	if !ok {
+		return nil, fmt.Errorf("something very bad: %q", p)
 	}
-
-	// We can't set the cookie after calling soci.FS because we will
-	// have already sent the body. We use remote.LazyBlob because we
-	// don't actually need to send any HTTP requests if they're just
-	// browsing directories and not loading file content.
-	setCookie := func(blob *remote.BlobSeeker) error {
-		return nil
+	u, err := url.PathUnescape(before)
+	if err != nil {
+		return nil, err
 	}
+	u = scheme + u
+	cachedUrl := strings.TrimSuffix(u, "/")
 
-	blob := remote.LazyBlob(name.Digest{}, cachedUrl, setCookie, opts...)
+	blob := LazyBlob(cachedUrl, toc.Csize)
 	prefix := strings.TrimPrefix(ref, "/")
 	fs := soci.FS(index, blob, prefix, ref, respTooBig, types.MediaType(mt), renderHeader)
 
 	return fs, nil
-}
-
-func (h *handler) multiFS(w http.ResponseWriter, r *http.Request, dig name.Digest, desc *remote.Descriptor, ref string) (*soci.MultiFS, error) {
-	m, err := v1.ParseManifest(bytes.NewReader(desc.Manifest))
-	if err != nil {
-		return nil, err
-	}
-
-	opts := h.remoteOptions(w, r, dig.Context().Name())
-	opts = append(opts, remote.WithMaxSize(tooBig))
-
-	fss := make([]*soci.SociFS, len(m.Layers))
-	var g errgroup.Group
-	for i, layer := range m.Layers {
-		i := i
-		size := layer.Size
-		digest := layer.Digest
-		urls := layer.URLs
-		layerRef := dig.Context().Digest(layer.Digest.String())
-		mediaType := layer.MediaType
-
-		if digest.String() == emptyDigest {
-			continue
-		}
-
-		g.Go(func() error {
-			index, err := h.getIndex(r.Context(), digest.String())
-			if err != nil {
-				return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
-			}
-			if index == nil {
-				l, err := remote.Layer(layerRef)
-				if err != nil {
-					return err
-				}
-				rc, err := l.Compressed()
-				if err != nil {
-					return err
-				}
-
-				index, err = h.createIndex(r.Context(), rc, size, digest.String(), 0, string(mediaType))
-				if err != nil {
-					return fmt.Errorf("createIndex: %w", err)
-				}
-				if index == nil {
-					// Non-indexable blobs are filtered later.
-					return nil
-				}
-			}
-
-			fs, err := h.createFs(w, r, ref, layerRef, index, size, mediaType, urls, opts)
-			if err != nil {
-				return err
-			}
-			// NOTE: reverses order
-			fss[(len(m.Layers)-1)-i] = fs
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
-
-	prefix := strings.TrimPrefix(ref, "/")
-	return soci.NewMultiFS(fss, prefix, dig, desc.Size, desc.MediaType, renderDir), nil
 }
 
 func (h *handler) jq(output *jsonOutputter, b []byte, r *http.Request, header *HeaderData) ([]byte, error) {
@@ -683,13 +628,13 @@ func headerData(ref string, desc v1.Descriptor) *HeaderData {
 	}
 }
 
-func renderHeader(w http.ResponseWriter, fname string, prefix string, ref name.Reference, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
 	stat, err := f.Stat()
 	if err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := headerTmpl.Execute(w, TitleData{ref.String()}); err != nil {
+	if err := headerTmpl.Execute(w, TitleData{ref}); err != nil {
 		return err
 	}
 
@@ -712,10 +657,11 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref name.R
 		tarflags = "tar --zstd -Ox "
 	}
 
-	hash, err := v1.NewHash(ref.Identifier())
-	if err != nil {
-		return err
-	}
+	// TODO: Use hash if we have it?
+	// hash, err := v1.NewHash(ref.Identifier())
+	// if err != nil {
+	// 	return err
+	// }
 
 	filelink := filename
 
@@ -739,17 +685,17 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref name.R
 	}
 
 	desc := v1.Descriptor{
-		Size:      size,
-		Digest:    hash,
+		Size: size,
+		// Digest:    hash,
 		MediaType: mediaType,
 	}
-	header := headerData(ref.String(), desc)
-	header.Up = &RepoParent{
-		Parent:    ref.Context().String(),
-		Separator: "@",
-		Child:     ref.Identifier(),
-	}
-	header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags + " " + filelink
+	header := headerData(ref, desc)
+	// header.Up = &RepoParent{
+	// 	Parent:    ref.Context().String(),
+	// 	Separator: "@",
+	// 	Child:     ref.Identifier(),
+	// }
+	// header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags + " " + filelink
 
 	if stat.Size() > httpserve.TooBig {
 		header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
@@ -766,14 +712,14 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref name.R
 			tarflags = "tar --zstd -tv "
 		}
 
-		header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags + " " + filelink
+		header.JQ = crane("blob") + " " + ref + " | " + tarflags + " " + filelink
 	}
-	header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
+	// header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
 	return bodyTmpl.Execute(w, header)
 }
 
-func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, ref name.Reference, f httpserve.File, ctype string) error {
+func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, ref string, f httpserve.File, ctype string) error {
 	// This must be a directory because it wasn't part of a filesystem
 	stat, err := f.Stat()
 	if err != nil {
@@ -783,7 +729,7 @@ func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType typ
 		return fmt.Errorf("file was not a directory")
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := headerTmpl.Execute(w, TitleData{ref.String()}); err != nil {
+	if err := headerTmpl.Execute(w, TitleData{ref}); err != nil {
 		return err
 	}
 
@@ -800,28 +746,14 @@ func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType typ
 
 	tarflags := "tar -tv "
 
-	hash, err := v1.NewHash(ref.Identifier())
-	if err != nil {
-		return err
-	}
-
 	desc := v1.Descriptor{
 		Size:      size,
-		Digest:    hash,
 		MediaType: mediaType,
 	}
-	header := headerData(ref.String(), desc)
-
-	header.Up = &RepoParent{
-		Parent:    ref.Context().String(),
-		Separator: "@",
-		Child:     ref.Identifier(),
-	}
+	header := headerData(ref, desc)
 
 	// TODO: Make filename clickable to go up a directory.
-	header.JQ = crane("export") + " " + ref.String() + " | " + tarflags + " " + filename
-
-	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
+	header.JQ = crane("export") + " " + ref + " | " + tarflags + " " + filename
 
 	return bodyTmpl.Execute(w, header)
 }

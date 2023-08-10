@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -91,41 +92,36 @@ func (h *handler) listCatalog(w http.ResponseWriter, r *http.Request, ref name.R
 
 // Fetch blob from registry or URL.
 func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, string, error) {
-	path, root, err := splitFsURL(r.URL.Path)
+	p, root, err := splitFsURL(r.URL.Path)
 	if err != nil {
 		return nil, "", err
 	}
 
-	expectedSize := int64(0)
-	qsize := r.URL.Query().Get("size")
-	if qsize != "" {
-		if sz, err := strconv.ParseInt(qsize, 10, 64); err != nil {
-			log.Printf("wtf? %q size=%q", path, qsize)
-		} else {
-			expectedSize = sz
-		}
-	}
+	ref := ""
+	u := ""
 
 	// TODO: Use sha1 for digest.
-	prefix, rest, ok := strings.Cut(path, "@")
+	prefix, rest, ok := strings.Cut(p, "@")
 	if !ok {
-		return nil, "", fmt.Errorf("missing @: %s", path)
+		return nil, "", fmt.Errorf("missing @ (this should not happen): %q", p)
 	}
 
-	digest, fp, ok := strings.Cut(rest, "/")
+	// We want to get the part after @ but before the filepath.
+	digest, after, ok := strings.Cut(rest, "/")
 	if !ok {
-		// Not a problem but no path component.
+		u = prefix
+		ref = prefix + "@" + rest
+	} else {
+		ref = prefix + "@" + digest
+		u = path.Join(prefix, after)
 	}
 
-	ref := prefix + "@" + digest
-
-	if root == "/http/" || root == "/https/" {
-		return h.fetchUrl(root, ref, digest, prefix, expectedSize)
+	blob, _, err := h.fetchUrl(root, u)
+	if err != nil {
+		return nil, "", fmt.Errorf("fetchUrl: %w", err)
 	}
 
-	// TODO
-	_ = fp
-	return nil, "", fmt.Errorf("todo")
+	return blob, root + ref, err
 }
 
 func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -177,8 +173,10 @@ func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, er
 	return l.Url, nil
 }
 
-func (h *handler) fetchUrl(root string, ref string, digest string, prefix string, expectedSize int64) (*sizeBlob, string, error) {
-	u, err := url.PathUnescape(prefix)
+// TODO: We need a LazyBlob version of this so we can use the cached index.
+// TODO: In-memory cache that respects cache headers?
+func (h *handler) fetchUrl(root string, prefix string) (*sizeBlob, string, error) {
+	u, err := url.PathUnescape(strings.TrimSuffix(prefix, "/"))
 	if err != nil {
 		return nil, "", err
 	}
@@ -194,20 +192,40 @@ func (h *handler) fetchUrl(root string, ref string, digest string, prefix string
 	if err != nil {
 		return nil, "", err
 	}
-	if resp.StatusCode == http.StatusOK {
-		size := expectedSize
-		if size != 0 {
-			if got := resp.ContentLength; got != -1 && got != size {
-				log.Printf("GET %s unexpected size: got %d, want %d", u, got, expectedSize)
-			}
-		} else {
-			size = resp.ContentLength
-		}
-		sb := &sizeBlob{resp.Body, size}
-		return sb, root + prefix, nil
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, "", fmt.Errorf("GET %s failed: %s", u, resp.Status)
 	}
-	resp.Body.Close()
-	return nil, "", fmt.Errorf("GET %s failed: %s", u, resp.Status)
+
+	size := resp.ContentLength
+	sb := &sizeBlob{resp.Body, size}
+
+	return sb, root + prefix, nil
+}
+
+func (h *handler) headUrl(root string, prefix string) (string, error) {
+	u, err := url.PathUnescape(strings.TrimSuffix(prefix, "/"))
+	if err != nil {
+		return "", err
+	}
+
+	scheme := "https://"
+	if root == "/http/" {
+		scheme = "http://"
+	}
+	u = scheme + u
+	log.Printf("HEAD %v", u)
+
+	resp, err := http.Head(u)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HEAD %s failed: %s", u, resp.Status)
+	}
+
+	// TODO: What to do if etag does not exist?
+	return resp.Header.Get("Etag"), nil
 }
 
 // parse ref out of r

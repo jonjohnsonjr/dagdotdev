@@ -39,7 +39,7 @@ const (
 <html>
 <body>
 <head>
-<title>Registry Explorer</title>
+<title>APK Explorer</title>
 <link rel="icon" href="/favicon.svg">
 <style>
 .mt:hover {
@@ -74,7 +74,7 @@ body {
 }
 </style>
 </head>
-<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">APK Explorer</span></a></h1>
 <p>
 This beautiful tool allows you to <em>explore</em> the contents of a registry interactively.
 </p>
@@ -138,7 +138,7 @@ That's not a question.
 <html>
 <body>
 <head>
-<title>Registry Explorer</title>
+<title>APK Explorer</title>
 <link rel="icon" href="/favicon.svg">
 <style>
 .mt:hover {
@@ -173,7 +173,7 @@ body {
 }
 </style>
 </head>
-<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">APK Explorer</span></a></h1>
 <p>
 It looks like we encountered an auth error:
 </p>
@@ -279,7 +279,7 @@ input ~ .tab {          /* grey line between tab and contents */
 	bodyTemplate = `
 <body>
 <div>
-<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">APK Explorer</span></a></h1>
 {{ if .Up }}
 <h2>{{ if and (ne .Up.Parent "docker.io") (ne .Up.Parent "index.docker.io") }}<a class="mt" href="/?repo={{.Up.Parent}}">{{.Up.Parent}}</a>{{else}}{{.Up.Parent}}{{end}}{{.Up.Separator}}{{if .Handler }}<a class="mt" href="/{{.Handler}}{{.Reference}}{{if .EscapedMediaType}}&mt={{.EscapedMediaType}}{{end}}">{{.Up.Child}}</a>{{else}}{{.Up.Child}}{{end}}{{ range .CosignTags }} (<a href="/?image={{$.Repo}}:{{.Tag}}">{{.Short}}</a>){{end}}{{if .Referrers}} <a href="/?referrers={{$.Repo}}@{{$.Descriptor.Digest}}">(referrers)</a>{{end}}</h2>
 {{ else }}
