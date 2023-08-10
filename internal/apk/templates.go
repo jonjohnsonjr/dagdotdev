@@ -74,62 +74,15 @@ body {
 }
 </style>
 </head>
-<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">APK Explorer</span></a></h1>
-<p>
-This beautiful tool allows you to <em>explore</em> the contents of a registry interactively.
-</p>
-<p>
-You can even drill down into layers to explore an image's filesystem.
-</p>
-<p>
-Enter a <strong>public</strong> image, e.g. <tt>"ubuntu:latest"</tt>:
-</p>
-<form action="/" method="GET" autocomplete="off" spellcheck="false">
-<input size="100" type="text" name="image" value="ubuntu:latest"/>
-<input type="submit" />
-</form>
-<p>
-<p>
-Enter a <strong>public</strong> repository, e.g. <tt>"ubuntu"</tt>:
-</p>
-<form action="/" method="GET" autocomplete="off" spellcheck="false">
-<input size="100" type="text" name="repo" value="ubuntu"/>
-<input type="submit" />
-</form>
-<p>
+<h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
 <h4>Interesting examples</h4>
 <ul>
-  <li><a href="/?image=cgr.dev/chainguard/static:latest-glibc">cgr.dev/chainguard/static:latest-glibc</a></li>
-  <li><a href="/?image=gcr.io/distroless/static">gcr.io/distroless/static:latest</a></li>
-  <li><a href="/?repo=ghcr.io/homebrew/core/crane">ghcr.io/homebrew/core/crane</a></li>
-  <li><a href="/?repo=registry.k8s.io">registry.k8s.io</a></li>
-  <li><a href="/?image=registry.k8s.io/bom/bom:sha256-499bdf4cc0498bbfb2395f8bbaf3b7e9e407cca605aecc46b2ef1b390a0bc4c4.sig">registry.k8s.io/bom/bom:sha256-499bdf4cc0498bbfb2395f8bbaf3b7e9e407cca605aecc46b2ef1b390a0bc4c4.sig</a></li>
-  <li><a href="/?image=docker/dockerfile:1.5.1">docker/dockerfile:1.5.1</a></li>
-  <li><a href="/?image=pengfeizhou/test-oci:sha256-04eaff953b0066d7e4ea2e822eb5c31be0742fca494561336f0912fabc246760">pengfeizhou/test-oci:sha256-04eaff953b0066d7e4ea2e822eb5c31be0742fca494561336f0912fabc246760</a></li>
-  <li><a href="/?image=tianon/true:oci">tianon/true:oci</a></li>
-  <li><a href="/?image=ghcr.io/stargz-containers/node:13.13.0-esgz">ghcr.io/stargz-containers/node:13.13.0-esgz</a></li>
-
+  <li><a href="/https/packages.wolfi.dev/os/aarch64/APKINDEX.tar.gz">packages.wolfi.dev/os/aarch64</a></li>
+  <li><a href="/https/packages.wolfi.dev/os/x86_64/APKINDEX.tar.gz">packages.wolfi.dev/os/x86_64</a></li>
+  <li><a href="/https/packages.cgr.dev/os/aarch64/APKINDEX.tar.gz">packages.cgr.dev/os/aarch64</a></li>
+  <li><a href="/https/packages.cgr.dev/os/x86_64/APKINDEX.tar.gz">packages.cgr.dev/os/x86_64</a></li>
 </ul>
 </p>
-<h3>FAQ</h3>
-<h4>How does this work?</h4>
-<p>
-This service lives on <a href="https://cloud.run">Cloud Run</a> and uses <a href="https://github.com/google/go-containerregistry">google/go-containerregistry</a> for registry interactions.
-</p>
-<h4>Isn't this expensive for the registry?</h4>
-<p>
-Not really! The first time a layer is accessed, I download and index it. Browsing the filesystem just uses that index, and opening a file uses Range requests to load small chunks of the layer as needed.
-</p>
-<h4>That can't be true, gzip doesn't support random access!</h4>
-<p>
-That's not a question.
-</p>
-<h4>Okay then, how does random access work if the layers are gzipped tarballs?</h4>
-<p>Great question! See <a href="https://github.com/madler/zlib/blob/master/examples/zran.c">here</a>.</p>
-<p>Tl;dr, you can seek to an arbitrary position in a gzip stream if you know the 32KiB of uncompressed data that comes just before it, so by storing ~1% of the uncompressed layer size, I can jump ahead to predetermined locations and start reading from there rather than reading the entire layer.</p>
-<p>Thanks <a href="https://github.com/aidansteele">@aidansteele</a>!</p>
-<h4>Is this open source?</h4>
-<p>Yes! See <a href="https://github.com/jonjohnsonjr/dag.dev">here</a>.</p>
 </body>
 </html>
 `
