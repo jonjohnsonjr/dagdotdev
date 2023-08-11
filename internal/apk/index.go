@@ -36,7 +36,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		return err
 	}
 
-	fmt.Fprintf(w, "<pre>\n<div>\n")
+	fmt.Fprintf(w, "<pre><div>\n")
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(in, 1<<16))
 
@@ -50,7 +50,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			// reset pkg
 			pkg = stanza{}
 
-			fmt.Fprintf(w, "</div>\n")
+			fmt.Fprintf(w, "</div><div>\n")
 
 			continue
 		}
@@ -89,7 +89,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		return fmt.Errorf("scanner: %w", err)
 	}
 
-	fmt.Fprintf(w, "</pre>\n</body>\n</html>\n")
+	fmt.Fprintf(w, "</div></pre>\n</body>\n</html>\n")
 
 	return nil
 }
