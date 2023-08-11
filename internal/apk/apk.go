@@ -357,17 +357,22 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 			}
 		}
 		header := headerData(ref, desc)
-		header.JQ = crane("todo") + " " + ref
-		if kind == "zstd" {
-			header.JQ += " | zstd -d"
-		} else if kind == "gzip" {
-			header.JQ += " | gunzip"
-		}
-		if blob.size < 0 || blob.size > httpserve.TooBig {
-			header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-		}
-		if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
-			header.JQ += " | xxd"
+
+		before, _, ok := strings.Cut(ref, "@")
+		if ok {
+			u := "https://" + strings.TrimPrefix(before, "/https/")
+			header.JQ = "curl" + " " + u
+			if kind == "zstd" {
+				header.JQ += " | zstd -d"
+			} else if kind == "gzip" {
+				header.JQ += " | gunzip"
+			}
+			if blob.size < 0 || blob.size > httpserve.TooBig {
+				header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
+			}
+			if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
+				header.JQ += " | xxd"
+			}
 		}
 
 		return bodyTmpl.Execute(w, header)
@@ -397,8 +402,16 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("resolving etag: %w", err)
 		}
 
+		if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
+			etag = unquoted
+		}
+
 		// TODO: Consider caring about W/"..." vs "..."?
 		etagHex := hex.EncodeToString([]byte(etag))
+
+		if _, err := hex.DecodeString(etag); err == nil {
+			etagHex = etag
+		}
 
 		redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
 
@@ -708,13 +721,15 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 	if ok {
 		u := "https://" + strings.TrimPrefix(before, "/https/")
 		header.JQ = "curl" + " " + u + " | " + tarflags + " " + filelink
-	}
 
-	if stat.Size() > httpserve.TooBig {
-		header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-	}
-	if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
-		header.JQ += " | xxd"
+		if !stat.IsDir() {
+			if stat.Size() > httpserve.TooBig {
+				header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
+			}
+			if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
+				header.JQ += " | xxd"
+			}
+		}
 	}
 	// header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 

@@ -126,7 +126,7 @@ body {
 }
 </style>
 </head>
-<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">APK Explorer</span></a></h1>
+<h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
 <p>
 It looks like we encountered an auth error:
 </p>
@@ -232,7 +232,7 @@ input ~ .tab {          /* grey line between tab and contents */
 	bodyTemplate = `
 <body>
 <div>
-<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">APK Explorer</span></a></h1>
+<h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
 </div>
 {{ if .JQ }}
 <h4><span class="noselect">$</span>{{.JQ}}</h4>

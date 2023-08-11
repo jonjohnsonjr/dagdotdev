@@ -50,11 +50,11 @@ type gcsCache struct {
 }
 
 func (g *gcsCache) path(key string) string {
-	return path.Join("soci", strings.Replace(key, ":", "-", 1), "toc.json.gz")
+	return path.Join("apk", strings.Replace(key, ":", "-", 1), "toc.json.gz")
 }
 
 func (g *gcsCache) treePath(key string) string {
-	return path.Join("soci", strings.Replace(key, ":", "-", 1)) + ".tar.gz"
+	return path.Join("apk", strings.Replace(key, ":", "-", 1)) + ".tar.gz"
 }
 
 func (g *gcsCache) object(key string) *storage.ObjectHandle {
