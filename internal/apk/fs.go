@@ -17,7 +17,7 @@ import (
 )
 
 // Lots of debugging that we don't want to compile into the binary.
-const debug = true
+const debug = false
 
 func debugf(s string, i ...interface{}) {
 	if debug {

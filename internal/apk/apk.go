@@ -37,7 +37,7 @@ import (
 )
 
 // We should not buffer blobs greater than 4MB
-const tooBig = 1 << 22
+const tooBig = 1 << 25
 const respTooBig = 1 << 25
 
 type handler struct {
@@ -442,6 +442,19 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
+
+		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("opening %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderIndex(w, r, rc, ref)
+		}
+
 		log.Printf("serving http from cache")
 		httpserve.FileServer(httpserve.FS(fs)).ServeHTTP(w, r)
 		return nil
