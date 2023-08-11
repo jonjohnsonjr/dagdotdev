@@ -190,6 +190,18 @@ If you trust <a class="mt" href="https://github.com/jonjohnsonjr">me</a>, click 
 	headerTemplate = `
 <html>
 <head>
+<script type="text/javascript">
+function copyToClipboard() {
+  var element = document.createElement("textarea");
+  element.value = document.getElementById("command").innerText;
+  element.select();
+  element.setSelectionRange(0, 99999); // For mobile devices
+  navigator.clipboard.writeText(element.value);
+  setTimeout(function() {
+	alert("Command copied to clipboard!\n" + element.value);
+  }, 100);
+}
+</script>
 <title>{{.Title}}</title>
 <link rel="icon" href="/favicon.svg">
 <style>
@@ -240,6 +252,7 @@ pre {
 	padding-right: 1em;
 	text-align: right;
 	white-space: nowrap;
+	text-decoration: none;
 }
 
 td {
@@ -307,8 +320,7 @@ Content-Length: {{if .SizeLink}}<a class="mt" href="{{.SizeLink}}">{{.Descriptor
 {{end}}
 </div>
 {{ if .JQ }}
-<h4><span class="noselect">$</span>{{.JQ}}</h4>
-
+<h4><a class="noselect" onclick="copyToClipboard()">$</a><span id="command">{{.JQ}}</span></h4>
 {{ end }}
 `
 
