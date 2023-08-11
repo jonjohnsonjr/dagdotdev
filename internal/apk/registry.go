@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -98,7 +97,6 @@ func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, 
 	}
 
 	ref := ""
-	u := ""
 
 	// TODO: Use sha1 for digest.
 	prefix, rest, ok := strings.Cut(p, "@")
@@ -107,16 +105,19 @@ func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, 
 	}
 
 	// We want to get the part after @ but before the filepath.
-	digest, after, ok := strings.Cut(rest, "/")
+	digest, _, ok := strings.Cut(rest, "/")
 	if !ok {
-		u = prefix
 		ref = prefix + "@" + rest
 	} else {
 		ref = prefix + "@" + digest
-		u = path.Join(prefix, after)
 	}
 
-	blob, _, err := h.fetchUrl(root, u)
+	u, err := getUpstreamURL(r)
+	if err != nil {
+		return nil, "", err
+	}
+
+	blob, err := h.fetchUrl(u)
 	if err != nil {
 		return nil, "", fmt.Errorf("fetchUrl: %w", err)
 	}
@@ -175,45 +176,25 @@ func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, er
 
 // TODO: We need a LazyBlob version of this so we can use the cached index.
 // TODO: In-memory cache that respects cache headers?
-func (h *handler) fetchUrl(root string, prefix string) (*sizeBlob, string, error) {
-	u, err := url.PathUnescape(strings.TrimSuffix(prefix, "/"))
-	if err != nil {
-		return nil, "", err
-	}
-
-	scheme := "https://"
-	if root == "/http/" {
-		scheme = "http://"
-	}
-	u = scheme + u
+func (h *handler) fetchUrl(u string) (*sizeBlob, error) {
 	log.Printf("GET %v", u)
 
 	resp, err := http.Get(u)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		return nil, "", fmt.Errorf("GET %s failed: %s", u, resp.Status)
+		return nil, fmt.Errorf("GET %s failed: %s", u, resp.Status)
 	}
 
 	size := resp.ContentLength
 	sb := &sizeBlob{resp.Body, size}
 
-	return sb, root + prefix, nil
+	return sb, nil
 }
 
-func (h *handler) headUrl(root string, prefix string) (string, error) {
-	u, err := url.PathUnescape(strings.TrimSuffix(prefix, "/"))
-	if err != nil {
-		return "", err
-	}
-
-	scheme := "https://"
-	if root == "/http/" {
-		scheme = "http://"
-	}
-	u = scheme + u
+func (h *handler) headUrl(u string) (string, error) {
 	log.Printf("HEAD %v", u)
 
 	resp, err := http.Head(u)

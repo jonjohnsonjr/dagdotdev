@@ -82,7 +82,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
 		hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
 		href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
-		fmt.Fprintf(w, "<a href=%q>V:%s</a>\n", href, pkg.version)
+		fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
 	}
 
 	if err := scanner.Err(); err != nil {

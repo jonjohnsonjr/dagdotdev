@@ -393,42 +393,51 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if !strings.Contains(r.URL.Path, "@") {
-		// TODO: We only _really_ want to do this for APKINDEX.tar.gz
-		// For the actual foo.apk fetch WITHOUT a hash (unlikely), we need to look up control section
-		// hash in the index and redirect to that.
-		etag, err := h.headUrl(root, p)
-		if err != nil {
-			return fmt.Errorf("resolving etag: %w", err)
-		}
+	// TODO: We only _really_ want to do this for APKINDEX.tar.gz
+	// For the actual foo.apk fetch WITHOUT a hash (unlikely), we need to look up control section
+	// hash in the index and redirect to that.
+	u, err := getUpstreamURL(r)
+	if err != nil {
+		return err
+	}
+	etag, err := h.headUrl(u)
+	if err != nil {
+		return fmt.Errorf("resolving etag: %w", err)
+	}
 
-		if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
-			etag = unquoted
-		}
+	if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
+		etag = unquoted
+	}
 
-		// TODO: Consider caring about W/"..." vs "..."?
-		etagHex := hex.EncodeToString([]byte(etag))
+	// TODO: Consider caring about W/"..." vs "..."?
+	etagHex := hex.EncodeToString([]byte(etag))
 
-		if _, err := hex.DecodeString(etag); err == nil {
-			etagHex = etag
-		}
-
-		redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
-
-		http.Redirect(w, r, redir, http.StatusFound)
-		return nil
+	if _, err := hex.DecodeString(etag); err == nil {
+		etagHex = etag
 	}
 
 	// We want to get the part after @ but before the filepath.
 	before, rest, ok := strings.Cut(p, "@")
 	if !ok {
-		return fmt.Errorf("missing @ (this should not happen): %q", p)
+		redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
+		http.Redirect(w, r, redir, http.StatusFound)
+		return nil
 	}
 
+	redir := fmt.Sprintf("%s%s@etag:%s", root, before, etagHex)
 	ref := before + "@" + rest
 
-	if digest, _, ok := strings.Cut(rest, "/"); ok {
+	if digest, final, ok := strings.Cut(rest, "/"); ok {
 		ref = before + "@" + digest
+		redir = redir + "/" + final
+	}
+
+	if redir != r.URL.Path {
+		log.Printf("%q != %q", redir, r.URL.Path)
+		if strings.Contains(before, "APKINDEX.tar.gz") {
+			http.Redirect(w, r, redir, http.StatusFound)
+			return nil
+		}
 	}
 
 	ref = root + ref
@@ -520,13 +529,7 @@ func (h *handler) renderImage(w http.ResponseWriter, r *http.Request, ref name.D
 	return nil
 }
 
-func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, index soci.Index) (*soci.SociFS, error) {
-	toc := index.TOC()
-	if toc == nil {
-		return nil, fmt.Errorf("this should not happen")
-	}
-	mt := toc.MediaType
-
+func getUpstreamURL(r *http.Request) (string, error) {
 	p := r.URL.Path
 	scheme := "https://"
 	if strings.HasPrefix(r.URL.Path, "/http/") {
@@ -537,14 +540,28 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 	}
 	before, _, ok := strings.Cut(p, "@")
 	if !ok {
-		return nil, fmt.Errorf("something very bad: %q", p)
+		before = p
 	}
 	u, err := url.PathUnescape(before)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	u = scheme + u
-	cachedUrl := strings.TrimSuffix(u, "/")
+
+	return strings.TrimSuffix(u, "/"), nil
+}
+
+func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, index soci.Index) (*soci.SociFS, error) {
+	toc := index.TOC()
+	if toc == nil {
+		return nil, fmt.Errorf("this should not happen")
+	}
+	mt := toc.MediaType
+
+	cachedUrl, err := getUpstreamURL(r)
+	if err != nil {
+		return nil, err
+	}
 
 	blob := LazyBlob(cachedUrl, toc.Csize)
 	prefix := strings.TrimPrefix(ref, "/")
