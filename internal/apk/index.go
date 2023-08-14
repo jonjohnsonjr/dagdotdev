@@ -22,7 +22,11 @@ type stanza struct {
 }
 
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
-	if err := headerTmpl.Execute(w, TitleData{ref}); err != nil {
+	title := ref
+	if before, _, ok := strings.Cut(ref, "@"); ok {
+		title = path.Base(before)
+	}
+	if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
 		return err
 	}
 	header := headerData(ref, v1.Descriptor{})

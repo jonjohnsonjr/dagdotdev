@@ -25,7 +25,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -146,148 +145,10 @@ func (h *handler) errHandler(hfe HandleFuncE) http.HandlerFunc {
 }
 
 func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
-	qs := r.URL.Query()
-
-	if image := qs.Get("image"); image != "" {
-		return h.renderManifest(w, r, strings.TrimPrefix(strings.TrimSpace(image), "https://"))
-	}
-	if image := qs.Get("referrers"); image != "" {
-		return h.renderReferrers(w, r, image)
-	}
-
 	// Cache landing page for 5 minutes.
 	// TODO: Uncomment this.
 	// w.Header().Set("Cache-Control", "max-age=300")
 	w.Write([]byte(landingPage))
-
-	return nil
-}
-
-// Render manifests with links to blobs, manifests, etc.
-func (h *handler) renderManifest(w http.ResponseWriter, r *http.Request, image string) error {
-	ref, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return err
-	}
-
-	desc, err := h.fetchManifest(w, r, ref)
-	if err != nil {
-		return fmt.Errorf("fetchManifest: %w", err)
-	}
-
-	header := h.manifestHeader(ref, desc.Descriptor)
-
-	u := *r.URL
-	if _, ok := ref.(name.Digest); ok {
-		// Allow this to be cached for an hour.
-		w.Header().Set("Cache-Control", "max-age=3600, immutable")
-	} else {
-		// Rewrite links to include digest (not tag) for better caching.
-		newImage := image + "@" + desc.Digest.String()
-		qs := u.Query()
-		qs.Set("image", newImage)
-		u.RawQuery = qs.Encode()
-	}
-
-	if err := headerTmpl.Execute(w, TitleData{image}); err != nil {
-		return fmt.Errorf("headerTmpl: %w", err)
-	}
-
-	output := &jsonOutputter{
-		w:     w,
-		u:     &u,
-		fresh: []bool{},
-		repo:  ref.Context().String(),
-		mt:    string(desc.MediaType),
-	}
-
-	// Mutates header for bodyTmpl.
-	b, err := h.jq(output, desc.Manifest, r, header)
-	if err != nil {
-		return fmt.Errorf("h.jq: %w", err)
-	}
-
-	if r.URL.Query().Get("render") == "x509" {
-		if bytes.Count(b, []byte("-----BEGIN CERTIFICATE-----")) > 1 {
-			header.JQ += " | while openssl x509 -text -noout 2>/dev/null; do :; done"
-		} else {
-			header.JQ += " | openssl x509 -text -noout"
-		}
-	} else if r.URL.Query().Get("render") == "history" {
-		header.JQ = strings.TrimSuffix(header.JQ, " | jq .")
-		header.JQ += ` | jq '.history[] | .v1Compatibility' -r | jq '.container_config.Cmd | join(" ")' -r | tac`
-	}
-
-	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.Context().Digest(desc.Digest.String()).String(), desc.MediaType, desc.Size)
-
-	if err := bodyTmpl.Execute(w, header); err != nil {
-		return fmt.Errorf("bodyTmpl: %w", err)
-	}
-
-	if err := h.renderContent(w, r, ref, b, output, u); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(w, footer)
-
-	return nil
-}
-
-func (h *handler) renderReferrers(w http.ResponseWriter, r *http.Request, src string) error {
-	ref, err := name.NewDigest(src)
-	if err != nil {
-		return err
-	}
-
-	opts := h.remoteOptions(w, r, ref.Context().Name())
-
-	idx, err := remote.Referrers(ref, opts...)
-	if err != nil {
-		return err
-	}
-
-	desc, err := partial.Descriptor(idx)
-	if err != nil {
-		return err
-	}
-
-	header := h.manifestHeader(ref.Digest(desc.Digest.String()), *desc)
-	header.Referrers = false
-	header.Subject = ref.Identifier()
-
-	if err := headerTmpl.Execute(w, TitleData{src}); err != nil {
-		return fmt.Errorf("headerTmpl: %w", err)
-	}
-
-	u := *r.URL
-
-	output := &jsonOutputter{
-		w:     w,
-		u:     &u,
-		fresh: []bool{},
-		repo:  ref.Context().String(),
-		mt:    string(types.OCIImageIndex),
-	}
-
-	b, err := idx.RawManifest()
-	if err != nil {
-		return err
-	}
-
-	b, err = h.jq(output, b, r, header)
-	if err != nil {
-		return fmt.Errorf("h.jq: %w", err)
-	}
-
-	if err := bodyTmpl.Execute(w, header); err != nil {
-		return fmt.Errorf("bodyTmpl: %w", err)
-	}
-
-	if err := h.renderContent(w, r, ref, b, output, u); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(w, footer)
 
 	return nil
 }
@@ -345,7 +206,11 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 	httpserve.ServeContent(w, r, "", time.Time{}, blob, func(w http.ResponseWriter, ctype string) error {
 		// Kind at this poin can be "gzip", "zstd" or ""
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := headerTmpl.Execute(w, TitleData{ref}); err != nil {
+		title := ref
+		if before, _, ok := strings.Cut(ref, "@"); ok {
+			title = path.Base(before)
+		}
+		if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
 			return err
 		}
 		desc := v1.Descriptor{
@@ -515,42 +380,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (h *handler) renderImage(w http.ResponseWriter, r *http.Request, ref name.Digest, mt string) error {
-	url, err := h.resolveUrl(w, r)
-	if err := headerTmpl.Execute(w, TitleData{ref.String()}); err != nil {
-		return err
-	}
-	hash, err := v1.NewHash(ref.Identifier())
-	if err != nil {
-		return err
-	}
-	desc := v1.Descriptor{
-		Digest:    hash,
-		MediaType: types.MediaType(mt),
-	}
-	if size := r.URL.Query().Get("size"); size != "" {
-		if parsed, err := strconv.ParseInt(size, 10, 64); err == nil {
-			desc.Size = parsed
-		}
-	}
-	header := headerData("todo", desc)
-	header.Up = &RepoParent{
-		Parent:    ref.Context().String(),
-		Separator: "@",
-		Child:     ref.Identifier(),
-	}
-	header.JQ = "curl " + url
-
-	if err := bodyTmpl.Execute(w, header); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(w, "<img src=%q></img>", url)
-	fmt.Fprintf(w, "</body></html>")
-
-	return nil
-}
-
 func getUpstreamURL(r *http.Request) (string, error) {
 	p := r.URL.Path
 	scheme := "https://"
@@ -698,7 +527,12 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 		return err
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := headerTmpl.Execute(w, TitleData{ref}); err != nil {
+
+	title := ref
+	if before, _, ok := strings.Cut(ref, "@"); ok {
+		title = path.Base(before)
+	}
+	if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
 		return err
 	}
 
@@ -798,7 +632,11 @@ func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType typ
 		return fmt.Errorf("file was not a directory")
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := headerTmpl.Execute(w, TitleData{ref}); err != nil {
+	title := ref
+	if before, _, ok := strings.Cut(ref, "@"); ok {
+		title = path.Base(before)
+	}
+	if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
 		return err
 	}
 
