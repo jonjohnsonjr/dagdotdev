@@ -76,7 +76,10 @@ func (p *purl) url(repo string) (string, error) {
 	case "apk":
 		if p.namespace == "alpine" {
 			arch := p.qualifiers.Get("arch")
-			return fmt.Sprintf("https://pkgs.alpinelinux.org/packages?name=%s&branch=edge&arch=%s", p.name, arch), nil
+			return fmt.Sprintf("https://apk.dag.dev/https/dl-cdn.alpinelinux.org/alpine/edge/main/%s/%s-%s.apk", arch, p.name, p.version), nil
+		} else if p.namespace == "wolfi" {
+			arch := p.qualifiers.Get("arch")
+			return fmt.Sprintf("https://apk.dag.dev/https/packages.wolfi.dev/os/%s/%s-%s.apk", arch, p.name, p.version), nil
 		}
 	}
 
