@@ -267,7 +267,14 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	ref := ""
-	if strings.Contains(u, "APKINDEX.tar.gz") {
+
+	// We want to get the part after @ but before the filepath.
+	before, rest, ok := strings.Cut(p, "@")
+	if !ok {
+		return fmt.Errorf("missing hash")
+	}
+
+	if !ok || strings.Contains(u, "APKINDEX.tar.gz") {
 		etag, err := h.headUrl(u)
 		if err != nil {
 			return fmt.Errorf("resolving etag: %w", err)
@@ -314,12 +321,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 
 		ref = root + ref
 	} else {
-		// We want to get the part after @ but before the filepath.
-		before, rest, ok := strings.Cut(p, "@")
-		if !ok {
-			return fmt.Errorf("missing hash")
-		}
-
 		ref = before + "@" + rest
 
 		if digest, _, ok := strings.Cut(rest, "/"); ok {
