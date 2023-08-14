@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -153,31 +154,13 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		etag, err := h.headUrl(u)
-		if err != nil {
-			return fmt.Errorf("resolving etag: %w", err)
-		}
-		if etag == "" {
-			return fmt.Errorf("missing etag on APKINDEX.tar.gz")
-		}
-		if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
-			etag = unquoted
-		}
-
-		// TODO: Consider caring about W/"..." vs "..."?
-		etagHex := hex.EncodeToString([]byte(etag))
-
-		if _, err := hex.DecodeString(etag); err == nil {
-			etagHex = etag
-		}
 
 		p := u
 		if before, after, ok := strings.Cut(p, "://"); ok {
 			p = path.Join(before, after)
 		}
 
-		redir := fmt.Sprintf("%s@etag:%s", p, etagHex)
-		http.Redirect(w, r, redir, http.StatusFound)
+		http.Redirect(w, r, p, http.StatusFound)
 		return nil
 	}
 
@@ -242,11 +225,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 	httpserve.ServeContent(w, r, "", time.Time{}, blob, func(w http.ResponseWriter, ctype string) error {
 		// Kind at this poin can be "gzip", "zstd" or ""
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		title := ref
-		if before, _, ok := strings.Cut(ref, "@"); ok {
-			title = path.Base(before)
-		}
-		if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
+		if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
 			return err
 		}
 		desc := v1.Descriptor{
@@ -313,7 +292,7 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if etag == "" {
-			return fmt.Errorf("missing etag on APKINDEX.tar.gz")
+			return h.fallback(w, r, u)
 		}
 
 		if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
@@ -434,7 +413,9 @@ func getUpstreamURL(r *http.Request) (string, error) {
 	}
 	before, _, ok := strings.Cut(p, "@")
 	if !ok {
-		before = p
+		if b, _, ok := strings.Cut(p, "APKINDEX.tar.gz"); ok {
+			before = path.Join(b, "APKINDEX.tar.gz")
+		}
 	}
 	u, err := url.PathUnescape(before)
 	if err != nil {
@@ -510,11 +491,7 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	title := ref
-	if before, _, ok := strings.Cut(ref, "@"); ok {
-		title = path.Base(before)
-	}
-	if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
+	if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
 		return err
 	}
 
@@ -598,6 +575,19 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 				header.JQ += " | xxd"
 			}
 		}
+	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
+		before = path.Join(before, "APKINDEX.tar.gz")
+		u := "https://" + strings.TrimPrefix(before, "/https/")
+		header.JQ = "curl" + " " + u + " | " + tarflags + " " + filelink
+
+		if !stat.IsDir() {
+			if stat.Size() > httpserve.TooBig {
+				header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
+			}
+			if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
+				header.JQ += " | xxd"
+			}
+		}
 	}
 	// header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
@@ -654,12 +644,15 @@ func (d *dumbEscaper) Write(p []byte) (n int, err error) {
 	return len(p), d.buf.Flush()
 }
 
-func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File, ref string) error {
-	title := ref
-	if before, _, ok := strings.Cut(ref, "@"); ok {
-		title = path.Base(before)
+func title(ref string) string {
+	if before, _, ok := strings.Cut(ref, "@"); !ok {
+		return path.Base(before)
 	}
-	if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
+	return path.Base(strings.TrimSuffix(ref, "/"))
+}
+
+func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File, ref string) error {
+	if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
 		return err
 	}
 
@@ -729,6 +722,45 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 	}
 
 	fmt.Fprintf(w, footer)
+
+	return nil
+}
+
+func (h *handler) fallback(w http.ResponseWriter, r *http.Request, u string) error {
+	blob, err := h.fetchUrl(u)
+	if err != nil {
+		return fmt.Errorf("fetchUrl: %w", err)
+	}
+
+	p := u
+	if before, after, ok := strings.Cut(p, "://"); ok {
+		p = path.Join("/", before, after)
+	}
+
+	ref := p
+
+	zr, err := gzip.NewReader(blob)
+	if err != nil {
+		return fmt.Errorf("gzip: %w", err)
+	}
+	tr := tar.NewReader(zr)
+	fs := h.newLayerFS(tr, -1, ref, ref, "tar+gzip", types.MediaType("application/tar+gzip"))
+
+	if strings.HasSuffix(r.URL.Path, "APKINDEX") {
+		filename := strings.TrimPrefix(r.URL.Path, "")
+		log.Printf("opening %q", filename)
+		rc, err := fs.Open(filename)
+		if err != nil {
+			return fmt.Errorf("open(%q): %w", filename, err)
+		}
+		defer rc.Close()
+
+		if err := h.renderIndex(w, r, rc, ref); err != nil {
+			return fmt.Errorf("renderIndex(%q): %w", filename, err)
+		}
+	} else {
+		httpserve.FileServer(fs).ServeHTTP(w, r)
+	}
 
 	return nil
 }

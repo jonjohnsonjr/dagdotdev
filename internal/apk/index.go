@@ -28,16 +28,24 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	pkgs := []stanza{}
 	ptov := map[string]string{}
 
-	title := ref
-	if before, _, ok := strings.Cut(ref, "@"); ok {
-		title = path.Base(before)
-	}
-	if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
+	if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
 		return err
 	}
 	header := headerData(ref, v1.Descriptor{})
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
+		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
+		if short {
+			// Link to long form.
+			header.JQ = "curl" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
+
+			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
+			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
+		} else {
+			header.JQ = "curl" + " " + u + " | tar -Oxz APKINDEX"
+		}
+	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
+		before = path.Join(before, "APKINDEX.tar.gz")
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
 		if short {
 			// Link to long form.

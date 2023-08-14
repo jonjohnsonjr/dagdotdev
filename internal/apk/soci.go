@@ -31,7 +31,7 @@ func indexKey(prefix string, idx int) string {
 // Attempt to create a new index. If we fail, both readclosers will be nil.
 // TODO: Dedupe with createIndex.
 func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, ref string, blob *sizeBlob) (string, io.ReadCloser, io.ReadCloser, error) {
-	key := "todo"
+	key := "missing"
 
 	if _, digest, ok := strings.Cut(ref, "@"); ok {
 		key = indexKey(digest, 0)

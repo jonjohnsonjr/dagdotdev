@@ -17,7 +17,7 @@ import (
 )
 
 // Lots of debugging that we don't want to compile into the binary.
-const debug = false
+const debug = true
 
 func debugf(s string, i ...interface{}) {
 	if debug {
@@ -64,7 +64,9 @@ func (fs *layerFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve
 
 func (fs *layerFS) Open(original string) (httpserve.File, error) {
 	logs.Debug.Printf("Open(%q)", original)
+	logs.Debug.Printf("prefix=%q", fs.prefix)
 	name := strings.TrimPrefix(original, fs.prefix)
+	logs.Debug.Printf("name=%q", name)
 
 	var found httpserve.File
 	// Scan through the layer, looking for a matching tar.Header.Name.
