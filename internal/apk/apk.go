@@ -400,47 +400,69 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	etag, err := h.headUrl(u)
-	if err != nil {
-		return fmt.Errorf("resolving etag: %w", err)
-	}
 
-	if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
-		etag = unquoted
-	}
+	ref := ""
+	if strings.Contains(u, "APKINDEX.tar.gz") {
+		etag, err := h.headUrl(u)
+		if err != nil {
+			return fmt.Errorf("resolving etag: %w", err)
+		}
 
-	// TODO: Consider caring about W/"..." vs "..."?
-	etagHex := hex.EncodeToString([]byte(etag))
+		if etag == "" {
+			return fmt.Errorf("missing etag on APKINDEX.tar.gz")
+		}
 
-	if _, err := hex.DecodeString(etag); err == nil {
-		etagHex = etag
-	}
+		if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
+			etag = unquoted
+		}
 
-	// We want to get the part after @ but before the filepath.
-	before, rest, ok := strings.Cut(p, "@")
-	if !ok {
-		redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
-		http.Redirect(w, r, redir, http.StatusFound)
-		return nil
-	}
+		// TODO: Consider caring about W/"..." vs "..."?
+		etagHex := hex.EncodeToString([]byte(etag))
 
-	redir := fmt.Sprintf("%s%s@etag:%s", root, before, etagHex)
-	ref := before + "@" + rest
+		if _, err := hex.DecodeString(etag); err == nil {
+			etagHex = etag
+		}
 
-	if digest, final, ok := strings.Cut(rest, "/"); ok {
-		ref = before + "@" + digest
-		redir = redir + "/" + final
-	}
-
-	if redir != r.URL.Path {
-		log.Printf("%q != %q", redir, r.URL.Path)
-		if strings.Contains(before, "APKINDEX.tar.gz") {
+		// We want to get the part after @ but before the filepath.
+		before, rest, ok := strings.Cut(p, "@")
+		if !ok {
+			redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
 			http.Redirect(w, r, redir, http.StatusFound)
 			return nil
 		}
-	}
 
-	ref = root + ref
+		redir := fmt.Sprintf("%s%s@etag:%s", root, before, etagHex)
+		ref = before + "@" + rest
+
+		if digest, final, ok := strings.Cut(rest, "/"); ok {
+			ref = before + "@" + digest
+			redir = redir + "/" + final
+		}
+
+		if redir != r.URL.Path {
+			log.Printf("%q != %q", redir, r.URL.Path)
+			if strings.Contains(before, "APKINDEX.tar.gz") {
+				http.Redirect(w, r, redir, http.StatusFound)
+				return nil
+			}
+		}
+
+		ref = root + ref
+	} else {
+		// We want to get the part after @ but before the filepath.
+		before, rest, ok := strings.Cut(p, "@")
+		if !ok {
+			return fmt.Errorf("missing hash")
+		}
+
+		ref = before + "@" + rest
+
+		if digest, _, ok := strings.Cut(rest, "/"); ok {
+			ref = before + "@" + digest
+		}
+
+		ref = root + ref
+	}
 
 	index, err := h.getIndex(r.Context(), ref)
 	if err != nil {
