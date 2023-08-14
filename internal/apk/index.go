@@ -25,6 +25,8 @@ type stanza struct {
 }
 
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
+	short := r.URL.Query().Get("short") != "false"
+
 	title := ref
 	if before, _, ok := strings.Cut(ref, "@"); ok {
 		title = path.Base(before)
@@ -36,16 +38,29 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
-		header.JQ = "curl" + " " + u + " | tar -Oxz APKINDEX"
+		if short {
+			// Link to long form.
+			header.JQ = "curl" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
+
+			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
+			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
+		} else {
+			header.JQ = "curl" + " " + u + " | tar -Oxz APKINDEX"
+		}
 	}
 
 	if err := bodyTmpl.Execute(w, header); err != nil {
 		return err
 	}
 
-	fmt.Fprintf(w, "<pre><div>\n")
+	fmt.Fprintf(w, "<pre><div>")
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(in, 1<<16))
+
+	prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
+	if !ok {
+		return fmt.Errorf("something funky with path...")
+	}
 
 	pkg := stanza{}
 
@@ -57,7 +72,9 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			// reset pkg
 			pkg = stanza{}
 
-			fmt.Fprintf(w, "</div><div>\n")
+			if !short {
+				fmt.Fprintf(w, "</div><div>\n")
+			}
 
 			continue
 		}
@@ -77,12 +94,21 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			pkg.version = after
 		}
 
+		if short {
+			if before != "V" {
+				continue
+			}
+
+			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
+			hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
+			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
+			fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
+
+			continue
+		}
+
 		switch before {
 		case "V":
-			prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
-			if !ok {
-				return fmt.Errorf("something funky with path...")
-			}
 			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
 			hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
 			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
