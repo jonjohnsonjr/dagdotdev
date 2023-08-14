@@ -8,8 +8,11 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/dustin/go-humanize"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
@@ -74,19 +77,32 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			pkg.version = after
 		}
 
-		if before != "V" {
-			fmt.Fprintf(w, "%s\n", line) // Println will add back the final '\n'
-			continue
+		switch before {
+		case "V":
+			prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
+			if !ok {
+				return fmt.Errorf("something funky with path...")
+			}
+			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
+			hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
+			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
+			fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
+		case "S", "I":
+			i, err := strconv.ParseInt(after, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing %q as int: %w", after, err)
+			}
+			fmt.Fprintf(w, "%s:<span title=%q>%s</span>\n", before, humanize.Bytes(uint64(i)), after)
+		case "t":
+			sec, err := strconv.ParseInt(after, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing %q as timestamp: %w", after, err)
+			}
+			t := time.Unix(sec, 0)
+			fmt.Fprintf(w, "<span title=%q>t:%s</span>\n", t.String(), after)
+		default:
+			fmt.Fprintf(w, "%s\n", line)
 		}
-
-		prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
-		if !ok {
-			return fmt.Errorf("something funky with path...")
-		}
-		apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
-		hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
-		href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
-		fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
 	}
 
 	if err := scanner.Err(); err != nil {
