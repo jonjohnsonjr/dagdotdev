@@ -25,7 +25,6 @@ import (
 	"github.com/digitorus/timestamp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -459,67 +458,6 @@ func (h *handler) jq(output *jsonOutputter, b []byte, r *http.Request, header *H
 	return b, nil
 }
 
-func (h *handler) getTags(repo name.Repository) ([]string, bool) {
-	h.Lock()
-	tags, ok := h.sawTags[repo.String()]
-	h.Unlock()
-	return tags, ok
-}
-
-func (h *handler) manifestHeader(ref name.Reference, desc v1.Descriptor) *HeaderData {
-	header := headerData(ref.String(), desc)
-	header.JQ = crane("manifest") + " " + ref.String()
-	header.Referrers = true
-
-	// Handle clicking repo to list tags and such.
-	if strings.Contains(ref.String(), "@") && strings.Index(ref.String(), "@") < strings.Index(ref.String(), ":") {
-		chunks := strings.SplitN(ref.String(), "@", 2)
-		header.Up = &RepoParent{
-			Parent:    ref.Context().String(),
-			Child:     chunks[1],
-			Separator: "@",
-		}
-	} else if strings.Contains(ref.String(), ":") {
-		chunks := strings.SplitN(ref.String(), ":", 2)
-		header.Up = &RepoParent{
-			Parent:    ref.Context().String(),
-			Child:     chunks[1],
-			Separator: ":",
-		}
-	} else {
-		header.Up = &RepoParent{
-			Parent: ref.String(),
-		}
-	}
-
-	// Opportunistically show referrers based on cosign scheme if we
-	// have a cached tags list response.
-	prefix := strings.Replace(desc.Digest.String(), ":", "-", 1)
-	tags, ok := h.getTags(ref.Context())
-	if ok {
-		for _, tag := range tags {
-			if tag == prefix {
-				// Referrers tag schema
-				header.CosignTags = append(header.CosignTags, CosignTag{
-					Tag:   tag,
-					Short: "fallback",
-				})
-			} else if strings.HasPrefix(tag, prefix) {
-				// Cosign tag schema
-				chunks := strings.SplitN(tag, ".", 2)
-				if len(chunks) == 2 && len(chunks[1]) != 0 {
-					header.CosignTags = append(header.CosignTags, CosignTag{
-						Tag:   tag,
-						Short: chunks[1],
-					})
-				}
-			}
-		}
-	}
-
-	return header
-}
-
 func headerData(ref string, desc v1.Descriptor) *HeaderData {
 	return &HeaderData{
 		CosignTags:       []CosignTag{},
@@ -746,6 +684,15 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 	}
 
 	header := headerData(ref, v1.Descriptor{})
+
+	filelink := strings.TrimPrefix(r.URL.Path, ref)
+	filelink = strings.TrimPrefix(filelink, "/")
+
+	before, _, ok := strings.Cut(ref, "@")
+	if ok {
+		u := "https://" + strings.TrimPrefix(before, "/https/")
+		header.JQ = "curl" + " " + u + " | tar -Oxz " + filelink
+	}
 
 	if stat.Size() > tooBig {
 		header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
