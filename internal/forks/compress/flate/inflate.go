@@ -194,7 +194,6 @@ type huffmanDecoder struct {
 // degenerate case where the tree has only a single symbol with length 1. Empty
 // trees are permitted.
 func (h *huffmanDecoder) init(lengths []int) bool {
-	// logs.Debug.Printf("lengths: %v", lengths)
 	// Sanity enables additional runtime tests during Huffman
 	// table construction. It's intended to be used during
 	// development to supplement the currently ad-hoc unit tests.
@@ -436,7 +435,9 @@ func (f *decompressor) Read(b []byte) (int, error) {
 		}
 		f.step(f)
 		// TODO(jon): This might be slightly inaccurate with timing.
-		f.woffset += int64(len(f.toRead))
+		if !f.final {
+			f.woffset += int64(len(f.toRead))
+		}
 		if f.err != nil && len(f.toRead) == 0 {
 			f.toRead = f.dict.readFlush() // Flush what's left in case of error
 			f.woffset += int64(len(f.toRead))
