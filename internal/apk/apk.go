@@ -146,6 +146,41 @@ func (h *handler) errHandler(hfe HandleFuncE) http.HandlerFunc {
 }
 
 func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
+	qs := r.URL.Query()
+
+	if q := qs.Get("url"); q != "" {
+		u, err := url.PathUnescape(q)
+		if err != nil {
+			return err
+		}
+		etag, err := h.headUrl(u)
+		if err != nil {
+			return fmt.Errorf("resolving etag: %w", err)
+		}
+		if etag == "" {
+			return fmt.Errorf("missing etag on APKINDEX.tar.gz")
+		}
+		if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
+			etag = unquoted
+		}
+
+		// TODO: Consider caring about W/"..." vs "..."?
+		etagHex := hex.EncodeToString([]byte(etag))
+
+		if _, err := hex.DecodeString(etag); err == nil {
+			etagHex = etag
+		}
+
+		p := u
+		if before, after, ok := strings.Cut(p, "://"); ok {
+			p = path.Join(before, after)
+		}
+
+		redir := fmt.Sprintf("%s@etag:%s", p, etagHex)
+		http.Redirect(w, r, redir, http.StatusFound)
+		return nil
+	}
+
 	// Cache landing page for 5 minutes.
 	// TODO: Uncomment this.
 	// w.Header().Set("Cache-Control", "max-age=300")
@@ -565,49 +600,6 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 		}
 	}
 	// header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
-
-	return bodyTmpl.Execute(w, header)
-}
-
-func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, ref string, f httpserve.File, ctype string) error {
-	// This must be a directory because it wasn't part of a filesystem
-	stat, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	if !stat.IsDir() {
-		return fmt.Errorf("file was not a directory")
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	title := ref
-	if before, _, ok := strings.Cut(ref, "@"); ok {
-		title = path.Base(before)
-	}
-	if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
-		return err
-	}
-
-	filename := strings.TrimPrefix(fname, "/"+prefix)
-	filename = strings.TrimPrefix(filename, "/")
-
-	sys := stat.Sys()
-	tarh, ok := sys.(*tar.Header)
-	if ok {
-		filename = tarh.Name
-	} else {
-		logs.Debug.Printf("sys: %T", sys)
-	}
-
-	tarflags := "tar -tv "
-
-	desc := v1.Descriptor{
-		Size:      size,
-		MediaType: mediaType,
-	}
-	header := headerData(ref, desc)
-
-	// TODO: Make filename clickable to go up a directory.
-	header.JQ = crane("export") + " " + ref + " | " + tarflags + " " + filename
 
 	return bodyTmpl.Execute(w, header)
 }

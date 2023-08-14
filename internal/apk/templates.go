@@ -1,7 +1,6 @@
 package apk
 
 import (
-	"fmt"
 	"text/template"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -17,21 +16,6 @@ func init() {
 	headerTmpl = template.Must(template.New("headerTemplate").Parse(headerTemplate))
 	bodyTmpl = template.Must(template.New("bodyTemplate").Parse(bodyTemplate))
 	oauthTmpl = template.Must(template.New("oauthTemplate").Parse(oauthTemplate))
-}
-
-const (
-	gcrane     = `<a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/gcrane/README.md">gcrane</a>`
-	craneLink  = `<a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a>`
-	subLinkFmt = `<a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_%s.md">%s</a>`
-)
-
-func crane(sub string) string {
-	if sub == "" {
-		return craneLink
-	}
-
-	subLink := fmt.Sprintf(subLinkFmt, sub, sub)
-	return craneLink + " " + subLink
 }
 
 const (
@@ -75,6 +59,14 @@ body {
 </style>
 </head>
 <h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
+<p>
+	Enter an APKINDEX.tar.gz URL:
+</p>
+<form action="/" method="GET" autocomplete="off" spellcheck="false">
+<input size="100" type="text" name="url" value=""/>
+<input type="submit" />
+</form>
+<p>
 <h4>Interesting examples</h4>
 <ul>
   <li><a href="/https/packages.wolfi.dev/os/aarch64/APKINDEX.tar.gz">packages.wolfi.dev/os/aarch64</a></li>
