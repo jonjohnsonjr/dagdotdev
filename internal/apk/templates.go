@@ -81,6 +81,15 @@ body {
   <li><a href="/https/packages.wolfi.dev/os/x86_64/APKINDEX.tar.gz">packages.wolfi.dev/os/x86_64</a></li>
   <li><a href="/https/packages.cgr.dev/os/aarch64/APKINDEX.tar.gz">packages.cgr.dev/os/aarch64</a></li>
   <li><a href="/https/packages.cgr.dev/os/x86_64/APKINDEX.tar.gz">packages.cgr.dev/os/x86_64</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/aarch64/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/aarch64</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/armhf/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/armhf</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/armv7/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/armv7</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/mips64/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/mips64</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/ppc64le/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/ppc64le</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/riscv64/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/riscv64</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/s390x/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/s390x</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/x86/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/x86</a></li>
+  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/x86_64</a></li>
 </ul>
 </p>
 </body>
