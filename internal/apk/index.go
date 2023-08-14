@@ -20,12 +20,13 @@ type stanza struct {
 	checksum []byte
 	name     string
 	version  string
-	deps     []string
-	provides []string
 }
 
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
 	short := r.URL.Query().Get("short") != "false"
+
+	pkgs := []stanza{}
+	ptov := map[string]string{}
 
 	title := ref
 	if before, _, ok := strings.Cut(ref, "@"); ok {
@@ -95,15 +96,10 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		}
 
 		if short {
-			if before != "V" {
-				continue
+			if before == "V" {
+				ptov[pkg.name] = pkg.version
+				pkgs = append(pkgs, pkg)
 			}
-
-			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
-			hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
-			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
-			fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
-
 			continue
 		}
 
@@ -128,6 +124,25 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			fmt.Fprintf(w, "<span title=%q>t:%s</span>\n", t.String(), after)
 		default:
 			fmt.Fprintf(w, "%s\n", line)
+		}
+	}
+
+	for _, pkg := range pkgs {
+		last, ok := ptov[pkg.name]
+		if !ok {
+			return fmt.Errorf("did not see %q", pkg.name)
+		}
+
+		bold := pkg.version == last
+
+		apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
+		hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
+		href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
+
+		if !bold {
+			fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
+		} else {
+			fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
 		}
 	}
 
