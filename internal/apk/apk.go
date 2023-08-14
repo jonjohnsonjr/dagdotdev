@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"io/fs"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -163,7 +165,7 @@ func renderOctets(w http.ResponseWriter, r *http.Request, b []byte) error {
 	return nil
 }
 
-func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref name.Reference, b []byte, output *jsonOutputter, u url.URL) error {
+func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref string, b []byte, output *jsonOutputter, u url.URL) error {
 	switch r.URL.Query().Get("render") {
 	case "raw":
 		fmt.Fprintf(w, "<pre>")
@@ -270,10 +272,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 
 	// We want to get the part after @ but before the filepath.
 	before, rest, ok := strings.Cut(p, "@")
-	if !ok {
-		return fmt.Errorf("missing hash")
-	}
-
 	if !ok || strings.Contains(u, "APKINDEX.tar.gz") {
 		etag, err := h.headUrl(u)
 		if err != nil {
@@ -350,6 +348,16 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			defer rc.Close()
 
 			return h.renderIndex(w, r, rc, ref)
+		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("rendering SBOM: opening %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderSBOM(w, r, rc, ref)
 		}
 
 		log.Printf("serving http from cache")
@@ -714,4 +722,74 @@ func (d *dumbEscaper) Write(p []byte) (n int, err error) {
 		}
 	}
 	return len(p), d.buf.Flush()
+}
+
+func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File, ref string) error {
+	title := ref
+	if before, _, ok := strings.Cut(ref, "@"); ok {
+		title = path.Base(before)
+	}
+	if err := headerTmpl.Execute(w, TitleData{title}); err != nil {
+		return err
+	}
+
+	stat, err := in.Stat()
+	if err != nil {
+		return fmt.Errorf("stat: %w", err)
+	}
+
+	output := &jsonOutputter{
+		w:     w,
+		u:     r.URL,
+		fresh: []bool{},
+		mt:    r.URL.Query().Get("mt"),
+	}
+
+	header := headerData(ref, v1.Descriptor{})
+
+	if stat.Size() > tooBig {
+		header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
+		if err := bodyTmpl.Execute(w, header); err != nil {
+			return fmt.Errorf("bodyTmpl: %w", err)
+		}
+		dumb := &dumbEscaper{buf: bufio.NewWriter(w)}
+		if _, err := io.CopyN(dumb, in, httpserve.TooBig); err != nil {
+			return err
+		}
+		fmt.Fprintf(w, footer)
+
+		return nil
+	}
+
+	// TODO: Can we do this in a streaming way?
+	input, err := ioutil.ReadAll(io.LimitReader(in, tooBig))
+	if err != nil {
+		return err
+	}
+
+	// Mutates header for bodyTmpl.
+	b, err := h.jq(output, input, r, header)
+	if err != nil {
+		return fmt.Errorf("h.jq: %w", err)
+	}
+
+	if err := bodyTmpl.Execute(w, header); err != nil {
+		return fmt.Errorf("bodyTmpl: %w", err)
+	}
+
+	if err := h.renderContent(w, r, ref, b, output, *r.URL); err != nil {
+		if r.URL.Query().Get("render") == "xxd" {
+			return fmt.Errorf("renderContent: %w", err)
+		}
+
+		r.URL.Query().Set("render", "xxd")
+		fmt.Fprintf(w, "NOTE: failed to render: %v\n", err)
+		if err := renderOctets(w, r, b); err != nil {
+			return fmt.Errorf("renderContent fallback: %w", err)
+		}
+	}
+
+	fmt.Fprintf(w, footer)
+
+	return nil
 }
