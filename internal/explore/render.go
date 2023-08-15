@@ -1025,32 +1025,88 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 				}
 			}
 		case "repositories", "child":
-			if mv, ok := o[k]; ok {
-				if ii, ok := mv.([]interface{}); ok {
-					if len(ii) == 0 {
-						w.Value([]byte("[]"))
+			if !w.path(".predicate.contents.repositories") {
+				if mv, ok := o[k]; ok {
+					if ii, ok := mv.([]interface{}); ok {
+						if len(ii) == 0 {
+							w.Value([]byte("[]"))
+							continue
+						}
+						w.StartArray()
+						for _, iface := range ii {
+							if original, ok := iface.(string); ok {
+								w.LinkRepo(path.Join(w.repo, original), original)
+							} else {
+								// This wasn't a list of strings, render whatever we found.
+								b, err := json.Marshal(iface)
+								if err != nil {
+									return err
+								}
+								raw := json.RawMessage(b)
+								if err := renderRaw(w, &raw); err != nil {
+									return err
+								}
+							}
+						}
+						w.EndArray()
+
+						// Don't fall through to renderRaw.
 						continue
 					}
-					w.StartArray()
-					for _, iface := range ii {
-						if original, ok := iface.(string); ok {
-							w.LinkRepo(path.Join(w.repo, original), original)
-						} else {
-							// This wasn't a list of strings, render whatever we found.
-							b, err := json.Marshal(iface)
-							if err != nil {
-								return err
-							}
-							raw := json.RawMessage(b)
-							if err := renderRaw(w, &raw); err != nil {
-								return err
+				}
+			}
+		case "packages":
+			if w.path(".predicate.contents.packages") {
+				firstRepo := ""
+				if rv, ok := o["repositories"]; ok {
+					if ri, ok := rv.([]interface{}); ok {
+						if len(ri) != 0 {
+							ii := ri[0]
+							if rs, ok := ii.(string); ok {
+								firstRepo = strings.Replace(rs, "://", "/", 1)
+								log.Printf("firstRepo: %q", firstRepo)
 							}
 						}
 					}
-					w.EndArray()
+				}
 
-					// Don't fall through to renderRaw.
-					continue
+				// TODO: Care about this.
+				arch := "x86_64"
+
+				if firstRepo != "" {
+					if mv, ok := o[k]; ok {
+						if ii, ok := mv.([]interface{}); ok {
+							if len(ii) == 0 {
+								w.Value([]byte("[]"))
+								continue
+							}
+							w.StartArray()
+							for _, iface := range ii {
+								if original, ok := iface.(string); ok {
+									name, ver, ok := strings.Cut(original, "=")
+									if ok {
+										href := fmt.Sprintf("https://apk.dag.dev/%s/%s/%s-%s.apk", firstRepo, arch, name, ver)
+										w.BlueDoc(href, original)
+										continue
+									}
+								}
+
+								// This wasn't a list of strings, render whatever we found.
+								b, err := json.Marshal(iface)
+								if err != nil {
+									return err
+								}
+								raw := json.RawMessage(b)
+								if err := renderRaw(w, &raw); err != nil {
+									return err
+								}
+							}
+							w.EndArray()
+
+							// Don't fall through to renderRaw.
+							continue
+						}
+					}
 				}
 			}
 		case "manifest":
