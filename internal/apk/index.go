@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -17,9 +18,10 @@ import (
 )
 
 type apkindex struct {
-	checksum []byte
+	checksum string
 	name     string
 	version  string
+	provides map[string]string
 }
 
 type pkginfo struct {
@@ -27,8 +29,24 @@ type pkginfo struct {
 	commit string
 }
 
+func (a apkindex) need(depends []string) bool {
+	if len(depends) == 0 {
+		return true
+	}
+	for _, depend := range depends {
+		if _, ok := a.provides[depend]; !ok {
+			if a.name != depend {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
 	short := r.URL.Query().Get("short") != "false"
+	depends := r.URL.Query()["depend"]
 
 	pkgs := []apkindex{}
 	ptov := map[string]string{}
@@ -44,8 +62,19 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			// Link to long form.
 			header.JQ = "curl" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
 
-			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
-			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
+			if len(depends) == 0 {
+				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
+				header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk\n", $2}'`
+			} else {
+				// awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}' | grep "so:libc.so.6" | cut -d" " -f1
+				header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
+
+				for _, dep := range depends {
+					header.JQ += ` | grep "` + dep + `"`
+				}
+
+				header.JQ += ` | cut -d" " -f1`
+			}
 		} else {
 			header.JQ = "curl" + " " + u + " | tar -Oxz APKINDEX"
 		}
@@ -76,6 +105,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		return fmt.Errorf("something funky with path...")
 	}
 
+	added := false
 	pkg := apkindex{}
 
 	for scanner.Scan() {
@@ -83,8 +113,14 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 
 		before, after, ok := strings.Cut(line, ":")
 		if !ok {
+			if pkg.name != "" {
+				pkgs = append(pkgs, pkg)
+				added = true
+			}
+
 			// reset pkg
 			pkg = apkindex{}
+			added = false
 
 			if !short {
 				fmt.Fprintf(w, "</div><div>\n")
@@ -101,17 +137,27 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 				return fmt.Errorf("base64 decode: %w", err)
 			}
 
-			pkg.checksum = decoded
+			pkg.checksum = hex.EncodeToString(decoded)
 		case "P":
 			pkg.name = after
 		case "V":
 			pkg.version = after
+		case "p":
+			items := strings.Split(after, " ")
+			pkg.provides = make(map[string]string, len(items))
+			for _, i := range items {
+				before, after, ok := strings.Cut(i, "=")
+				if ok {
+					pkg.provides[before] = after
+				}
+			}
 		}
 
 		if short {
 			if before == "V" {
 				ptov[pkg.name] = pkg.version
-				pkgs = append(pkgs, pkg)
+			}
+			if before == "p" {
 			}
 			continue
 		}
@@ -119,7 +165,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		switch before {
 		case "V":
 			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
-			hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
+			hexsum := "sha1:" + pkg.checksum
 			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
 			fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
 		case "S", "I":
@@ -139,19 +185,29 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			fmt.Fprintf(w, "%s\n", line)
 		}
 	}
+	if short && !added {
+		if pkg.name != "" {
+			pkgs = append(pkgs, pkg)
+			added = true
+		}
+	}
 
+	// pkgs is empty if short is false
 	for _, pkg := range pkgs {
 		last, ok := ptov[pkg.name]
 		if !ok {
 			return fmt.Errorf("did not see %q", pkg.name)
 		}
 
-		bold := pkg.version == last
+		if !pkg.need(depends) {
+			continue
+		}
 
 		apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
-		hexsum := "sha1:" + hex.EncodeToString(pkg.checksum)
+		hexsum := "sha1:" + pkg.checksum
 		href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
 
+		bold := pkg.version == last
 		if !bold {
 			fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
 		} else {
@@ -172,12 +228,16 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 	if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
 		return err
 	}
+
 	header := headerData(ref, v1.Descriptor{})
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
 		header.JQ = "curl" + " " + u + " | tar -Oxz .PKGINFO"
 	}
+
+	// TODO: We need a cookie or something.
+	apkindex := path.Join(path.Dir(before), "APKINDEX.tar.gz", "APKINDEX")
 
 	if err := bodyTmpl.Execute(w, header); err != nil {
 		return err
@@ -195,7 +255,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 		before, after, ok := strings.Cut(line, "=")
 		if !ok {
 
-			fmt.Fprintf(w, "</div><div>\n")
+			fmt.Fprintf(w, "%s\n", line)
 
 			continue
 		}
@@ -219,6 +279,9 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 
 			href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/%s/%s.yaml", pkg.commit, pkg.origin)
 			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
+		case "depend":
+			href := fmt.Sprintf("%s?depend=%s", apkindex, url.QueryEscape(after))
+			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
 		case "size":
 			i, err := strconv.ParseInt(after, 10, 64)
 			if err != nil {
@@ -231,7 +294,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 				return fmt.Errorf("parsing %q as timestamp: %w", after, err)
 			}
 			t := time.Unix(sec, 0)
-			fmt.Fprintf(w, "before = <span title=%q>%s</span>\n", t.String(), after)
+			fmt.Fprintf(w, "%s = <span title=%q>%s</span>\n", before, t.String(), after)
 		default:
 			fmt.Fprintf(w, "%s\n", line)
 		}

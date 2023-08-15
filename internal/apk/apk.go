@@ -261,6 +261,26 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 	return nil
 }
 
+func (h *handler) getEtag(u string) (string, error) {
+	etag, err := h.headUrl(u)
+	if err != nil {
+		return "", fmt.Errorf("resolving etag: %w", err)
+	}
+
+	if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
+		etag = unquoted
+	}
+
+	// TODO: Consider caring about W/"..." vs "..."?
+	etagHex := hex.EncodeToString([]byte(etag))
+
+	if _, err := hex.DecodeString(etag); err == nil {
+		etagHex = etag
+	}
+
+	return etagHex, nil
+}
+
 // foo/bar/baz/APKINDEX.tar.gz => HEAD for etag, redirect.
 // foo/bar/baz/APKINDEX.tar.gz@etag:12345 => Fetch from cache by etag (backfill if missing), render as tarball fs.
 // foo/bar/baz/APKINDEX.tar.gz@etag:12345/{DESCRIPTION/APKINDEX} => As above, but render files.
@@ -268,6 +288,16 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 // foo/bar/baz/foo.apk@sha1:abcd => Control section => TODO: Show signature _and_ control?
 // foo/bar/baz/foo.apk@sha256:def321 => Data section.
 func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
+	qs := r.URL.Query()
+	qss := ""
+	depends, ok := qs["depend"]
+	if ok {
+		for i, dep := range depends {
+			depends[i] = url.QueryEscape(dep)
+		}
+		qss = "?depend=" + strings.Join(depends, "&depend=")
+		log.Printf("qss = %q", qss)
+	}
 	p, root, err := splitFsURL(r.URL.Path)
 	if err != nil {
 		return err
@@ -310,7 +340,10 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		before, rest, ok := strings.Cut(p, "@")
 		if !ok {
 			redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
-			http.Redirect(w, r, redir, http.StatusFound)
+			if before, rest, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz"); ok {
+				redir = fmt.Sprintf("%sAPKINDEX.tar.gz@etag:%s%s", before, etagHex, rest)
+			}
+			http.Redirect(w, r, redir+qss, http.StatusFound)
 			return nil
 		}
 
@@ -325,7 +358,7 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		if redir != r.URL.Path {
 			log.Printf("%q != %q", redir, r.URL.Path)
 			if strings.Contains(before, "APKINDEX.tar.gz") {
-				http.Redirect(w, r, redir, http.StatusFound)
+				http.Redirect(w, r, redir+qss, http.StatusFound)
 				return nil
 			}
 		}
