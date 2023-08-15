@@ -353,7 +353,7 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 
 		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("opening %q", filename)
+			log.Printf("rendering APKINDEX: %q", filename)
 			rc, err := fs.Open(filename)
 			if err != nil {
 				return fmt.Errorf("open(%q): %w", filename, err)
@@ -363,7 +363,7 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			return h.renderIndex(w, r, rc, ref)
 		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering SBOM: opening %q", filename)
+			log.Printf("rendering SBOM: %q", filename)
 			rc, err := fs.Open(filename)
 			if err != nil {
 				return fmt.Errorf("open(%q): %w", filename, err)
@@ -371,6 +371,16 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			defer rc.Close()
 
 			return h.renderSBOM(w, r, rc, ref)
+		} else if strings.HasSuffix(r.URL.Path, "/.PKGINFO") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("rendering .PKGINFO: %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderPkgInfo(w, r, rc, ref)
 		}
 
 		log.Printf("serving http from cache")
