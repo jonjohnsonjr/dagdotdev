@@ -80,7 +80,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
 		if short {
 			// Link to long form.
-			header.JQ = "curl" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
+			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
 
 			if len(provides) == 0 && len(depends) == 0 {
 				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
@@ -106,19 +106,19 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 				}
 			}
 		} else {
-			header.JQ = "curl" + " " + u + " | tar -Oxz APKINDEX"
+			header.JQ = "curl -L" + " " + u + " | tar -Oxz APKINDEX"
 		}
 	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
 		before = path.Join(before, "APKINDEX.tar.gz")
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
 		if short {
 			// Link to long form.
-			header.JQ = "curl" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
+			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
 
 			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
 			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
 		} else {
-			header.JQ = "curl" + " " + u + " | tar -Oxz APKINDEX"
+			header.JQ = "curl -L" + " " + u + " | tar -Oxz APKINDEX"
 		}
 	}
 
@@ -269,7 +269,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
-		header.JQ = "curl" + " " + u + " | tar -Oxz .PKGINFO"
+		header.JQ = "curl -L" + " " + u + " | tar -Oxz .PKGINFO"
 	}
 
 	// TODO: We need a cookie or something.

@@ -241,7 +241,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 		before, _, ok := strings.Cut(ref, "@")
 		if ok {
 			u := "https://" + strings.TrimPrefix(before, "/https/")
-			header.JQ = "curl" + " " + u
+			header.JQ = "curl -L" + " " + u
 			if kind == "zstd" {
 				header.JQ += " | zstd -d"
 			} else if kind == "gzip" {
@@ -616,7 +616,7 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimPrefix(before, "/https/")
-		header.JQ = "curl" + " " + u + " | " + tarflags + " " + filelink
+		header.JQ = "curl -L" + " " + u + " | " + tarflags + " " + filelink
 
 		if !stat.IsDir() {
 			if stat.Size() > httpserve.TooBig {
@@ -629,7 +629,7 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
 		before = path.Join(before, "APKINDEX.tar.gz")
 		u := "https://" + strings.TrimPrefix(before, "/https/")
-		header.JQ = "curl" + " " + u + " | " + tarflags + " " + filelink
+		header.JQ = "curl -L" + " " + u + " | " + tarflags + " " + filelink
 
 		if !stat.IsDir() {
 			if stat.Size() > httpserve.TooBig {
@@ -727,7 +727,7 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimPrefix(before, "/https/")
-		header.JQ = "curl" + " " + u + " | tar -Oxz " + filelink
+		header.JQ = "curl -L" + " " + u + " | tar -Oxz " + filelink
 	}
 
 	if stat.Size() > tooBig {
