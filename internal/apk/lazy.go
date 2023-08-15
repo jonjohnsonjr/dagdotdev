@@ -110,6 +110,18 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 		logs.Debug.Printf("range read of %s: %v", b.Url, err)
 		return nil, err
 	}
+	if res.StatusCode == 200 {
+		logs.Debug.Printf("Didn't support range requests")
+		logs.Debug.Printf("Discarding %d bytes", off)
+		// Didn't support range requests.
+		if _, err := io.CopyN(io.Discard, res.Body, off+1); err != nil {
+			return nil, err
+		}
+		return &blobReader{
+			bs:   b,
+			body: res.Body,
+		}, nil
+	}
 	if res.StatusCode != http.StatusPartialContent {
 		logs.Debug.Printf("range read of %s: %v", b.Url, res.Status)
 		if redir := res.Header.Get("Location"); redir != "" && res.StatusCode/100 == 3 {
