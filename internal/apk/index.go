@@ -22,6 +22,7 @@ type apkindex struct {
 	name     string
 	version  string
 	provides map[string]string
+	depends  []string
 }
 
 type pkginfo struct {
@@ -29,7 +30,25 @@ type pkginfo struct {
 	commit string
 }
 
-func (a apkindex) need(depends []string) bool {
+func (a apkindex) needs(provides []string) bool {
+	if len(provides) == 0 {
+		return true
+	}
+outer:
+	for _, prov := range provides {
+		for _, dep := range a.depends {
+			if dep == prov {
+				continue outer
+			}
+		}
+
+		return false
+	}
+
+	return true
+}
+
+func (a apkindex) satisfies(depends []string) bool {
 	if len(depends) == 0 {
 		return true
 	}
@@ -46,6 +65,7 @@ func (a apkindex) need(depends []string) bool {
 
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
 	short := r.URL.Query().Get("short") != "false"
+	provides := r.URL.Query()["provide"]
 	depends := r.URL.Query()["depend"]
 
 	pkgs := []apkindex{}
@@ -62,18 +82,28 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			// Link to long form.
 			header.JQ = "curl" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
 
-			if len(depends) == 0 {
+			if len(provides) == 0 && len(depends) == 0 {
 				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
 				header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk\n", $2}'`
 			} else {
-				// awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}' | grep "so:libc.so.6" | cut -d" " -f1
-				header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
+				if len(provides) != 0 {
+					// awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}' | grep "so:libc.so.6" | cut -d" " -f1
+					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
 
-				for _, dep := range depends {
-					header.JQ += ` | grep "` + dep + `"`
+					for _, dep := range provides {
+						header.JQ += ` | grep "` + dep + `"`
+					}
+
+					header.JQ += ` | cut -d" " -f1`
+				} else {
+					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "D" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
+
+					for _, dep := range depends {
+						header.JQ += ` | grep "` + dep + `"`
+					}
+
+					header.JQ += ` | cut -d" " -f1`
 				}
-
-				header.JQ += ` | cut -d" " -f1`
 			}
 		} else {
 			header.JQ = "curl" + " " + u + " | tar -Oxz APKINDEX"
@@ -151,6 +181,8 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					pkg.provides[before] = after
 				}
 			}
+		case "D":
+			pkg.depends = strings.Split(after, " ")
 		}
 
 		if short {
@@ -199,7 +231,11 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			return fmt.Errorf("did not see %q", pkg.name)
 		}
 
-		if !pkg.need(depends) {
+		if !pkg.needs(depends) {
+			continue
+		}
+
+		if !pkg.satisfies(provides) {
 			continue
 		}
 
@@ -279,8 +315,18 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 
 			href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/%s/%s.yaml", pkg.commit, pkg.origin)
 			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
-		case "depend":
+		case "pkgname":
 			href := fmt.Sprintf("%s?depend=%s", apkindex, url.QueryEscape(after))
+			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
+		case "depend":
+			href := fmt.Sprintf("%s?provide=%s", apkindex, url.QueryEscape(after))
+			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
+		case "provides":
+			p, _, ok := strings.Cut(after, "=")
+			if !ok {
+				p = after
+			}
+			href := fmt.Sprintf("%s?depend=%s", apkindex, url.QueryEscape(p))
 			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
 		case "size":
 			i, err := strconv.ParseInt(after, 10, 64)

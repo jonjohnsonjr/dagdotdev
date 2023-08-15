@@ -289,13 +289,21 @@ func (h *handler) getEtag(u string) (string, error) {
 // foo/bar/baz/foo.apk@sha256:def321 => Data section.
 func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	qs := r.URL.Query()
-	qss := ""
+	qss := "?"
+	provides, ok := qs["provide"]
+	if ok {
+		for i, dep := range provides {
+			provides[i] = url.QueryEscape(dep)
+		}
+		qss += "provide=" + strings.Join(provides, "&provide=")
+		log.Printf("qss = %q", qss)
+	}
 	depends, ok := qs["depend"]
 	if ok {
 		for i, dep := range depends {
 			depends[i] = url.QueryEscape(dep)
 		}
-		qss = "?depend=" + strings.Join(depends, "&depend=")
+		qss += "&depend=" + strings.Join(depends, "&depend=")
 		log.Printf("qss = %q", qss)
 	}
 	p, root, err := splitFsURL(r.URL.Path)
