@@ -9,6 +9,9 @@ package http
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
+	"debug/elf"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -730,6 +733,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	code := http.StatusOK
 	br := bufio.NewReaderSize(content, sniffLen)
 
+	isElf := false
 	// If Content-Type isn't set, use the file's extension to find it, but
 	// if the Content-Type is unset explicitly, do not sniff the type.
 	ctypes, haveType := w.Header()["Content-Type"]
@@ -743,6 +747,12 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 				http.Error(w, "serveContent.Peek: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+
+			if buf[0] == '\x7f' || buf[1] == 'E' || buf[2] == 'L' || buf[3] == 'F' {
+				isElf = true
+				log.Printf("ELF!!")
+			}
+
 			ctype = DetectContentType(buf)
 			logs.Debug.Printf("DetectContentType = %s", ctype)
 		} else {
@@ -870,21 +880,38 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 				sendSize = TooBig
 			}
 
-			rw := w
-			var w io.Writer
-			if strings.HasPrefix(ctype, "text/") || strings.Contains(ctype, "json") {
-				w = &dumbEscaper{buf: bufio.NewWriter(rw)}
-			} else {
-				w = xxd.NewWriter(rw, sendSize)
-			}
-
-			if sendSize < 0 {
-				if _, err := io.Copy(w, sendContent); err != nil {
-					logs.Debug.Printf("Copy: %v", err)
+			if isElf {
+				b, err := io.ReadAll(br)
+				br := bytes.NewReader(b)
+				ef, err := elf.NewFile(br)
+				if err != nil {
+					log.Printf("elf: %v", err)
+				}
+				enc := json.NewEncoder(bufio.NewWriter(w))
+				enc.SetIndent("", "  ")
+				if err := enc.Encode(ef); err != nil {
+					log.Printf("elf encode: %v", err)
+					http.Error(w, "encode ELF: "+err.Error(), http.StatusInternalServerError)
+					return
 				}
 			} else {
-				if _, err := io.CopyN(w, sendContent, sendSize); err != nil {
-					logs.Debug.Printf("CopyN: %v", err)
+				rw := w
+				var w io.Writer
+
+				if strings.HasPrefix(ctype, "text/") || strings.Contains(ctype, "json") {
+					w = &dumbEscaper{buf: bufio.NewWriter(rw)}
+				} else {
+					w = xxd.NewWriter(rw, sendSize)
+				}
+
+				if sendSize < 0 {
+					if _, err := io.Copy(w, sendContent); err != nil {
+						logs.Debug.Printf("Copy: %v", err)
+					}
+				} else {
+					if _, err := io.CopyN(w, sendContent, sendSize); err != nil {
+						logs.Debug.Printf("CopyN: %v", err)
+					}
 				}
 			}
 		} else {
