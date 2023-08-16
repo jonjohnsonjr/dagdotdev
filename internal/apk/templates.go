@@ -235,12 +235,8 @@ input ~ .tab {          /* grey line between tab and contents */
 <div>
 <h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
 </div>
-{{ if .Message }}<p>{{.Message}}</p> {{ end }}
-{{ if .JQ }}
-<h4><span class="noselect">$</span>{{.JQ}}</h4>
-
-{{ end }}
-`
+{{ if .Message }}<p>{{.Message}}</p>{{ end }}
+{{ if .JQ }}<h4><span class="noselect">$</span>{{.JQ}}</h4>{{ end }}`
 
 	footer = `
 </body>

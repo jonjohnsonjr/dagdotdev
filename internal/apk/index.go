@@ -282,6 +282,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 
 	// TODO: We need a cookie or something.
 	apkindex := path.Join(path.Dir(before), "APKINDEX.tar.gz", "APKINDEX")
+	sizeHref := path.Join("/size", strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/https/"), "/"))
 
 	if err := bodyTmpl.Execute(w, header); err != nil {
 		return err
@@ -341,7 +342,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 			if err != nil {
 				return fmt.Errorf("parsing %q as int: %w", after, err)
 			}
-			fmt.Fprintf(w, "%s = <span title=%q>%s</span>\n", before, humanize.Bytes(uint64(i)), after)
+			fmt.Fprintf(w, "%s = <a title=%q href=%q>%s</a>\n", before, humanize.Bytes(uint64(i)), sizeHref, after)
 		case "builddate":
 			sec, err := strconv.ParseInt(after, 10, 64)
 			if err != nil {

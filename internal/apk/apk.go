@@ -87,6 +87,7 @@ func New(opts ...Option) http.Handler {
 	mux.HandleFunc("/", h.errHandler(h.renderResponse))
 
 	mux.HandleFunc("/fs/", h.errHandler(h.renderFS))
+	mux.HandleFunc("/size/", h.errHandler(h.renderFat))
 
 	// Janky workaround for downloading via the "urls" field.
 	mux.HandleFunc("/http/", h.errHandler(h.renderFS))
@@ -101,7 +102,7 @@ func New(opts ...Option) http.Handler {
 }
 
 func splitFsURL(p string) (string, string, error) {
-	for _, prefix := range []string{"/fs/", "/layers/", "/https/", "/http/", "/blob/", "/cache/"} {
+	for _, prefix := range []string{"/fs/", "/layers/", "/https/", "/http/", "/blob/", "/cache/", "/size/"} {
 		if strings.HasPrefix(p, prefix) {
 			return strings.TrimPrefix(p, prefix), prefix, nil
 		}
@@ -230,6 +231,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 		}
 		desc := v1.Descriptor{
 			MediaType: types.MediaType(mt),
+			Size:      blob.Size(),
 		}
 		if size := r.URL.Query().Get("size"); size != "" {
 			if parsed, err := strconv.ParseInt(size, 10, 64); err == nil {
@@ -422,6 +424,7 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			defer rc.Close()
 
 			return h.renderPkgInfo(w, r, rc, ref)
+		} else if strings.Contains(r.URL.Path, ".apk@") {
 		}
 
 		log.Printf("serving http from cache")
@@ -454,27 +457,7 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 }
 
 func getUpstreamURL(r *http.Request) (string, error) {
-	p := r.URL.Path
-	scheme := "https://"
-	if strings.HasPrefix(r.URL.Path, "/http/") {
-		p = strings.TrimPrefix(p, "/http/")
-		scheme = "http://"
-	} else {
-		p = strings.TrimPrefix(p, "/https/")
-	}
-	before, _, ok := strings.Cut(p, "@")
-	if !ok {
-		if b, _, ok := strings.Cut(p, "APKINDEX.tar.gz"); ok {
-			before = path.Join(b, "APKINDEX.tar.gz")
-		}
-	}
-	u, err := url.PathUnescape(before)
-	if err != nil {
-		return "", err
-	}
-	u = scheme + u
-
-	return strings.TrimSuffix(u, "/"), nil
+	return refToUrl(r.URL.Path)
 }
 
 func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, index soci.Index) (*soci.SociFS, error) {
@@ -533,6 +516,30 @@ func headerData(ref string, desc v1.Descriptor) *HeaderData {
 		EscapedMediaType: url.QueryEscape(string(desc.MediaType)),
 		MediaTypeLink:    getLink(string(desc.MediaType)),
 	}
+}
+
+func refToUrl(p string) (string, error) {
+	scheme := "https://"
+	if strings.HasPrefix(p, "/http/") {
+		p = strings.TrimPrefix(p, "/http/")
+		scheme = "http://"
+	} else {
+		p = strings.TrimPrefix(p, "/https/")
+		p = strings.TrimPrefix(p, "/size/")
+	}
+	before, _, ok := strings.Cut(p, "@")
+	if !ok {
+		if b, _, ok := strings.Cut(p, "APKINDEX.tar.gz"); ok {
+			before = path.Join(b, "APKINDEX.tar.gz")
+		}
+	}
+	u, err := url.PathUnescape(before)
+	if err != nil {
+		return "", err
+	}
+	u = scheme + u
+
+	return strings.TrimSuffix(u, "/"), nil
 }
 
 func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
@@ -597,12 +604,14 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 		// Digest:    hash,
 		MediaType: mediaType,
 	}
+
 	header := headerData(ref, desc)
-	// header.Up = &RepoParent{
-	// 	Parent:    ref.Context().String(),
-	// 	Separator: "@",
-	// 	Child:     ref.Identifier(),
-	// }
+	if strings.Contains(ref, ".apk@") {
+		if _, after, ok := strings.Cut(prefix, "/"); ok {
+			href := path.Join("/size", after)
+			header.SizeLink = href
+		}
+	}
 
 	if stat.IsDir() {
 		tarflags = "tar -tv "
@@ -613,31 +622,19 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 		}
 	}
 
-	before, _, ok := strings.Cut(ref, "@")
-	if ok {
-		u := "https://" + strings.TrimPrefix(before, "/https/")
-		header.JQ = "curl -L" + " " + u + " | " + tarflags + " " + filelink
+	u, err := refToUrl(ref)
+	if err != nil {
+		return err
+	}
 
-		if !stat.IsDir() {
-			if stat.Size() > httpserve.TooBig {
-				header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-			}
-			if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
-				header.JQ += " | xxd"
-			}
+	header.JQ = "curl -L" + " " + u + " | " + tarflags + " " + filelink
+
+	if !stat.IsDir() {
+		if stat.Size() > httpserve.TooBig {
+			header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
 		}
-	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
-		before = path.Join(before, "APKINDEX.tar.gz")
-		u := "https://" + strings.TrimPrefix(before, "/https/")
-		header.JQ = "curl -L" + " " + u + " | " + tarflags + " " + filelink
-
-		if !stat.IsDir() {
-			if stat.Size() > httpserve.TooBig {
-				header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-			}
-			if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
-				header.JQ += " | xxd"
-			}
+		if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
+			header.JQ += " | xxd"
 		}
 	}
 	// header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
@@ -814,4 +811,101 @@ func (h *handler) fallback(w http.ResponseWriter, r *http.Request, u string) err
 	}
 
 	return nil
+}
+
+func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
+	mt := "application/tar+gzip"
+	p, root, err := splitFsURL(r.URL.Path)
+	if err != nil {
+		return err
+	}
+
+	before, rest, ok := strings.Cut(p, "@")
+	if !ok {
+		return fmt.Errorf("no @ in %q", p)
+	}
+
+	ref := before + "@" + rest
+	if digest, _, ok := strings.Cut(rest, "/"); ok {
+		ref = before + "@" + digest
+	}
+
+	ref = root + ref
+
+	index, err := h.getIndex(r.Context(), ref)
+	if err != nil {
+		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
+	}
+
+	if index == nil {
+		// Determine if this is actually a filesystem thing.
+		blob, _, err := h.fetchBlob(w, r)
+		if err != nil {
+			return fmt.Errorf("fetchBlob: %w", err)
+		}
+
+		index, err = h.createIndex(r.Context(), blob, blob.size, ref, 0, mt)
+		if err != nil {
+			return fmt.Errorf("createIndex: %w", err)
+		}
+		if index == nil {
+			// Non-indexable blobs are filtered later.
+			return fmt.Errorf("not a filesystem")
+		}
+	}
+
+	fs, err := h.indexedFS(w, r, ref, index)
+	if err != nil {
+		return err
+	}
+
+	des, err := fs.Everything()
+	if err != nil {
+		return err
+	}
+
+	f := renderDirSize(w, r, index.TOC().Csize, ref, index.TOC().Type, types.MediaType(mt), len(des))
+	return httpserve.DirList(w, r, ref, des, f)
+}
+
+func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref string, kind string, mediaType types.MediaType, num int) func() error {
+	return func() error {
+		// This must be a directory because it wasn't part of a filesystem
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
+			return err
+		}
+
+		desc := v1.Descriptor{
+			Size: size,
+		}
+		header := headerData(ref, desc)
+
+		tarflags := "tar -tv "
+		if kind == "tar+gzip" {
+			tarflags = "tar -tvz "
+		} else if kind == "tar+zstd" {
+			tarflags = "tar --zstd -tv "
+		}
+
+		ua := r.UserAgent()
+		if strings.Contains(ua, "BSD") || strings.Contains(ua, "Mac") {
+			tarflags += " | sort -n -r -k5"
+		} else {
+			tarflags += " | sort -n -r -k3"
+		}
+
+		u, err := refToUrl(ref)
+		if err != nil {
+			return err
+		}
+
+		header.JQ = "curl -L" + " " + u + " | " + tarflags
+
+		if num > httpserve.TooBig {
+			header.JQ += fmt.Sprintf(" | head -n %d", httpserve.TooBig)
+		}
+
+		return bodyTmpl.Execute(w, header)
+	}
 }
