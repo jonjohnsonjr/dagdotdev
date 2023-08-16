@@ -640,7 +640,7 @@ func (s *sociFile) Stat() (fs.FileInfo, error) {
 }
 
 func (s *sociFile) Read(p []byte) (int, error) {
-	logs.Debug.Printf("soci.Read(%q): len(p) = %d", s.name, len(p))
+	// logs.Debug.Printf("soci.Read(%q): len(p) = %d", s.name, len(p))
 	if s.fm == nil || s.fm.Size == 0 {
 		return 0, io.EOF
 	}
