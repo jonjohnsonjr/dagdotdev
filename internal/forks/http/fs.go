@@ -303,33 +303,33 @@ func dirList(w http.ResponseWriter, r *http.Request, fname string, f File, rende
 		http.Error(w, "Error reading directory", http.StatusInternalServerError)
 		return
 	}
-	less := func(i, j int) bool {
-		in, jn := dirs.name(i), dirs.name(j)
-		if in == ".." {
-			return true
-		} else if jn == ".." {
-			return false
-		}
+	// less := func(i, j int) bool {
+	// 	in, jn := dirs.name(i), dirs.name(j)
+	// 	if in == ".." {
+	// 		return true
+	// 	} else if jn == ".." {
+	// 		return false
+	// 	}
 
-		if in == jn {
-			iw, jw := dirs.whiteout(i), dirs.whiteout(j)
-			io, jo := dirs.overwritten(i), dirs.overwritten(j)
-			ii, ji := dirs.index(i), dirs.index(j)
+	// 	if in == jn {
+	// 		iw, jw := dirs.whiteout(i), dirs.whiteout(j)
+	// 		io, jo := dirs.overwritten(i), dirs.overwritten(j)
+	// 		ii, ji := dirs.index(i), dirs.index(j)
 
-			iStays := iw == "" && io == ""
-			jStrike := jw != "" || jo != ""
-			if iStays && jStrike {
-				return true
-			}
+	// 		iStays := iw == "" && io == ""
+	// 		jStrike := jw != "" || jo != ""
+	// 		if iStays && jStrike {
+	// 			return true
+	// 		}
 
-			if ji != ii {
-				return ii < ji
-			}
-		}
+	// 		if ji != ii {
+	// 			return ii < ji
+	// 		}
+	// 	}
 
-		return in < jn
-	}
-	sort.Slice(dirs, less)
+	// 	return in < jn
+	// }
+	// sort.Slice(dirs, less)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
