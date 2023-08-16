@@ -627,6 +627,26 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 		return err
 	}
 
+	if strings.HasSuffix(u, ".apk") {
+		scheme, after, ok := strings.Cut(u, "://")
+		if !ok {
+			return fmt.Errorf("no scheme in %q", u)
+		}
+		dir := scheme + "://" + path.Dir(after)
+		base := path.Base(u)
+
+		before, _, ok := strings.Cut(ref, "@")
+		if !ok {
+			return fmt.Errorf("no @ in apk")
+		}
+
+		index := path.Join(path.Dir(before), "APKINDEX.tar.gz")
+
+		href := fmt.Sprintf("<a class=%q href=%q>%s</a>/<a class=%q href=%q>%s</a>", "mt", index, dir, "mt", ref, base)
+
+		u = href
+	}
+
 	header.JQ = "curl -L" + " " + u + " | " + tarflags + " " + filelink
 
 	if !stat.IsDir() {

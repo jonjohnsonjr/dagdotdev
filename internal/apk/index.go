@@ -78,6 +78,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
+		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
 		if short {
 			// TODO: This stuff is not super robust. We could write a real awk program to do it better.
 
@@ -119,6 +120,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
 		before = path.Join(before, "APKINDEX.tar.gz")
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
+		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
 		if short {
 			// Link to long form.
 			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
@@ -277,6 +279,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
+		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
 		header.JQ = "curl -L" + " " + u + " | tar -Oxz .PKGINFO"
 	}
 
