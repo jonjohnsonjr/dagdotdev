@@ -341,13 +341,19 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 
 		switch before {
 		case "commit":
-			if !strings.Contains(r.URL.Path, "packages.wolfi.dev") {
+			if strings.Contains(r.URL.Path, "packages.wolfi.dev") {
+				href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/%s/%s.yaml", pkg.commit, pkg.origin)
+				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
+			} else if strings.Contains(r.URL.Path, "packages.cgr.dev") {
+				// TODO
 				fmt.Fprintf(w, "%s\n", line)
-				continue
+			} else if strings.Contains(r.URL.Path, "dl-cdn.alpinelinux.org/alpine/edge/main") {
+				href := fmt.Sprintf("https://gitlab.alpinelinux.org/alpine/aports/-/blob/%s/main/%s/APKBUILD", pkg.commit, pkg.origin)
+				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
+			} else {
+				fmt.Fprintf(w, "%s\n", line)
 			}
 
-			href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/%s/%s.yaml", pkg.commit, pkg.origin)
-			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
 		case "pkgname":
 			href := fmt.Sprintf("%s?depend=%s", apkindex, url.QueryEscape(after))
 			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
