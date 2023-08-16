@@ -53,8 +53,16 @@ func (a apkindex) satisfies(depends []string) bool {
 		return true
 	}
 	for _, depend := range depends {
-		if _, ok := a.provides[depend]; !ok {
-			if a.name != depend {
+		dep := depend
+		name, ver, ok := strings.Cut(depend, "=")
+		if ok {
+			dep = name
+		}
+		if _, ok := a.provides[dep]; !ok {
+			if a.name != dep {
+				return false
+			}
+			if a.version != ver {
 				return false
 			}
 		}
