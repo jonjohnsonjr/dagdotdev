@@ -627,25 +627,23 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 		return err
 	}
 
-	if strings.HasSuffix(u, ".apk") {
-		scheme, after, ok := strings.Cut(u, "://")
-		if !ok {
-			return fmt.Errorf("no scheme in %q", u)
-		}
-		dir := scheme + "://" + path.Dir(after)
-		base := path.Base(u)
-
-		before, _, ok := strings.Cut(ref, "@")
-		if !ok {
-			return fmt.Errorf("no @ in apk")
-		}
-
-		index := path.Join(path.Dir(before), "APKINDEX.tar.gz")
-
-		href := fmt.Sprintf("<a class=%q href=%q>%s</a>/<a class=%q href=%q>%s</a>", "mt", index, dir, "mt", ref, base)
-
-		u = href
+	scheme, after, ok := strings.Cut(u, "://")
+	if !ok {
+		return fmt.Errorf("no scheme in %q", u)
 	}
+	dir = scheme + "://" + path.Dir(after)
+	base := path.Base(u)
+
+	before, _, ok := strings.Cut(ref, "@")
+	if !ok {
+		return fmt.Errorf("no @ in apk")
+	}
+
+	index := path.Join(path.Dir(before), "APKINDEX.tar.gz")
+
+	href := fmt.Sprintf("<a class=%q href=%q>%s</a>/<a class=%q href=%q>%s</a>", "mt", index, dir, "mt", ref, base)
+
+	u = href
 
 	header.JQ = "curl -L" + " " + u + " | " + tarflags + " " + filelink
 
@@ -738,12 +736,33 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 
 	header := headerData(ref, v1.Descriptor{})
 
-	filelink := strings.TrimPrefix(r.URL.Path, ref)
-	filelink = strings.TrimPrefix(filelink, "/")
+	filename := strings.TrimPrefix(r.URL.Path, ref)
+	filename = strings.TrimPrefix(filename, "/")
+	filelink := filename
+
+	dir := path.Dir(filename)
+	if dir != "." {
+		href := path.Join(ref, dir)
+		htext := dir + "/"
+		dirlink := fmt.Sprintf(`<a class="mt" href="%s">%s</a>`, href, htext)
+		filelink = dirlink + path.Base(filename)
+	}
 
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimPrefix(before, "/https/")
+		scheme, after, ok := strings.Cut(u, "://")
+		if !ok {
+			return fmt.Errorf("no scheme in %q", u)
+		}
+		dir := scheme + "://" + path.Dir(after)
+		base := path.Base(u)
+
+		index := path.Join(path.Dir(before), "APKINDEX.tar.gz")
+
+		href := fmt.Sprintf("<a class=%q href=%q>%s</a>/<a class=%q href=%q>%s</a>", "mt", index, dir, "mt", ref, base)
+
+		u = href
 		header.JQ = "curl -L" + " " + u + " | tar -Oxz " + filelink
 	}
 
