@@ -79,6 +79,8 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	if ok {
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
 		if short {
+			// TODO: This stuff is not super robust. We could write a real awk program to do it better.
+
 			// Link to long form.
 			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
 
@@ -95,6 +97,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					}
 
 					header.JQ += ` | cut -d" " -f1`
+					header.JQ += ` # this is approximate`
 				} else {
 					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "D" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
 
@@ -103,10 +106,11 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					}
 
 					header.JQ += ` | cut -d" " -f1`
+					header.JQ += ` # this is approximate`
 				}
 			}
 		} else {
-			header.JQ = "curl -L" + " " + u + " | tar -Oxz APKINDEX"
+			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
 		}
 	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
 		before = path.Join(before, "APKINDEX.tar.gz")
@@ -118,7 +122,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
 			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
 		} else {
-			header.JQ = "curl -L" + " " + u + " | tar -Oxz APKINDEX"
+			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
 		}
 	}
 
