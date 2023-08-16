@@ -114,7 +114,7 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 		logs.Debug.Printf("Didn't support range requests")
 		logs.Debug.Printf("Discarding %d bytes", off)
 		// Didn't support range requests.
-		if _, err := io.CopyN(io.Discard, res.Body, off+1); err != nil {
+		if _, err := io.CopyN(io.Discard, res.Body, off); err != nil {
 			return nil, err
 		}
 		return &blobReader{
