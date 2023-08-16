@@ -298,7 +298,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 
 	// TODO: We need a cookie or something.
 	apkindex := path.Join(path.Dir(before), "APKINDEX.tar.gz", "APKINDEX")
-	sizeHref := path.Join("/size", strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/https/"), "/"))
+	sizeHref := path.Join("/size", path.Dir(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/https/"), "/")))
 
 	if err := bodyTmpl.Execute(w, header); err != nil {
 		return err

@@ -939,6 +939,24 @@ func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref strin
 			return err
 		}
 
+		scheme, after, ok := strings.Cut(u, "://")
+		if !ok {
+			return fmt.Errorf("no scheme in %q", u)
+		}
+		ref = strings.Replace(ref, "/size", "/"+scheme, 1)
+
+		before, _, ok := strings.Cut(ref, "@")
+		if ok {
+			dir := scheme + "://" + path.Dir(after)
+			base := path.Base(u)
+
+			index := path.Join(path.Dir(before), "APKINDEX.tar.gz")
+
+			href := fmt.Sprintf("<a class=%q href=%q>%s</a>/<a class=%q href=%q>%s</a>", "mt", index, dir, "mt", ref, base)
+
+			u = href
+		}
+
 		header.JQ = "curl -L" + " " + u + " | " + tarflags
 
 		if num > httpserve.TooBig {
