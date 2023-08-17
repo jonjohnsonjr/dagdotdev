@@ -73,6 +73,7 @@ func (a apkindex) satisfies(depends []string) bool {
 
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
 	short := r.URL.Query().Get("short") != "false"
+	full := r.URL.Query().Get("full") != ""
 	provides := r.URL.Query()["provide"]
 	depends := r.URL.Query()["depend"]
 
@@ -263,10 +264,16 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 
 		bold := pkg.version == last
 		if !bold {
-			fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
+			if full {
+				fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
+			}
 		} else {
 			fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
 		}
+	}
+
+	if short && !full {
+		fmt.Fprintf(w, "\n<a title=%q href=%q>...</a>", "show old versions", "?full=true")
 	}
 
 	if err := scanner.Err(); err != nil {
