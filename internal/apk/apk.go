@@ -223,7 +223,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 	// Allow this to be cached for an hour.
 	w.Header().Set("Cache-Control", "max-age=3600, immutable")
 
-	httpserve.ServeContent(w, r, "", time.Time{}, blob, func(w http.ResponseWriter, ctype string) error {
+	httpserve.ServeContent(w, r, "", time.Time{}, blob, func(w http.ResponseWriter, r *http.Request, ctype string) error {
 		// Kind at this poin can be "gzip", "zstd" or ""
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
@@ -542,7 +542,7 @@ func refToUrl(p string) (string, error) {
 	return strings.TrimSuffix(u, "/"), nil
 }
 
-func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
 	stat, err := f.Stat()
 	if err != nil {
 		return err
@@ -614,11 +614,11 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 	}
 
 	if stat.IsDir() {
-		tarflags = "tar -tv "
+		tarflags = "tar -tv"
 		if kind == "tar+gzip" {
-			tarflags = "tar -tvz "
+			tarflags = "tar -tvz"
 		} else if kind == "tar+zstd" {
-			tarflags = "tar --zstd -tv "
+			tarflags = "tar --zstd -tv"
 		}
 	}
 
@@ -645,7 +645,13 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref string
 
 	u = href
 
-	header.JQ = "curl -L" + " " + u + " | " + tarflags + " " + filelink
+	tarhref := "?all=true"
+	if r.URL.Query().Get("all") == "true" {
+		tarhref = "?all=false"
+	}
+	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
+
+	header.JQ = "curl -L" + " " + u + " | " + tarlink + " " + filelink
 
 	if !stat.IsDir() {
 		if stat.Size() > httpserve.TooBig {

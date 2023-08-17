@@ -58,7 +58,7 @@ func NewMultiFS(fss []*SociFS, prefix string, ref string, size int64, mt types.M
 	}
 }
 
-func (s *MultiFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.File, ctype string) error {
+func (s *MultiFS) RenderHeader(w http.ResponseWriter, r *http.Request, fname string, f httpserve.File, ctype string) error {
 	logs.Debug.Printf("s.lastFile=%q, s.lastFs=%v, fname=%q", s.lastFile, s.lastFs == nil, fname)
 	stat, err := f.Stat()
 	if err != nil {
@@ -71,7 +71,7 @@ func (s *MultiFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.
 	if s.lastFs == nil {
 		return fmt.Errorf("something went wrong")
 	}
-	return s.lastFs.RenderHeader(w, fname, f, ctype)
+	return s.lastFs.RenderHeader(w, r, fname, f, ctype)
 
 }
 
@@ -347,7 +347,7 @@ func FS(index Index, bs BlobSeeker, prefix string, ref string, maxSize int64, mt
 	return fs
 }
 
-type RenderFunc func(w http.ResponseWriter, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error
+type RenderFunc func(w http.ResponseWriter, r *http.Request, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error
 
 type SociFS struct {
 	files []TOCFile
@@ -365,7 +365,7 @@ type SociFS struct {
 	render RenderFunc
 }
 
-func (s *SociFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.File, ctype string) error {
+func (s *SociFS) RenderHeader(w http.ResponseWriter, r *http.Request, fname string, f httpserve.File, ctype string) error {
 	if s.render != nil {
 		kind := "tar+gzip"
 		if toc := s.index.TOC(); toc != nil && toc.Type != "" {
@@ -374,7 +374,7 @@ func (s *SociFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.F
 				s.mt = types.MediaType(toc.MediaType)
 			}
 		}
-		return s.render(w, fname, s.prefix, s.ref, kind, s.mt, s.index.TOC().Csize, f, ctype)
+		return s.render(w, r, fname, s.prefix, s.ref, kind, s.mt, s.index.TOC().Csize, f, ctype)
 	}
 	return nil
 }
@@ -478,9 +478,7 @@ func (s *SociFS) Everything() ([]fs.DirEntry, error) {
 	des := make([]fs.DirEntry, 0, len(s.files))
 	for _, fm := range s.files {
 		fm := fm
-		if fm.Size != 0 {
-			des = append(des, s.dirEntry("", &fm))
-		}
+		des = append(des, s.dirEntry("", &fm))
 	}
 	return des, nil
 }
