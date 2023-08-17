@@ -62,7 +62,7 @@ func (a apkindex) satisfies(depends []string) bool {
 			if a.name != dep {
 				return false
 			}
-			if a.version != ver {
+			if ver != "" && a.version != ver {
 				return false
 			}
 		}
