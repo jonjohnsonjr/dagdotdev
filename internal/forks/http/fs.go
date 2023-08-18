@@ -273,7 +273,6 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 	fmt.Fprintf(w, "<pre>\n")
 	for i, n := 0, dirs.len(); i < n; i++ {
 		name := dirs.name(i)
-		log.Printf("name: %q", name)
 		if dirs.isDir(i) {
 			name += "/"
 		}
@@ -284,16 +283,18 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 		// name may contain '?' or '#', which must be escaped to remain
 		// part of the URL path, and not indicate the start of a query
 		// string or fragment.
-		url := url.URL{Path: strings.TrimPrefix(name, "/")}
+		u := url.URL{Path: strings.TrimPrefix(name, "/")}
+
 		if info == nil {
-			fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", url.String(), htmlReplacer.Replace(name))
+			fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
 		} else if showAll {
-			log.Printf("name=%q, fprefix=%q", name, fprefix)
 			if strings.HasPrefix(name, fprefix) || fprefix == "/" {
-				fmt.Fprint(w, tarListAll(i, dirs, info, url, prefix))
+				u.Path = strings.TrimPrefix(u.Path, fprefix)
+				u.Path = strings.TrimPrefix(u.Path, "/")
+				fmt.Fprint(w, tarListAll(i, dirs, info, u, prefix, fprefix))
 			}
 		} else {
-			fmt.Fprint(w, tarListSize(i, dirs, showlayer, info, url, prefix))
+			fmt.Fprint(w, tarListSize(i, dirs, showlayer, info, u, prefix))
 			fmt.Fprint(w, "\n")
 		}
 	}
@@ -396,7 +397,7 @@ func dirList(w http.ResponseWriter, r *http.Request, fname string, f File, rende
 	fmt.Fprintf(w, "</pre>\n</body>\n</html>")
 }
 
-func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix string) string {
+func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix string) string {
 	header, ok := fi.Sys().(*tar.Header)
 	if !ok {
 		name := fi.Name()
@@ -421,7 +422,7 @@ func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix string) 
 		} else if containsDotDot(header.Linkname) {
 			u.Path = strings.TrimPrefix(header.Linkname, "/")
 		} else if strings.HasPrefix(header.Linkname, "/") {
-			u.Path = path.Join(uprefix, header.Linkname)
+			u.Path = path.Join(strings.TrimSuffix(uprefix, fprefix), header.Linkname)
 		} else {
 			u.Path = path.Join(u.Path, "..", header.Linkname)
 		}
@@ -432,7 +433,7 @@ func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix string) 
 		}
 	}
 
-	s += fmt.Sprintf(" <a href=\"%s\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
+	s += fmt.Sprintf(" <a href=\"%s?all=true\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
 	return s
 }
 
