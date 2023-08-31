@@ -647,7 +647,11 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 
 	tarhref := "?all=true"
 	if r.URL.Query().Get("all") == "true" {
-		tarhref = "?all=false"
+		if r.URL.Query().Get("pax") == "true" {
+			tarhref = "?all=false&pax=false"
+		} else {
+			tarhref = "?all=true&pax=true"
+		}
 	}
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
 

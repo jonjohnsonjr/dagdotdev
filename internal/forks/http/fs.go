@@ -291,7 +291,7 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 			if strings.HasPrefix(name, fprefix) || fprefix == "/" {
 				u.Path = strings.TrimPrefix(u.Path, fprefix)
 				u.Path = strings.TrimPrefix(u.Path, "/")
-				fmt.Fprint(w, tarListAll(i, dirs, info, u, prefix, fprefix))
+				fmt.Fprint(w, tarListAll(i, dirs, info, u, prefix, fprefix, r.URL.Query().Get("pax") == "true"))
 			}
 		} else {
 			fmt.Fprint(w, tarListSize(i, dirs, showlayer, info, u, prefix))
@@ -397,7 +397,7 @@ func dirList(w http.ResponseWriter, r *http.Request, fname string, f File, rende
 	fmt.Fprintf(w, "</pre>\n</body>\n</html>")
 }
 
-func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix string) string {
+func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix string, pax bool) string {
 	header, ok := fi.Sys().(*tar.Header)
 	if !ok {
 		name := fi.Name()
@@ -434,6 +434,14 @@ func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix
 	}
 
 	s += fmt.Sprintf(" <a href=\"%s?all=true\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
+	if pax {
+		for k, v := range header.PAXRecords {
+			s += fmt.Sprintf("    %s: %s\n", htmlReplacer.Replace(k), htmlReplacer.Replace(v))
+		}
+		if len(header.PAXRecords) != 0 {
+			s += "\n"
+		}
+	}
 	return s
 }
 

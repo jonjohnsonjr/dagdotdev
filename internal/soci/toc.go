@@ -29,14 +29,15 @@ type TOC struct {
 type TOCFile struct {
 	// The tar stuff we actually care about.
 	// TODO: Just include all of it, for completeness?
-	Typeflag byte      `json:"typeflag,omitempty"`
-	Name     string    `json:"name,omitempty"`
-	Linkname string    `json:"linkname,omitempty"`
-	Size     int64     `json:"size,omitempty"`
-	Mode     int64     `json:"mode,omitempty"`
-	ModTime  time.Time `json:"mod,omitempty"`
-	Uid      int       `json:"uid,omitempty"`
-	Gid      int       `json:"gid,omitempty"`
+	Typeflag   byte              `json:"typeflag,omitempty"`
+	Name       string            `json:"name,omitempty"`
+	Linkname   string            `json:"linkname,omitempty"`
+	Size       int64             `json:"size,omitempty"`
+	Mode       int64             `json:"mode,omitempty"`
+	ModTime    time.Time         `json:"mod,omitempty"`
+	Uid        int               `json:"uid,omitempty"`
+	Gid        int               `json:"gid,omitempty"`
+	PAXRecords map[string]string `json:"pax,omitempty"`
 
 	// Our uncompressed offset so we can seek ahead.
 	Offset int64 `json:"offset,omitempty"`
@@ -101,26 +102,28 @@ type Checkpointer struct {
 
 func TarHeader(header *TOCFile) *tar.Header {
 	return &tar.Header{
-		Typeflag: header.Typeflag,
-		Name:     header.Name,
-		Linkname: header.Linkname,
-		Size:     header.Size,
-		Mode:     header.Mode,
-		ModTime:  header.ModTime,
-		Uid:      header.Uid,
-		Gid:      header.Gid,
+		Typeflag:   header.Typeflag,
+		Name:       header.Name,
+		Linkname:   header.Linkname,
+		Size:       header.Size,
+		Mode:       header.Mode,
+		ModTime:    header.ModTime,
+		Uid:        header.Uid,
+		Gid:        header.Gid,
+		PAXRecords: header.PAXRecords,
 	}
 }
 
 func FromTar(header *tar.Header) *TOCFile {
 	return &TOCFile{
-		Typeflag: header.Typeflag,
-		Name:     header.Name,
-		Linkname: header.Linkname,
-		Size:     header.Size,
-		Mode:     header.Mode,
-		ModTime:  header.ModTime,
-		Gid:      header.Gid,
-		Uid:      header.Uid,
+		Typeflag:   header.Typeflag,
+		Name:       header.Name,
+		Linkname:   header.Linkname,
+		Size:       header.Size,
+		Mode:       header.Mode,
+		ModTime:    header.ModTime,
+		Gid:        header.Gid,
+		Uid:        header.Uid,
+		PAXRecords: header.PAXRecords,
 	}
 }
