@@ -244,31 +244,33 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	}
 
 	// pkgs is empty if short is false
-	for _, pkg := range pkgs {
-		last, ok := ptov[pkg.name]
-		if !ok {
-			return fmt.Errorf("did not see %q", pkg.name)
-		}
-
-		if !pkg.needs(depends) {
-			continue
-		}
-
-		if !pkg.satisfies(provides) {
-			continue
-		}
-
-		apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
-		hexsum := "sha1:" + pkg.checksum
-		href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
-
-		bold := pkg.version == last
-		if !bold {
-			if full {
-				fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
+	if short {
+		for _, pkg := range pkgs {
+			last, ok := ptov[pkg.name]
+			if !ok {
+				return fmt.Errorf("did not see %q", pkg.name)
 			}
-		} else {
-			fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
+
+			if !pkg.needs(depends) {
+				continue
+			}
+
+			if !pkg.satisfies(provides) {
+				continue
+			}
+
+			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
+			hexsum := "sha1:" + pkg.checksum
+			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
+
+			bold := pkg.version == last
+			if !bold {
+				if full {
+					fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
+				}
+			} else {
+				fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
+			}
 		}
 	}
 
