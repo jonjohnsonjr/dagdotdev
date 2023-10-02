@@ -244,7 +244,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	}
 
 	// pkgs is empty if short is false
-	if short {
+	if !short {
 		for _, pkg := range pkgs {
 			last, ok := ptov[pkg.name]
 			if !ok {
@@ -349,6 +349,16 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 		}
 
 		switch before {
+		case "origin":
+			if strings.Contains(r.URL.Path, "packages.wolfi.dev") {
+				href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/main/%s.yaml", pkg.origin)
+				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
+			} else if strings.Contains(r.URL.Path, "packages.cgr.dev") {
+				// TODO
+				fmt.Fprintf(w, "%s\n", line)
+			} else {
+				fmt.Fprintf(w, "%s\n", line)
+			}
 		case "commit":
 			if strings.Contains(r.URL.Path, "packages.wolfi.dev") {
 				href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/%s/%s.yaml", pkg.commit, pkg.origin)
