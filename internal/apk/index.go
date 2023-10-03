@@ -244,7 +244,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	}
 
 	// pkgs is empty if short is false
-	if !short {
+	if short {
 		for _, pkg := range pkgs {
 			last, ok := ptov[pkg.name]
 			if !ok {
