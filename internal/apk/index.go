@@ -206,6 +206,14 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 
 		if short {
 			if before == "V" {
+				_, exists := ptov[pkg.name]
+				rc := strings.Contains(pkg.version, "_rc")
+
+				// Don't overwrite non-rc versions with rc versions.
+				if rc && exists {
+					continue
+				}
+
 				ptov[pkg.name] = pkg.version
 			}
 			if before == "p" {
