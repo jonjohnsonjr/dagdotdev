@@ -80,9 +80,13 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	pkgs := []apkindex{}
 	ptov := map[string]string{}
 
-	if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
-		return err
+	isCurl := r.Header.Get("Accept") == "*/*"
+	if !isCurl {
+		if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
+			return err
+		}
 	}
+
 	header := headerData(ref, v1.Descriptor{})
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
@@ -141,11 +145,13 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		}
 	}
 
-	if err := bodyTmpl.Execute(w, header); err != nil {
-		return err
-	}
+	if !isCurl {
+		if err := bodyTmpl.Execute(w, header); err != nil {
+			return err
+		}
 
-	fmt.Fprintf(w, "<pre><div>")
+		fmt.Fprintf(w, "<pre><div>")
+	}
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(in, 1<<16))
 
@@ -172,7 +178,11 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			added = false
 
 			if !short {
-				fmt.Fprintf(w, "</div><div>\n")
+				if !isCurl {
+					fmt.Fprintf(w, "</div><div>\n")
+				} else {
+					fmt.Fprintf(w, "\n")
+				}
 			}
 
 			continue
@@ -226,20 +236,33 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
 			hexsum := "sha1:" + pkg.checksum
 			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
-			fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
+
+			if !isCurl {
+				fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
+			} else {
+				fmt.Fprintf(w, "V:%s\n", pkg.version)
+			}
 		case "S", "I":
 			i, err := strconv.ParseInt(after, 10, 64)
 			if err != nil {
 				return fmt.Errorf("parsing %q as int: %w", after, err)
 			}
-			fmt.Fprintf(w, "%s:<span title=%q>%s</span>\n", before, humanize.Bytes(uint64(i)), after)
+			if !isCurl {
+				fmt.Fprintf(w, "%s:<span title=%q>%s</span>\n", before, humanize.Bytes(uint64(i)), after)
+			} else {
+				fmt.Fprintf(w, "%s:%s\n", before, after)
+			}
 		case "t":
 			sec, err := strconv.ParseInt(after, 10, 64)
 			if err != nil {
 				return fmt.Errorf("parsing %q as timestamp: %w", after, err)
 			}
 			t := time.Unix(sec, 0)
-			fmt.Fprintf(w, "<span title=%q>t:%s</span>\n", t.String(), after)
+			if !isCurl {
+				fmt.Fprintf(w, "<span title=%q>t:%s</span>\n", t.String(), after)
+			} else {
+				fmt.Fprintf(w, "%s:%s\n", before, after)
+			}
 		default:
 			fmt.Fprintf(w, "%s\n", line)
 		}
@@ -274,23 +297,35 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			bold := pkg.version == last
 			if !bold {
 				if full {
-					fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
+					if !isCurl {
+						fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
+					} else {
+						fmt.Fprintf(w, "%s\n", apk)
+					}
 				}
 			} else {
-				fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
+				if !isCurl {
+					fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
+				} else {
+					fmt.Fprintf(w, "%s\n", apk)
+				}
 			}
 		}
 	}
 
 	if short && !full {
-		fmt.Fprintf(w, "\n<a title=%q href=%q>...</a>", "show old versions", "?full=true")
+		if !isCurl {
+			fmt.Fprintf(w, "\n<a title=%q href=%q>...</a>", "show old versions", "?full=true")
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("scanner: %w", err)
 	}
 
-	fmt.Fprintf(w, "</div></pre>\n</body>\n</html>\n")
+	if !isCurl {
+		fmt.Fprintf(w, "</div></pre>\n</body>\n</html>\n")
+	}
 
 	return nil
 }
