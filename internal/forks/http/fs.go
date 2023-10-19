@@ -33,7 +33,7 @@ import (
 	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
 )
 
-const TooBig = 1 << 25
+const TooBig = 1 << 24
 
 // HeaderRenderer renders a header for a FileSystem.
 type HeaderRenderer interface {

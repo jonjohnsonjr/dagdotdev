@@ -200,6 +200,10 @@ td {
 	vertical-align: top;
 }
 
+th {
+	text-align: left;
+}
+
 // Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
 input + label { display: inline-block } /* show labels in line */
 input { display: none; }                /* hide radio buttons */
@@ -236,7 +240,10 @@ input ~ .tab {          /* grey line between tab and contents */
 <h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
 </div>
 {{ if .Message }}<p>{{.Message}}</p>{{ end }}
-{{ if .JQ }}<h4><span class="noselect">$</span>{{.JQ}}</h4>{{ end }}`
+{{ if .JQ }}<h4><span class="noselect">$</span>{{.JQ}}</h4>{{ end }}
+{{ if .PAXRecords }}<div><table><tr><th>PAXRecords</th><th></th></tr>
+{{ range $k, $v := .PAXRecords }}<tr><td>{{$k}}</td><td>{{$v}}</td></tr>{{ end }}
+</table></div>{{ end }}`
 
 	footer = `
 </body>
@@ -268,6 +275,7 @@ type HeaderData struct {
 	CosignTags       []CosignTag
 	Message          string
 	JQ               string
+	PAXRecords       map[string]string
 	Reference        string
 	Up               *RepoParent
 	Descriptor       *v1.Descriptor

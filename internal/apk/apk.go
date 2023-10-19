@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/digitorus/timestamp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
@@ -37,8 +39,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// We should not buffer blobs greater than 4MB
-const tooBig = 1 << 25
+// We should not buffer blobs greater than 2MB
+const tooBig = 1 << 24
 const respTooBig = 1 << 25
 
 type handler struct {
@@ -543,6 +545,16 @@ func refToUrl(p string) (string, error) {
 }
 
 func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+	desc := v1.Descriptor{
+		Size: size,
+		// Digest:    hash,
+		MediaType: mediaType,
+	}
+
+	header := headerData(ref, desc)
+
+	pax := r.URL.Query().Get("pax") == "true"
+
 	stat, err := f.Stat()
 	if err != nil {
 		return err
@@ -559,17 +571,23 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 	tarh, ok := stat.Sys().(*tar.Header)
 	if ok {
 		filename = tarh.Name
+		if pax {
+			header.PAXRecords = maps.Clone(tarh.PAXRecords)
+			for k, v := range header.PAXRecords {
+				header.PAXRecords[k] = strconv.QuoteToASCII(v)
+			}
+		}
 	} else {
 		if !stat.IsDir() {
 			logs.Debug.Printf("not a tar header or directory")
 		}
 	}
 
-	tarflags := "tar -Ox "
+	tarflags := "tar -Ox"
 	if kind == "tar+gzip" {
-		tarflags = "tar -Oxz "
+		tarflags = "tar -Oxz"
 	} else if kind == "tar+zstd" {
-		tarflags = "tar --zstd -Ox "
+		tarflags = "tar --zstd -Ox"
 	}
 
 	// TODO: Use hash if we have it?
@@ -598,14 +616,6 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 		dirlink := fmt.Sprintf(`<a class="mt" href="/%s">%s</a>`, href, htext)
 		filelink = dirlink + base
 	}
-
-	desc := v1.Descriptor{
-		Size: size,
-		// Digest:    hash,
-		MediaType: mediaType,
-	}
-
-	header := headerData(ref, desc)
 	if strings.Contains(ref, ".apk@") {
 		if _, after, ok := strings.Cut(prefix, "/"); ok {
 			href := path.Join("/size", after)
@@ -645,12 +655,19 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 
 	u = href
 
-	tarhref := "?all=true"
-	if r.URL.Query().Get("all") == "true" {
-		if r.URL.Query().Get("pax") == "true" {
-			tarhref = "?all=false&pax=false"
-		} else {
-			tarhref = "?all=true&pax=true"
+	tarhref := "?pax=true"
+	if !stat.IsDir() {
+		if pax {
+			tarhref = "?pax=false"
+		}
+	} else {
+		tarhref = "?all=true"
+		if r.URL.Query().Get("all") == "true" {
+			if pax {
+				tarhref = "?all=false&pax=false"
+			} else {
+				tarhref = "?all=true&pax=true"
+			}
 		}
 	}
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
@@ -930,11 +947,11 @@ func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref strin
 		}
 		header := headerData(ref, desc)
 
-		tarflags := "tar -tv "
+		tarflags := "tar -tv"
 		if kind == "tar+gzip" {
-			tarflags = "tar -tvz "
+			tarflags = "tar -tvz"
 		} else if kind == "tar+zstd" {
-			tarflags = "tar --zstd -tv "
+			tarflags = "tar --zstd -tv"
 		}
 
 		ua := r.UserAgent()
