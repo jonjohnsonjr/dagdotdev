@@ -11,7 +11,6 @@ import (
 	"html"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -808,7 +807,7 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 	}
 
 	// TODO: Can we do this in a streaming way?
-	input, err := ioutil.ReadAll(io.LimitReader(in, tooBig))
+	input, err := io.ReadAll(io.LimitReader(in, tooBig))
 	if err != nil {
 		return err
 	}

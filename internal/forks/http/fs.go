@@ -9,9 +9,6 @@ package http
 import (
 	"archive/tar"
 	"bufio"
-	"bytes"
-	"debug/elf"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -32,6 +29,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dag.dev/internal/forks/elf"
 	"github.com/jonjohnsonjr/dag.dev/internal/forks/safefilepath"
 	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
 )
@@ -881,15 +879,9 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 			}
 
 			if isElf {
-				b, err := io.ReadAll(br)
-				br := bytes.NewReader(b)
-				ef, err := elf.NewFile(br)
+				key := r.URL.Path
+				err := elf.Print(&dumbEscaper{buf: bufio.NewWriter(w)}, sendSize, br, key)
 				if err != nil {
-					log.Printf("elf: %v", err)
-				}
-				enc := json.NewEncoder(bufio.NewWriter(w))
-				enc.SetIndent("", "  ")
-				if err := enc.Encode(ef); err != nil {
 					log.Printf("elf encode: %v", err)
 					http.Error(w, "encode ELF: "+err.Error(), http.StatusInternalServerError)
 					return
