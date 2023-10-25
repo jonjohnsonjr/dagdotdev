@@ -746,13 +746,17 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 				return
 			}
 
-			if buf[0] == '\x7f' || buf[1] == 'E' || buf[2] == 'L' || buf[3] == 'F' {
-				isElf = true
-				log.Printf("ELF!!")
-			}
-
 			ctype = DetectContentType(buf)
 			logs.Debug.Printf("DetectContentType = %s", ctype)
+
+			if buf[0] == '\x7f' || buf[1] == 'E' || buf[2] == 'L' || buf[3] == 'F' {
+				isElf = true
+				if r.URL.Query().Get("render") == "elf" {
+					w.Header().Del("Last-Modified")
+				}
+				ctype = "elf"
+			}
+
 		} else {
 			logs.Debug.Printf("ByExtension = %s", ctype)
 		}
@@ -880,7 +884,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 
 			if isElf {
 				key := r.URL.Path
-				err := elf.Print(&dumbEscaper{buf: bufio.NewWriter(w)}, sendSize, br, key)
+				err := elf.Print(w, size, br, key)
 				if err != nil {
 					log.Printf("elf encode: %v", err)
 					http.Error(w, "encode ELF: "+err.Error(), http.StatusInternalServerError)

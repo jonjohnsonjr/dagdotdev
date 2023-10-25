@@ -31,6 +31,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dag.dev/internal/forks/elf"
 	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
 	"github.com/jonjohnsonjr/dag.dev/internal/soci"
 	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
@@ -168,7 +169,7 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 
 	// Cache landing page for 5 minutes.
 	// TODO: Uncomment this.
-	// w.Header().Set("Cache-Control", "max-age=300")
+	w.Header().Set("Cache-Control", "max-age=300")
 	w.Write([]byte(landingPage))
 
 	return nil
@@ -219,6 +220,7 @@ func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref stri
 }
 
 func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string, kind string, blob *sizeSeeker) error {
+	log.Printf("renderFile")
 	mt := r.URL.Query().Get("mt")
 
 	// Allow this to be cached for an hour.
@@ -250,11 +252,19 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 			} else if kind == "gzip" {
 				header.JQ += " | gunzip"
 			}
-			if blob.size < 0 || blob.size > httpserve.TooBig {
-				header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-			}
-			if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
-				header.JQ += " | xxd"
+			if r.URL.Query().Get("render") == "elf" {
+				header.JQ += " | objdump -x -"
+			} else {
+				tooBig := httpserve.TooBig
+				if ctype == "elf" {
+					tooBig = elf.TooBig
+				}
+				if blob.size < 0 || blob.size > httpserve.TooBig {
+					header.JQ += fmt.Sprintf(" | head -c %d", tooBig)
+				}
+				if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
+					header.JQ += " | xxd"
+				}
 			}
 		}
 
@@ -674,11 +684,19 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 	header.JQ = "curl -L" + " " + u + " | " + tarlink + " " + filelink
 
 	if !stat.IsDir() {
-		if stat.Size() > httpserve.TooBig {
-			header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-		}
-		if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
-			header.JQ += " | xxd"
+		if r.URL.Query().Get("render") == "elf" {
+			header.JQ += " | objdump -x -"
+		} else {
+			if stat.Size() > httpserve.TooBig {
+				tooBig := httpserve.TooBig
+				if ctype == "elf" {
+					tooBig = elf.TooBig
+				}
+				header.JQ += fmt.Sprintf(" | head -c %d", tooBig)
+			}
+			if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
+				header.JQ += " | xxd"
+			}
 		}
 	}
 	// header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))

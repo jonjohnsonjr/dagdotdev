@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"reflect"
@@ -18,6 +17,8 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 )
+
+const TooBig = 1 << 13
 
 // map of url path to a *File
 // This goes through 3 stages:
@@ -33,15 +34,42 @@ func max(a, b int) int {
 	return a
 }
 
+type dumbEscaper struct {
+	buf *bufio.Writer
+}
+
+func (d *dumbEscaper) Write(p []byte) (n int, err error) {
+	for i, b := range p {
+		switch b {
+		case '&':
+			_, err = d.buf.Write(amp)
+		case '<':
+			_, err = d.buf.Write(lt)
+		case '>':
+			_, err = d.buf.Write(gt)
+		case '"':
+			_, err = d.buf.Write(dq)
+		case '\'':
+			_, err = d.buf.Write(sq)
+		default:
+			err = d.buf.WriteByte(b)
+		}
+		if err != nil {
+			return i, err
+		}
+	}
+	return len(p), d.buf.Flush()
+}
+
 // PeekReader is an io.Reader that also implements Peek a la bufio.Reader.
 type PeekReader interface {
 	io.Reader
 	Peek(n int) ([]byte, error)
 }
 
-func Peek(r io.Reader) (io.Reader, [16]uint8, bool, error) {
-	var pr PeekReader
-	if p, ok := r.(PeekReader); ok {
+func Peek(r io.Reader) (*bufio.Reader, [16]uint8, bool, error) {
+	var pr *bufio.Reader
+	if p, ok := r.(*bufio.Reader); ok {
 		pr = p
 	} else {
 		pr = bufio.NewReaderSize(r, 1024)
@@ -99,17 +127,19 @@ func thirdPass(w io.Writer, size int64, r io.Reader, key string, f *File) error 
 		fmt.Fprintf(w, "  %-*s %s\n", maxlen, s, ds.Value)
 	}
 
-	fmt.Fprintf(w, "\nVersion References:\n")
-	prevFile := ""
-	for _, need := range f.ordered {
-		if need.File == "" {
-			continue
+	if len(f.ordered) != 0 {
+		fmt.Fprintf(w, "\nVersion References:\n")
+		prevFile := ""
+		for _, need := range f.ordered {
+			if need.File == "" {
+				continue
+			}
+			if need.File != prevFile {
+				fmt.Fprintf(w, "  required from %s:\n", need.File)
+				prevFile = need.File
+			}
+			fmt.Fprintf(w, "    0x%08x 0x%02x %02d %s\n", need.HashOff, need.Flags, need.Ndx, need.Name)
 		}
-		if need.File != prevFile {
-			fmt.Fprintf(w, "  required from %s:\n", need.File)
-			prevFile = need.File
-		}
-		fmt.Fprintf(w, "    0x%08x 0x%02x %02d %s\n", need.HashOff, need.Flags, need.Ndx, need.Name)
 	}
 
 	fmt.Fprintf(w, "\nSections:\n")
@@ -198,8 +228,6 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 		return &FormatError{f.shoff + int64(f.shstrndx*f.shentsize), "invalid ELF section name string table type", shstr.Type}
 	}
 
-	log.Printf("shstr offset: %d", shstr.Offset)
-
 	sr := &seekForward{
 		r:    r,
 		size: size,
@@ -207,7 +235,9 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 
 	symbols, err := f.DynamicSymbols(sr)
 	if err != nil {
-		return err
+		if !errors.Is(err, ErrNoSymbols) {
+			return err
+		}
 	}
 	f.dynSymbols = symbols
 
@@ -224,13 +254,17 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 
 	imps, err := f.ImportedSymbols(sr)
 	if err != nil {
-		return err
+		if !errors.Is(err, ErrNoSymbols) {
+			return err
+		}
 	}
 	f.impSymbols = imps
 
 	symbols, err = f.Symbols(sr)
 	if err != nil {
-		return err
+		if !errors.Is(err, ErrNoSymbols) {
+			return err
+		}
 	}
 	f.symbols = symbols
 
@@ -253,9 +287,10 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 }
 
 func Print(w io.Writer, size int64, r io.Reader, key string) error {
+	dw := &dumbEscaper{buf: bufio.NewWriter(w)}
 	got, ok := cached.Load(key)
 	if ok {
-		return secondPass(w, size, r, key, got.(*File))
+		return secondPass(dw, size, r, key, got.(*File))
 	}
 
 	// Read and decode ELF identifier
@@ -268,7 +303,15 @@ func Print(w io.Writer, size int64, r io.Reader, key string) error {
 		return &FormatError{0, "bad magic number", ident[0:4]}
 	}
 
-	r = pr
+	sendSize := size
+	if size > TooBig {
+		sendSize = TooBig
+	}
+	hw := &hexWriter{
+		buf:  bufio.NewWriter(w),
+		size: sendSize,
+	}
+	r = io.TeeReader(pr, hw)
 
 	// TODO: Tee r into an xxd thing and have a link.
 
@@ -344,9 +387,6 @@ func Print(w io.Writer, size int64, r io.Reader, key string) error {
 		f.shentsize = int(hdr.Shentsize)
 		f.shnum = int(hdr.Shnum)
 		f.shstrndx = int(hdr.Shstrndx)
-		log.Printf("shstrndx: %d, offset: %d", f.shstrndx, sr.offset)
-		log.Printf("shnum * shentsize = %d * %d = %d", f.shnum, f.shentsize, f.shnum*f.shentsize)
-		log.Printf("shoff = %d", f.shoff)
 	}
 
 	if f.shoff < 0 {
@@ -526,7 +566,6 @@ func Print(w io.Writer, size int64, r io.Reader, key string) error {
 				Addralign: sh.Addralign,
 				Entsize:   sh.Entsize,
 			}
-			log.Printf("Offset: %d, At: %d", s.Offset, sr.offset)
 		}
 		if int64(s.Offset) < 0 {
 			return &FormatError{off, "invalid section offset", int64(s.Offset)}
@@ -579,8 +618,6 @@ func Print(w io.Writer, size int64, r io.Reader, key string) error {
 	if shstr.Type != SHT_STRTAB {
 		return &FormatError{f.shoff + int64(f.shstrndx*f.shentsize), "invalid ELF section name string table type", shstr.Type}
 	}
-
-	log.Printf("shstr offset: %d", shstr.Offset)
 
 	cached.Store(key, f)
 
@@ -772,7 +809,7 @@ func (s *Section) Open() io.Reader {
 	}
 
 	if _, err := s.sr.Seek(int64(s.Offset), seekStart); err != nil {
-		return errorReader{err}
+		return errorReader{fmt.Errorf("Seek(%d): %w", s.Offset, err)}
 	}
 
 	var zrd func(io.Reader) (io.ReadCloser, error)
@@ -805,7 +842,7 @@ func (s *Section) Open() io.Reader {
 		zrd = func(r io.Reader) (io.ReadCloser, error) {
 			zr, err := zstd.NewReader(r)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("zstd.NewReader: %w", err)
 			}
 			return zr.IOReadCloser(), nil
 		}
@@ -817,7 +854,7 @@ func (s *Section) Open() io.Reader {
 
 	zr, err := zrd(io.LimitReader(s.sr, int64(s.FileSize)-s.compressionOffset))
 	if err != nil {
-		return errorReader{err}
+		return errorReader{fmt.Errorf("zrd: %w", err)}
 	}
 
 	return zr
@@ -1493,7 +1530,7 @@ const (
 )
 
 func elfType(sh SectionHeader) string {
-	if sh.Name == ".bss" {
+	if strings.HasSuffix(sh.Name, "bss") {
 		return "BSS"
 	}
 
@@ -4513,83 +4550,6 @@ func (r errorReader) Close() error {
 	return r.error
 }
 
-// readSeekerFromReader converts an io.Reader into an io.ReadSeeker.
-// In general Seek may not be efficient, but it is optimized for
-// common cases such as seeking to the end to find the length of the
-// data.
-type readSeekerFromReader struct {
-	reset  func() (io.Reader, error)
-	r      io.Reader
-	size   int64
-	offset int64
-}
-
-func (r *readSeekerFromReader) start() {
-	x, err := r.reset()
-	if err != nil {
-		r.r = errorReader{err}
-	} else {
-		r.r = x
-	}
-	r.offset = 0
-}
-
-func (r *readSeekerFromReader) Read(p []byte) (n int, err error) {
-	if r.r == nil {
-		r.start()
-	}
-	n, err = r.r.Read(p)
-	r.offset += int64(n)
-	return n, err
-}
-
-func (r *readSeekerFromReader) Seek(offset int64, whence int) (int64, error) {
-	var newOffset int64
-	switch whence {
-	case seekStart:
-		newOffset = offset
-	case seekCurrent:
-		newOffset = r.offset + offset
-	case seekEnd:
-		newOffset = r.size + offset
-	default:
-		return 0, os.ErrInvalid
-	}
-
-	switch {
-	case newOffset == r.offset:
-		return newOffset, nil
-
-	case newOffset < 0, newOffset > r.size:
-		return 0, os.ErrInvalid
-
-	case newOffset == 0:
-		r.r = nil
-
-	case newOffset == r.size:
-		r.r = errorReader{io.EOF}
-
-	default:
-		if newOffset < r.offset {
-			// Restart at the beginning.
-			r.start()
-		}
-		// Read until we reach offset.
-		var buf [512]byte
-		for r.offset < newOffset {
-			b := buf[:]
-			if newOffset-r.offset < int64(len(buf)) {
-				b = buf[:newOffset-r.offset]
-			}
-			if _, err := r.Read(b); err != nil {
-				return 0, err
-			}
-		}
-	}
-	r.offset = newOffset
-	return r.offset, nil
-}
-
 // getString extracts a string from an ELF string table.
 func getString(section []byte, start int) (string, bool) {
 	if start < 0 || start >= len(section) {
@@ -4622,7 +4582,6 @@ func (r *seekForward) Read(p []byte) (n int, err error) {
 }
 
 func (r *seekForward) Seek(offset int64, whence int) (int64, error) {
-	log.Printf("Seek(%d, %d)", offset, whence)
 	var newOffset int64
 	switch whence {
 	case seekStart:
@@ -4632,7 +4591,7 @@ func (r *seekForward) Seek(offset int64, whence int) (int64, error) {
 	case seekEnd:
 		newOffset = r.size + offset
 	default:
-		return 0, os.ErrInvalid
+		return 0, fmt.Errorf("whence: %d: %w", whence, os.ErrInvalid)
 	}
 
 	switch {
@@ -4640,7 +4599,7 @@ func (r *seekForward) Seek(offset int64, whence int) (int64, error) {
 		return newOffset, nil
 
 	case newOffset < 0, newOffset > r.size:
-		return 0, os.ErrInvalid
+		return 0, fmt.Errorf("newOffset=%d, size=%d, %w", newOffset, r.size, os.ErrInvalid)
 
 	case newOffset == 0:
 		r.r = nil
@@ -4678,7 +4637,6 @@ func (f *File) stringTable(link uint32, r io.ReadSeeker) ([]byte, error) {
 	if st, ok := f.stringTables[link]; ok {
 		return st, nil
 	}
-	log.Printf("stringTable(%d)", link)
 	s := f.Sections[link]
 	s.sr = r
 	b, err := s.Data()
@@ -4787,10 +4745,7 @@ func (f *File) getSymbols64(typ SectionType, r io.ReadSeeker) ([]Symbol, []byte,
 		if err := binary.Read(symtab, f.ByteOrder, &sym); err != nil {
 			return nil, nil, err
 		}
-		str, ok := getString(strdata, int(sym.Name))
-		if !ok {
-			log.Printf("could not find string %d", int(sym.Name))
-		}
+		str, _ := getString(strdata, int(sym.Name))
 		symbols[i].Name = str
 		symbols[i].Info = sym.Info
 		symbols[i].Other = sym.Other
@@ -5008,9 +4963,8 @@ func (f *File) gnuVersion(i int) (library string, version string) {
 // SectionByType returns the first section in f with the
 // given type, or nil if there is no such section.
 func (f *File) SectionByType(typ SectionType) *Section {
-	for i, s := range f.Sections {
+	for _, s := range f.Sections {
 		if s.Type == typ {
-			log.Printf("returning section[%d] at %d", i, s.Offset)
 			return s
 		}
 	}
@@ -5126,4 +5080,101 @@ func (f *File) DynString(tag DynTag, r io.ReadSeeker) ([]string, error) {
 		}
 	}
 	return all, nil
+}
+
+// xxd things
+var (
+	amp = []byte("&amp;")
+	lt  = []byte("&lt;")
+	gt  = []byte("&gt;")
+	dq  = []byte("&#34;")
+	sq  = []byte("&#39;")
+)
+
+type hexWriter struct {
+	buf    *bufio.Writer
+	size   int64
+	cursor int64
+	ascii  []byte
+}
+
+func (w *hexWriter) Write(p []byte) (n int, err error) {
+	for _, r := range p {
+		if w.size != 0 && w.cursor >= w.size {
+			break
+		}
+		if w.cursor%16 == 0 {
+			line := fmt.Sprintf("%08x:", w.cursor)
+			if _, err := w.buf.WriteString(line); err != nil {
+				return 0, err
+			}
+			w.ascii = []byte{' ', ' '}
+
+			if w.cursor == 0 {
+				w.ascii = append(w.ascii, []byte(`<a href="?render=elf">`)...)
+			}
+		}
+		if w.cursor%2 == 0 {
+			if err := w.buf.WriteByte(' '); err != nil {
+				return 0, err
+			}
+		}
+
+		if w.cursor == 4 {
+			w.ascii = append(w.ascii, []byte(`</a>`)...)
+		}
+
+		if r < 32 || r > 126 {
+			w.ascii = append(w.ascii, '.')
+		} else {
+			switch r {
+			case '&':
+				w.ascii = append(w.ascii, amp...)
+			case '<':
+				w.ascii = append(w.ascii, lt...)
+			case '>':
+				w.ascii = append(w.ascii, gt...)
+			case '"':
+				w.ascii = append(w.ascii, dq...)
+			case '\'':
+				w.ascii = append(w.ascii, sq...)
+			default:
+				w.ascii = append(w.ascii, r)
+			}
+		}
+
+		w.cursor++
+
+		line := fmt.Sprintf("%02x", r)
+		if _, err := w.buf.WriteString(line); err != nil {
+			return 0, err
+		}
+		if w.cursor%16 == 0 {
+			w.ascii = append(w.ascii, '\n')
+			if _, err := w.buf.Write(w.ascii); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	if w.size > 0 && w.cursor >= w.size {
+		pos := w.size % 16
+		if pos != 0 {
+			for i := pos; i < 16; i++ {
+				if i%2 == 0 {
+					if err := w.buf.WriteByte(' '); err != nil {
+						return 0, err
+					}
+				}
+				if _, err := w.buf.Write([]byte("  ")); err != nil {
+					return 0, err
+				}
+			}
+			if _, err := w.buf.Write(w.ascii); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return len(p), w.buf.Flush()
 }
