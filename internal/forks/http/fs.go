@@ -751,9 +751,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 
 			if buf[0] == '\x7f' || buf[1] == 'E' || buf[2] == 'L' || buf[3] == 'F' {
 				isElf = true
-				if r.URL.Query().Get("render") == "elf" {
-					w.Header().Del("Last-Modified")
-				}
+				w.Header().Del("Last-Modified")
 				ctype = "elf"
 			}
 
@@ -884,11 +882,20 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 
 			if isElf {
 				key := r.URL.Path
-				err := elf.Print(w, size, br, key)
-				if err != nil {
-					log.Printf("elf encode: %v", err)
-					http.Error(w, "encode ELF: "+err.Error(), http.StatusInternalServerError)
-					return
+				if r.URL.Query().Get("render") == "elf" {
+					err := elf.Print(w, size, br, key)
+					if err != nil {
+						log.Printf("elf print: %v", err)
+						http.Error(w, "elf.Print: "+err.Error(), http.StatusInternalServerError)
+						return
+					}
+				} else {
+					err := elf.Xxd(w, size, br, key)
+					if err != nil {
+						log.Printf("elf xxd: %v", err)
+						http.Error(w, "elf.Xxd: "+err.Error(), http.StatusInternalServerError)
+						return
+					}
 				}
 			} else {
 				rw := w

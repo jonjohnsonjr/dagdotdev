@@ -293,6 +293,11 @@ func Print(w io.Writer, size int64, r io.Reader, key string) error {
 		return secondPass(dw, size, r, key, got.(*File))
 	}
 
+	fmt.Fprintf(w, `<a href="%s">go back, we need to do a first pass</a>`, key)
+	return nil
+}
+
+func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 	// Read and decode ELF identifier
 	var ident [16]uint8
 	pr, ident, ok, err := Peek(r)
@@ -604,6 +609,8 @@ func Print(w io.Writer, size int64, r io.Reader, key string) error {
 		f.Sections = append(f.Sections, s)
 	}
 
+	cached.LoadOrStore(key, f)
+
 	if len(f.Sections) == 0 {
 		return nil
 	}
@@ -618,8 +625,6 @@ func Print(w io.Writer, size int64, r io.Reader, key string) error {
 	if shstr.Type != SHT_STRTAB {
 		return &FormatError{f.shoff + int64(f.shstrndx*f.shentsize), "invalid ELF section name string table type", shstr.Type}
 	}
-
-	cached.Store(key, f)
 
 	return nil
 }
