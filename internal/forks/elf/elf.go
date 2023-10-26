@@ -186,6 +186,7 @@ func thirdPass(w io.Writer, size int64, r io.Reader, key string, f *File) error 
 	for i, sec := range f.Sections {
 		sh := sec.SectionHeader
 		fmt.Fprintf(w, "% 3d %-*s %08x %016x %s\n", i, maxlen, sh.Name, sh.Size, sh.Addr, elfType(sh))
+		// fmt.Fprintf(w, "% 3d %-*s %08x %016x %s %032b %d\n", i, maxlen, sh.Name, sh.Size, sh.Addr, elfType(sh), sh.Flags, sh.Type)
 	}
 
 	fmt.Fprintf(w, "\nSYMBOL TABLE:\n")
@@ -1605,18 +1606,19 @@ const (
 )
 
 func elfType(sh SectionHeader) string {
-	if strings.HasSuffix(sh.Name, "bss") {
+	if sh.Type == SHT_NOBITS {
 		return "BSS"
 	}
 
 	if sh.Type == SHT_PROGBITS {
-		if sh.Name == ".init" || sh.Name == ".plt" || sh.Name == ".plt.got" || sh.Name == ".text" || sh.Name == ".fini" {
-			return "TEXT"
-		}
-
-		if sh.Name != ".comment" {
+		if sh.Flags&SHF_ALLOC != 0 {
+			if sh.Flags&SHF_EXECINSTR != 0 {
+				return "TEXT"
+			}
 			return "DATA"
 		}
+
+		log.Printf("%b", sh.Flags)
 	}
 
 	return ""
