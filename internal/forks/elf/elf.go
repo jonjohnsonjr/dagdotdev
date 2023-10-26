@@ -92,9 +92,15 @@ func Peek(r io.Reader) (*bufio.Reader, [16]uint8, bool, error) {
 }
 
 func thirdPass(w io.Writer, size int64, r io.Reader, key string, f *File) error {
-	order := strings.ToLower(strings.TrimSuffix(f.ByteOrder.String(), "Endian"))
+	order := ""
 	arch := strings.ToLower(strings.TrimPrefix(f.Machine.String(), "EM_"))
-	fmt.Fprintf(w, "<stdin>:\tfile format %s-%s%s\n", f.Class.ElfString(), order, arch)
+	if arch == "aarch64" {
+		order = strings.ToLower(strings.TrimSuffix(f.ByteOrder.String(), "Endian"))
+	}
+
+	// elf64-x86-64
+	// elf64-littleaarch64
+	fmt.Fprintf(w, "<stdin>:\tfile format %s-%s%s\n", f.Class.ElfString(), order, strings.ReplaceAll(arch, "_", "-"))
 	fmt.Fprintf(w, "architecture: %s\n", arch)
 	fmt.Fprintf(w, "start address: 0x%016x\n\n", f.Entry)
 
@@ -1604,7 +1610,7 @@ func elfType(sh SectionHeader) string {
 	}
 
 	if sh.Type == SHT_PROGBITS {
-		if sh.Name == ".init" || sh.Name == ".plt" || sh.Name == ".text" || sh.Name == ".fini" {
+		if sh.Name == ".init" || sh.Name == ".plt" || sh.Name == ".plt.got" || sh.Name == ".text" || sh.Name == ".fini" {
 			return "TEXT"
 		}
 
