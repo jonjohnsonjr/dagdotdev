@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"reflect"
@@ -141,6 +142,34 @@ func thirdPass(w io.Writer, size int64, r io.Reader, key string, f *File) error 
 			fmt.Fprintf(w, "    0x%08x 0x%02x %02d %s\n", need.HashOff, need.Flags, need.Ndx, need.Name)
 		}
 	}
+	if len(f.verdefs) != 0 {
+		maxlen := 0
+		for _, def := range f.verdefs {
+			maxlen = max(maxlen, len(strconv.Itoa(def.Ndx)))
+		}
+		fmt.Fprintf(w, "\nVersion definitions:\n")
+		prevHash := uint32(0)
+		for _, def := range f.verdefs {
+			if def.HashOff != prevHash {
+				fmt.Fprintf(w, "%*d 0x%02x 0x%08x %s\n", maxlen, def.Ndx, def.Flags, def.HashOff, def.Name)
+				prevHash = def.HashOff
+			} else {
+				fmt.Fprintf(w, "%*s                 %s\n", maxlen, "", def.Name)
+			}
+		}
+	}
+
+	/*
+		  Version definitions:
+			1 0x01 0x0e3d4741 ld-linux-aarch64.so.1
+			2 0x00 0x06969197 GLIBC_2.17
+			3 0x00 0x069691b4 GLIBC_2.34
+			                  GLIBC_2.17
+			4 0x00 0x069691b5 GLIBC_2.35
+			                  GLIBC_2.34
+			5 0x00 0x0963cf85 GLIBC_PRIVATE
+			                  GLIBC_2.35
+	*/
 
 	fmt.Fprintf(w, "\nSections:\n")
 	maxlen = 0
@@ -233,6 +262,7 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 		size: size,
 	}
 
+	log.Printf("DynamicSymbols")
 	symbols, err := f.DynamicSymbols(sr)
 	if err != nil {
 		if !errors.Is(err, ErrNoSymbols) {
@@ -246,12 +276,14 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 	// 	return err
 	// }
 
+	log.Printf("DynamicSection")
 	ds, err := f.DynamicSection(sr)
 	if err != nil {
 		return err
 	}
 	f.dynamicSection = ds
 
+	log.Printf("ImportedSymbols")
 	imps, err := f.ImportedSymbols(sr)
 	if err != nil {
 		if !errors.Is(err, ErrNoSymbols) {
@@ -260,6 +292,7 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 	}
 	f.impSymbols = imps
 
+	log.Printf("Symbols")
 	symbols, err = f.Symbols(sr)
 	if err != nil {
 		if !errors.Is(err, ErrNoSymbols) {
@@ -268,11 +301,13 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 	}
 	f.symbols = symbols
 
+	log.Printf("shstr.Data()")
 	shstr.sr = sr
 	shstrtab, err := shstr.Data()
 	if err != nil {
 		return fmt.Errorf("shstr.Data(): %w", err)
 	}
+	f.shstr = shstrtab
 	for i, s := range f.Sections {
 		var ok bool
 		s.Name, ok = getString(shstrtab, int(f.names[i]))
@@ -572,6 +607,8 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 				Entsize:   sh.Entsize,
 			}
 		}
+
+		log.Printf("section[%d]: %+v", i, s.SectionHeader)
 		if int64(s.Offset) < 0 {
 			return &FormatError{off, "invalid section offset", int64(s.Offset)}
 		}
@@ -714,6 +751,31 @@ type FileHeader struct {
 	Entry      uint64
 }
 
+/*
+typedef struct {
+	Elfxx_Half    vd_version;
+	Elfxx_Half    vd_flags;
+	Elfxx_Half    vd_ndx;
+	Elfxx_Half    vd_cnt;
+	Elfxx_Word    vd_hash;
+	Elfxx_Word    vd_aux;
+	Elfxx_Word    vd_next;
+} Elfxx_Verdef;
+
+
+typedef struct {
+	Elfxx_Word    vda_name;
+	Elfxx_Word    vda_next;
+} Elfxx_Verdaux;
+*/
+
+type verdef struct {
+	Name    string
+	HashOff uint32
+	Flags   uint16
+	Ndx     int
+}
+
 type verneed struct {
 	File    string
 	Name    string
@@ -725,11 +787,13 @@ type verneed struct {
 // A File represents an open ELF file.
 type File struct {
 	FileHeader
-	Sections  []*Section
-	Progs     []*Prog
-	closer    io.Closer
+	Sections []*Section
+	Progs    []*Prog
+	closer   io.Closer
+
 	gnuNeed   []verneed
 	ordered   []verneed
+	verdefs   []verdef
 	gnuVersym []byte
 
 	stringTables map[uint32][]byte
@@ -4639,6 +4703,7 @@ func (f *File) stringTable(link uint32, r io.ReadSeeker) ([]byte, error) {
 	if link <= 0 || link >= uint32(len(f.Sections)) {
 		return nil, errors.New("section has invalid string table link")
 	}
+	log.Printf("stringTable(%d)", link)
 	if st, ok := f.stringTables[link]; ok {
 		return st, nil
 	}
@@ -4840,10 +4905,78 @@ func (f *File) gnuVersionInit(str []byte, r io.ReadSeeker) bool {
 		// Already initialized
 		return true
 	}
+	if f.verdefs != nil {
+		return true
+	}
+
+	vd := f.SectionByType(SHT_GNU_VERDEF)
+	if vd == nil {
+		log.Printf("vd == nil")
+	}
+	verdefs := func() bool {
+		// Accumulate verdef information.
+		vd.sr = r
+		d, err := vd.Data()
+		if err != nil {
+			panic(err)
+		}
+
+		ordered := []verdef{}
+
+		i := 0
+		for {
+			if i+20 > len(d) {
+				break
+			}
+			vers := f.ByteOrder.Uint16(d[i : i+2])
+			if vers != 1 {
+				break
+			}
+			flags := f.ByteOrder.Uint16(d[i+2 : i+4])
+			ndx := f.ByteOrder.Uint16(d[i+4 : i+6])
+			cnt := f.ByteOrder.Uint16(d[i+6 : i+8])
+			hashoff := f.ByteOrder.Uint32(d[i+8 : i+12])
+			aux := f.ByteOrder.Uint32(d[i+12 : i+16])
+			next := f.ByteOrder.Uint32(d[i+16 : i+20])
+
+			var name string
+			j := i + int(aux)
+			for c := 0; c < int(cnt); c++ {
+				if j+8 > len(d) {
+					break
+				}
+				nameoff := f.ByteOrder.Uint32(d[j : j+4])
+				next := f.ByteOrder.Uint32(d[j+4 : j+8])
+				name, _ = getString(str, int(nameoff))
+
+				got := verdef{
+					Name:    name,
+					HashOff: hashoff,
+					Flags:   flags,
+					Ndx:     int(ndx),
+				}
+				ordered = append(ordered, got)
+
+				if next == 0 {
+					break
+				}
+				j += int(next)
+			}
+
+			if next == 0 {
+				break
+			}
+			i += int(next)
+		}
+
+		f.verdefs = ordered
+
+		return true
+	}
 
 	vn := f.SectionByType(SHT_GNU_VERNEED)
 	if vn == nil {
-		return false
+		log.Printf("vn == nil")
 	}
 
 	// TODO: generalize this to sorting by offset
@@ -4923,6 +5056,7 @@ func (f *File) gnuVersionInit(str []byte, r io.ReadSeeker) bool {
 	// Versym parallels symbol table, indexing into verneed.
 	vs := f.SectionByType(SHT_GNU_VERSYM)
 	if vs == nil {
+		log.Printf("vs == nil")
 		return false
 	}
 
@@ -4938,11 +5072,47 @@ func (f *File) gnuVersionInit(str []byte, r io.ReadSeeker) bool {
 		return true
 	}
 
-	if vs.Offset < vn.Offset {
-		return versym() && verneeded()
+	if vn == nil {
+		if vs.Offset < vd.Offset {
+			log.Printf("vs < vd")
+			return versym() && verdefs()
+		}
+		log.Printf("vd < vs")
+		return verdefs() && versym()
+	}
+	if vd == nil {
+		if vs.Offset < vn.Offset {
+			return versym() && verneeded()
+		}
+		return verneeded() && versym()
 	}
 
-	return verneeded() && versym()
+	if vd.Offset < vn.Offset {
+		if vs.Offset < vd.Offset {
+			return versym() && verdefs() && verneeded()
+		}
+
+		// vd < vs
+		if vs.Offset < vn.Offset {
+			return verdefs() && versym() && verneeded()
+		}
+
+		// vn < vs
+		return verdefs() && verneeded() && versym()
+	}
+
+	// vn < vd
+	if vs.Offset < vd.Offset {
+		return versym() && verneeded() && verdefs()
+	}
+
+	// vd < vs
+	if vs.Offset < vn.Offset {
+		return verneeded() && verdefs() && versym()
+	}
+
+	// vn < vs
+	return verneeded() && verdefs() && versym()
 }
 
 // gnuVersion adds Library and Version information to sym,
