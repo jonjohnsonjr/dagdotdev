@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dag.dev/internal/apk"
 
@@ -45,7 +46,11 @@ func main() {
 	}
 	log.Printf("listening on %s", port)
 
+	// TODO: Auth.
 	opt := []apk.Option{apk.WithUserAgent(userAgent)}
+	if *auth || os.Getenv("AUTH") == "keychain" {
+		opt = append(opt, apk.WithKeychain(gcrane.Keychain))
+	}
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), apk.New(opt...)))
 }

@@ -179,7 +179,23 @@ func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, er
 func (h *handler) fetchUrl(u string) (*sizeBlob, error) {
 	log.Printf("GET %v", u)
 
-	resp, err := http.Get(u)
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	if h.keychain != nil {
+		ref := name.MustParseReference("gcr.io/example")
+		auth, err := h.keychain.Resolve(ref.Context().Registry)
+		if err != nil {
+			return nil, fmt.Errorf("keychain resolve: %w", err)
+		}
+		basic, err := auth.Authorization()
+		if err != nil {
+			return nil, fmt.Errorf("keychain auth: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+basic.Password)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

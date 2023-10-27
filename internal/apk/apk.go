@@ -65,6 +65,12 @@ type handler struct {
 
 type Option func(h *handler)
 
+func WithKeychain(keychain authn.Keychain) Option {
+	return func(h *handler) {
+		h.keychain = keychain
+	}
+}
+
 func WithUserAgent(ua string) Option {
 	return func(h *handler) {
 		h.userAgent = ua
@@ -483,7 +489,7 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 		return nil, err
 	}
 
-	blob := LazyBlob(cachedUrl, toc.Csize)
+	blob := LazyBlob(cachedUrl, toc.Csize, h.keychain)
 	prefix := strings.TrimPrefix(ref, "/")
 	fs := soci.FS(index, blob, prefix, ref, respTooBig, types.MediaType(mt), renderHeader)
 
