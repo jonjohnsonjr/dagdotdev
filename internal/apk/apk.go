@@ -255,11 +255,11 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 			if r.URL.Query().Get("render") == "elf" {
 				header.JQ += " | objdump -x -"
 			} else {
-				tooBig := httpserve.TooBig
+				tooBig := int64(httpserve.TooBig)
 				if ctype == "elf" {
 					tooBig = elf.TooBig
 				}
-				if blob.size < 0 || blob.size > httpserve.TooBig {
+				if blob.size < 0 || blob.size > tooBig {
 					header.JQ += fmt.Sprintf(" | head -c %d", tooBig)
 				}
 				if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
@@ -687,11 +687,11 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 		if r.URL.Query().Get("render") == "elf" {
 			header.JQ += " | objdump -x -"
 		} else {
-			if stat.Size() > httpserve.TooBig {
-				tooBig := httpserve.TooBig
-				if ctype == "elf" {
-					tooBig = elf.TooBig
-				}
+			tooBig := int64(httpserve.TooBig)
+			if ctype == "elf" {
+				tooBig = elf.TooBig
+			}
+			if stat.Size() > tooBig {
 				header.JQ += fmt.Sprintf(" | head -c %d", tooBig)
 			}
 			if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
