@@ -3,6 +3,7 @@ package elf
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
@@ -17,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
+	"golang.org/x/exp/slices"
 )
 
 const TooBig = 1 << 13
@@ -92,6 +94,8 @@ func Peek(r io.Reader) (*bufio.Reader, [16]uint8, bool, error) {
 }
 
 func thirdPass(w io.Writer, size int64, r io.Reader, key string, f *File) error {
+	// rw := w
+	w = &dumbEscaper{buf: bufio.NewWriter(w)}
 	order := ""
 	arch := strings.ToLower(strings.TrimPrefix(f.Machine.String(), "EM_"))
 	if arch == "aarch64" {
@@ -267,21 +271,43 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 	sr := &seekForward{
 		r:    r,
 		size: size,
+		cap:  24,
 	}
 
-	log.Printf("DynamicSymbols")
-	symbols, err := f.DynamicSymbols(sr)
-	if err != nil {
-		if !errors.Is(err, ErrNoSymbols) {
-			return err
+	sections := []*Section{shstr}
+
+	for _, typ := range []SectionType{SHT_DYNAMIC, SHT_DYNSYM, SHT_SYMTAB, SHT_GNU_VERDEF, SHT_GNU_VERNEED, SHT_GNU_VERSYM} {
+		s := f.SectionByType(typ)
+		if s == nil {
+			continue
+		}
+
+		sections = append(sections, s)
+	}
+
+	for _, s := range sections {
+		if s.Link != 0 {
+			sections = append(sections, f.Sections[s.Link])
 		}
 	}
-	f.dynSymbols = symbols
 
-	// f.libs, err = f.ImportedLibraries(sr)
-	// if err != nil {
-	// 	return err
-	// }
+	slices.SortFunc(sections, func(a, b *Section) int {
+		return cmp.Compare(a.Offset, b.Offset)
+	})
+
+	for _, s := range sections {
+		if err := s.init(sr); err != nil {
+			return fmt.Errorf("section.init(): %w", err)
+		}
+	}
+
+	// We need these sections.
+	// SHT_DYNAMIC
+	// SHT_SYMTAB
+	// SHT_STRTAB
+	//
+	// We need the string tables from their Link fields.
+	// And we need to access those all in order.
 
 	log.Printf("DynamicSection")
 	ds, err := f.DynamicSection(sr)
@@ -290,17 +316,13 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 	}
 	f.dynamicSection = ds
 
-	log.Printf("ImportedSymbols")
-	imps, err := f.ImportedSymbols(sr)
-	if err != nil {
-		if !errors.Is(err, ErrNoSymbols) {
-			return err
-		}
+	log.Printf("DynamicSymbols")
+	if _, err := f.DynamicSymbols(sr); err != nil {
+		return err
 	}
-	f.impSymbols = imps
 
 	log.Printf("Symbols")
-	symbols, err = f.Symbols(sr)
+	symbols, err := f.Symbols(sr)
 	if err != nil {
 		if !errors.Is(err, ErrNoSymbols) {
 			return err
@@ -309,8 +331,7 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 	f.symbols = symbols
 
 	log.Printf("shstr.Data()")
-	shstr.sr = sr
-	shstrtab, err := shstr.Data()
+	shstrtab, err := shstr.Data(sr)
 	if err != nil {
 		return fmt.Errorf("shstr.Data(): %w", err)
 	}
@@ -329,10 +350,9 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 }
 
 func Print(w io.Writer, size int64, r io.Reader, key string) error {
-	dw := &dumbEscaper{buf: bufio.NewWriter(w)}
 	got, ok := cached.Load(key)
 	if ok {
-		return secondPass(dw, size, r, key, got.(*File))
+		return secondPass(w, size, r, key, got.(*File))
 	}
 
 	fmt.Fprintf(w, `<a href="%s">go back, we need to do a first pass</a>`, key)
@@ -394,6 +414,7 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 	sr := &seekForward{
 		r:    r,
 		size: size,
+		cap:  24,
 	}
 
 	// Read ELF file header
@@ -468,6 +489,7 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 	f.Progs = make([]*Prog, f.phnum)
 	for i := 0; i < f.phnum; i++ {
 		off := f.phoff + int64(i)*int64(f.phentsize)
+		log.Printf("Seek(%d)", off)
 		if _, err := sr.Seek(off, seekStart); err != nil {
 			return err
 		}
@@ -519,6 +541,7 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 	// header at index 0.
 	if f.shoff > 0 && f.shnum == 0 {
 		var typ, link uint32
+		log.Printf("Seek(%d)", f.shoff)
 		if _, err := sr.Seek(f.shoff, seekStart); err != nil {
 			return err
 		}
@@ -574,6 +597,7 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 	f.names = make([]uint32, 0, c)
 	for i := 0; i < f.shnum; i++ {
 		off := f.shoff + int64(i)*int64(f.shentsize)
+		log.Printf("Section[%d]: Seek(%d)", i, off)
 		if _, err := sr.Seek(off, seekStart); err != nil {
 			return err
 		}
@@ -624,14 +648,14 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 		}
 
 		if s.Flags&SHF_COMPRESSED == 0 {
-			// s.ReaderAt = s.sr
 			s.Size = s.FileSize
 		} else {
+			log.Printf("Compressed")
 			// Read the compression header.
 			switch f.Class {
 			case ELFCLASS32:
 				ch := new(Chdr32)
-				if err := binary.Read(s.sr, f.ByteOrder, ch); err != nil {
+				if err := binary.Read(sr, f.ByteOrder, ch); err != nil {
 					return fmt.Errorf("comp header 32: %w", err)
 				}
 				s.compressionType = CompressionType(ch.Type)
@@ -640,7 +664,7 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 				s.compressionOffset = int64(binary.Size(ch))
 			case ELFCLASS64:
 				ch := new(Chdr64)
-				if err := binary.Read(s.sr, f.ByteOrder, ch); err != nil {
+				if err := binary.Read(sr, f.ByteOrder, ch); err != nil {
 					return fmt.Errorf("comp header 64: %w", err)
 				}
 				s.compressionType = CompressionType(ch.Type)
@@ -648,6 +672,8 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 				s.Addralign = ch.Addralign
 				s.compressionOffset = int64(binary.Size(ch))
 			}
+
+			log.Printf("Size=%d, compressionOffset=%d", s.Size, s.compressionOffset)
 		}
 
 		f.Sections = append(f.Sections, s)
@@ -812,10 +838,8 @@ type File struct {
 
 	dynamicSection []DynSec
 
-	dynSymbols []Symbol
-	impSymbols []ImportedSymbol
-	symbols    []Symbol
-	libs       []string
+	symbols []Symbol
+	libs    []string
 
 	phoff                      int64
 	phentsize, phnum           int
@@ -858,7 +882,8 @@ type Section struct {
 	// in a random-access form. For example, a compressed section
 	// may have a nil ReaderAt.
 	io.ReaderAt
-	sr io.ReadSeeker
+	sr   io.ReadSeeker
+	data []byte
 
 	compressionType   CompressionType
 	compressionOffset int64
@@ -869,8 +894,21 @@ type Section struct {
 // Data returns uncompressed data.
 //
 // For an SHT_NOBITS section, Data always returns a non-nil error.
-func (s *Section) Data() ([]byte, error) {
-	return ReadData(s.Open(), s.Size)
+func (s *Section) Data(sr io.ReadSeeker) ([]byte, error) {
+	err := s.init(sr)
+	return s.data, err
+}
+
+func (s *Section) init(sr io.ReadSeeker) error {
+	if s.data != nil {
+		return nil
+	}
+
+	log.Printf("actual init")
+
+	b, err := ReadData(s.Open(sr), s.Size)
+	s.data = b
+	return err
 }
 
 // Open returns a new ReadSeeker reading the ELF section.
@@ -879,12 +917,15 @@ func (s *Section) Data() ([]byte, error) {
 //
 // For an SHT_NOBITS section, all calls to the opened reader
 // will return a non-nil error.
-func (s *Section) Open() io.Reader {
+func (s *Section) Open(sr io.ReadSeeker) io.Reader {
 	if s.Type == SHT_NOBITS {
 		return io.NewSectionReader(&nobitsSectionReader{}, 0, int64(s.Size))
 	}
 
-	if _, err := s.sr.Seek(int64(s.Offset), seekStart); err != nil {
+	log.Printf("limit(%d) (%d, %d)", int64(s.FileSize)-s.compressionOffset, s.FileSize, s.compressionOffset)
+
+	log.Printf("Seek(%d)", s.Offset)
+	if _, err := sr.Seek(int64(s.Offset), seekStart); err != nil {
 		return errorReader{fmt.Errorf("Seek(%d): %w", s.Offset, err)}
 	}
 
@@ -892,13 +933,13 @@ func (s *Section) Open() io.Reader {
 	if s.Flags&SHF_COMPRESSED == 0 {
 
 		if !strings.HasPrefix(s.Name, ".zdebug") {
-			return s.sr
+			return sr
 		}
 
 		b := make([]byte, 12)
-		n, _ := s.sr.Read(b)
+		n, _ := sr.Read(b)
 		if n != 12 || string(b[:4]) != "ZLIB" {
-			return io.MultiReader(bytes.NewReader(b), s.sr)
+			return io.MultiReader(bytes.NewReader(b), sr)
 		}
 
 		s.compressionOffset = 12
@@ -928,7 +969,8 @@ func (s *Section) Open() io.Reader {
 		return errorReader{&FormatError{int64(s.Offset), "unknown compression type", s.compressionType}}
 	}
 
-	zr, err := zrd(io.LimitReader(s.sr, int64(s.FileSize)-s.compressionOffset))
+	log.Printf("limit(%d) (%d, %d)", int64(s.FileSize)-s.compressionOffset, s.FileSize, s.compressionOffset)
+	zr, err := zrd(io.LimitReader(sr, int64(s.FileSize)-s.compressionOffset))
 	if err != nil {
 		return errorReader{fmt.Errorf("zrd: %w", err)}
 	}
@@ -4650,15 +4692,26 @@ type seekForward struct {
 	size   int64
 	offset int64
 	eof    error
+
+	// last 24 bytes
+	buf []byte
+	cap int
 }
 
 func (r *seekForward) Read(p []byte) (n int, err error) {
 	n, err = r.r.Read(p)
 	r.offset += int64(n)
+	if n >= r.cap {
+		r.buf = p[n-r.cap : n]
+	} else {
+		r.buf = r.buf[n:]
+		r.buf = append(r.buf, p[:n]...)
+	}
 	return n, err
 }
 
 func (r *seekForward) Seek(offset int64, whence int) (int64, error) {
+	log.Printf("Seek(%d, %d)", offset, whence)
 	var newOffset int64
 	switch whence {
 	case seekStart:
@@ -4686,18 +4739,24 @@ func (r *seekForward) Seek(offset int64, whence int) (int64, error) {
 
 	default:
 		if newOffset < r.offset {
-			// Restart at the beginning.
-			return 0, fmt.Errorf("cannot seek backwards: %d < %d", newOffset, r.offset)
-		}
-		// Read until we reach offset.
-		var buf [512]byte
-		for r.offset < newOffset {
-			b := buf[:]
-			if newOffset-r.offset < int64(len(buf)) {
-				b = buf[:newOffset-r.offset]
+			if newOffset == r.offset-int64(r.cap) {
+				diff := r.offset - newOffset
+				start := r.cap - int(diff)
+				r.r = io.MultiReader(bytes.NewReader(r.buf[start:]), r.r)
+			} else {
+				return 0, fmt.Errorf("cannot seek backwards: %d < %d", newOffset, r.offset)
 			}
-			if _, err := r.Read(b); err != nil {
-				return 0, err
+		} else {
+			// Read until we reach offset.
+			var buf [512]byte
+			for r.offset < newOffset {
+				b := buf[:]
+				if newOffset-r.offset < int64(len(buf)) {
+					b = buf[:newOffset-r.offset]
+				}
+				if _, err := r.Read(b); err != nil {
+					return 0, err
+				}
 			}
 		}
 	}
@@ -4716,8 +4775,7 @@ func (f *File) stringTable(link uint32, r io.ReadSeeker) ([]byte, error) {
 		return st, nil
 	}
 	s := f.Sections[link]
-	s.sr = r
-	b, err := s.Data()
+	b, err := s.Data(r)
 	if err != nil {
 		return nil, err
 	}
@@ -4750,8 +4808,7 @@ func (f *File) getSymbols32(typ SectionType, r io.ReadSeeker) ([]Symbol, []byte,
 		return nil, nil, ErrNoSymbols
 	}
 
-	symtabSection.sr = r
-	data, err := symtabSection.Data()
+	data, err := symtabSection.Data(r)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot load symbol section: %w", err)
 	}
@@ -4794,8 +4851,7 @@ func (f *File) getSymbols64(typ SectionType, r io.ReadSeeker) ([]Symbol, []byte,
 		return nil, nil, ErrNoSymbols
 	}
 
-	symtabSection.sr = r
-	data, err := symtabSection.Data()
+	data, err := symtabSection.Data(r)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot load symbol section: %w", err)
 	}
@@ -4843,15 +4899,7 @@ func (f *File) getSymbols64(typ SectionType, r io.ReadSeeker) ([]Symbol, []byte,
 // After retrieving the symbols as symtab, an externally supplied index x
 // corresponds to symtab[x-1], not symtab[x].
 func (f *File) Symbols(r io.ReadSeeker) ([]Symbol, error) {
-	sym, str, err := f.getSymbols(SHT_SYMTAB, r)
-	if err != nil {
-		return nil, err
-	}
-	if f.gnuVersionInit(str, r) {
-		for i := range sym {
-			sym[i].Library, sym[i].Version = f.gnuVersion(i)
-		}
-	}
+	sym, _, err := f.getSymbols(SHT_SYMTAB, r)
 	return sym, err
 }
 
@@ -4865,9 +4913,6 @@ func (f *File) Symbols(r io.ReadSeeker) ([]Symbol, error) {
 // After retrieving the symbols as symtab, an externally supplied index x
 // corresponds to symtab[x-1], not symtab[x].
 func (f *File) DynamicSymbols(r io.ReadSeeker) ([]Symbol, error) {
-	if f.dynSymbols != nil {
-		return f.dynSymbols, nil
-	}
 	sym, str, err := f.getSymbols(SHT_DYNSYM, r)
 	if err != nil {
 		return nil, err
@@ -4918,13 +4963,9 @@ func (f *File) gnuVersionInit(str []byte, r io.ReadSeeker) bool {
 	}
 
 	vd := f.SectionByType(SHT_GNU_VERDEF)
-	if vd == nil {
-		log.Printf("vd == nil")
-	}
-	verdefs := func() bool {
+	if vd != nil {
 		// Accumulate verdef information.
-		vd.sr = r
-		d, err := vd.Data()
+		d, err := vd.Data(r)
 		if err != nil {
 			panic(err)
 		}
@@ -4978,20 +5019,14 @@ func (f *File) gnuVersionInit(str []byte, r io.ReadSeeker) bool {
 		}
 
 		f.verdefs = ordered
-
-		return true
+	} else {
+		log.Printf("vd == nil")
 	}
 
 	vn := f.SectionByType(SHT_GNU_VERNEED)
-	if vn == nil {
-		log.Printf("vn == nil")
-	}
-
-	// TODO: generalize this to sorting by offset
-	verneeded := func() bool {
+	if vn != nil {
 		// Accumulate verneed information.
-		vn.sr = r
-		d, err := vn.Data()
+		d, err := vn.Data(r)
 		if err != nil {
 			panic(err)
 		}
@@ -5057,70 +5092,24 @@ func (f *File) gnuVersionInit(str []byte, r io.ReadSeeker) bool {
 
 		f.gnuNeed = need
 		f.ordered = ordered
-
-		return true
+	} else {
+		log.Printf("vn == nil")
 	}
 
 	// Versym parallels symbol table, indexing into verneed.
 	vs := f.SectionByType(SHT_GNU_VERSYM)
-	if vs == nil {
-		log.Printf("vs == nil")
-		return false
-	}
-
-	versym := func() bool {
-		vs.sr = r
-		d, err := vs.Data()
+	if vs != nil {
+		d, err := vs.Data(r)
 		if err != nil {
 			panic(err)
 		}
 
 		f.gnuVersym = d
-
-		return true
+	} else {
+		log.Printf("vs == nil")
 	}
 
-	if vn == nil {
-		if vs.Offset < vd.Offset {
-			log.Printf("vs < vd")
-			return versym() && verdefs()
-		}
-		log.Printf("vd < vs")
-		return verdefs() && versym()
-	}
-	if vd == nil {
-		if vs.Offset < vn.Offset {
-			return versym() && verneeded()
-		}
-		return verneeded() && versym()
-	}
-
-	if vd.Offset < vn.Offset {
-		if vs.Offset < vd.Offset {
-			return versym() && verdefs() && verneeded()
-		}
-
-		// vd < vs
-		if vs.Offset < vn.Offset {
-			return verdefs() && versym() && verneeded()
-		}
-
-		// vn < vs
-		return verdefs() && verneeded() && versym()
-	}
-
-	// vn < vd
-	if vs.Offset < vd.Offset {
-		return versym() && verneeded() && verdefs()
-	}
-
-	// vd < vs
-	if vs.Offset < vn.Offset {
-		return verneeded() && verdefs() && versym()
-	}
-
-	// vn < vs
-	return verneeded() && verdefs() && versym()
+	return true
 }
 
 // gnuVersion adds Library and Version information to sym,
@@ -5172,8 +5161,7 @@ func (f *File) DynamicSection(r io.ReadSeeker) ([]DynSec, error) {
 		// not dynamic, so no libraries
 		return nil, nil
 	}
-	ds.sr = r
-	d, err := ds.Data()
+	d, err := ds.Data(r)
 	if err != nil {
 		return nil, err
 	}
@@ -5232,8 +5220,7 @@ func (f *File) DynString(tag DynTag, r io.ReadSeeker) ([]string, error) {
 		// not dynamic, so no libraries
 		return nil, nil
 	}
-	ds.sr = r
-	d, err := ds.Data()
+	d, err := ds.Data(r)
 	if err != nil {
 		return nil, err
 	}
