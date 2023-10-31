@@ -231,6 +231,6 @@ func (h *handler) createFs(w http.ResponseWriter, r *http.Request, ref string, d
 
 	// We never saw a non-nil Body, we can do the range.
 	prefix := strings.TrimPrefix(ref, "/")
-	fs := soci.FS(index, blob, prefix, dig.String(), respTooBig, mt, renderHeader)
+	fs := soci.FS(index, blob, prefix, dig.String(), respTooBig, mt, h.renderHeader)
 	return fs, nil
 }

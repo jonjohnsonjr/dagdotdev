@@ -43,6 +43,8 @@ import (
 const tooBig = 1 << 24
 const respTooBig = 1 << 25
 
+const printToken = ` -H "Authorization: Bearer $(gcloud auth print-access-token)"`
+
 type handler struct {
 	mux       http.Handler
 	keychain  authn.Keychain
@@ -252,7 +254,11 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 		before, _, ok := strings.Cut(ref, "@")
 		if ok {
 			u := "https://" + strings.TrimPrefix(before, "/https/")
-			header.JQ = "curl -L" + " " + u
+			if h.keychain != nil {
+				header.JQ = "curl -L" + printToken + " " + u
+			} else {
+				header.JQ = "curl -L" + " " + u
+			}
 			if kind == "zstd" {
 				header.JQ += " | zstd -d"
 			} else if kind == "gzip" {
@@ -491,7 +497,7 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 
 	blob := LazyBlob(cachedUrl, toc.Csize, h.keychain)
 	prefix := strings.TrimPrefix(ref, "/")
-	fs := soci.FS(index, blob, prefix, ref, respTooBig, types.MediaType(mt), renderHeader)
+	fs := soci.FS(index, blob, prefix, ref, respTooBig, types.MediaType(mt), h.renderHeader)
 
 	return fs, nil
 }
@@ -559,7 +565,7 @@ func refToUrl(p string) (string, error) {
 	return strings.TrimSuffix(u, "/"), nil
 }
 
-func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
 	desc := v1.Descriptor{
 		Size: size,
 		// Digest:    hash,
@@ -687,7 +693,11 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 	}
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
 
-	header.JQ = "curl -L" + " " + u + " | " + tarlink + " " + filelink
+	if h.keychain != nil {
+		header.JQ = "curl -L" + printToken + " " + u + " | " + tarlink + " " + filelink
+	} else {
+		header.JQ = "curl -L" + " " + u + " | " + tarlink + " " + filelink
+	}
 
 	if !stat.IsDir() {
 		if r.URL.Query().Get("render") == "elf" {
@@ -813,7 +823,11 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 		href := fmt.Sprintf("<a class=%q href=%q>%s</a>/<a class=%q href=%q>%s</a>", "mt", index, dir, "mt", ref, base)
 
 		u = href
-		header.JQ = "curl -L" + " " + u + " | tar -Oxz " + filelink
+		if h.keychain != nil {
+			header.JQ = "curl -L" + printToken + " " + u + " | tar -Oxz " + filelink
+		} else {
+			header.JQ = "curl -L " + " " + u + " | tar -Oxz " + filelink
+		}
 	}
 
 	if stat.Size() > tooBig {
@@ -953,11 +967,11 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	f := renderDirSize(w, r, index.TOC().Csize, ref, index.TOC().Type, types.MediaType(mt), len(des))
+	f := h.renderDirSize(w, r, index.TOC().Csize, ref, index.TOC().Type, types.MediaType(mt), len(des))
 	return httpserve.DirList(w, r, ref, des, f)
 }
 
-func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref string, kind string, mediaType types.MediaType, num int) func() error {
+func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref string, kind string, mediaType types.MediaType, num int) func() error {
 	return func() error {
 		// This must be a directory because it wasn't part of a filesystem
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1007,7 +1021,11 @@ func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref strin
 			u = href
 		}
 
-		header.JQ = "curl -L" + " " + u + " | " + tarflags
+		if h.keychain != nil {
+			header.JQ = "curl -L" + printToken + " " + u + " | " + tarflags
+		} else {
+			header.JQ = "curl -L" + " " + u + " | " + tarflags
+		}
 
 		if num > httpserve.TooBig {
 			header.JQ += fmt.Sprintf(" | head -n %d", httpserve.TooBig)

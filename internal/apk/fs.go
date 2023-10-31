@@ -35,6 +35,7 @@ type tarReader interface {
 
 // Implements http.FileSystem.
 type layerFS struct {
+	h       *handler
 	prefix  string
 	tr      tarReader
 	headers []*tar.Header
@@ -48,6 +49,7 @@ type layerFS struct {
 func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string, mt types.MediaType) *layerFS {
 	logs.Debug.Printf("size: %d, prefix: %q, ref: %q, kind: %q", size, prefix, ref, kind)
 	return &layerFS{
+		h:       h,
 		tr:      tr,
 		size:    size,
 		prefix:  prefix,
@@ -59,7 +61,7 @@ func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string,
 }
 
 func (fs *layerFS) RenderHeader(w http.ResponseWriter, r *http.Request, fname string, f httpserve.File, ctype string) error {
-	return renderHeader(w, r, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size, f, ctype)
+	return fs.h.renderHeader(w, r, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size, f, ctype)
 }
 
 func (fs *layerFS) Open(original string) (httpserve.File, error) {
