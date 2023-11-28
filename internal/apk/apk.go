@@ -331,6 +331,10 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		qss += "&depend=" + strings.Join(depends, "&depend=")
 		log.Printf("qss = %q", qss)
 	}
+	full := qs.Get("full")
+	if full != "" {
+		qss += "&full=" + full
+	}
 	p, root, err := splitFsURL(r.URL.Path)
 	if err != nil {
 		return err

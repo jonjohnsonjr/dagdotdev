@@ -54,16 +54,48 @@ func (a apkindex) satisfies(depends []string) bool {
 	}
 	for _, depend := range depends {
 		dep := depend
-		name, ver, ok := strings.Cut(depend, "=")
-		if ok {
-			dep = name
+
+		// TODO: This is insane.
+		equals := false
+
+		name, ver, fuzzy := strings.Cut(depend, "=~")
+		if !fuzzy {
+			name, ver, fuzzy = strings.Cut(depend, "~")
 		}
+		if fuzzy {
+			dep = name
+		} else {
+			name, ver, equals = strings.Cut(depend, "=")
+			if equals {
+				dep = name
+			}
+		}
+
 		if _, ok := a.provides[dep]; !ok {
 			if a.name != dep {
 				return false
 			}
-			if ver != "" && a.version != ver {
-				return false
+		}
+
+		if ver != "" {
+			if equals {
+				if a.version != ver {
+					return false
+				}
+			}
+			if fuzzy {
+				want := strings.Split(ver, ".")
+				have := strings.Split(a.version, ".")
+
+				if len(want) > len(have) {
+					return false
+				}
+
+				for i := range want {
+					if want[i] != have[i] {
+						return false
+					}
+				}
 			}
 		}
 	}
@@ -421,17 +453,17 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 			}
 
 		case "pkgname":
-			href := fmt.Sprintf("%s?depend=%s", apkindex, url.QueryEscape(after))
+			href := fmt.Sprintf("%s?depend=%s&full=true", apkindex, url.QueryEscape(after))
 			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
 		case "depend":
-			href := fmt.Sprintf("%s?provide=%s", apkindex, url.QueryEscape(after))
+			href := fmt.Sprintf("%s?provide=%s&full=true", apkindex, url.QueryEscape(after))
 			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
 		case "provides":
 			p, _, ok := strings.Cut(after, "=")
 			if !ok {
 				p = after
 			}
-			href := fmt.Sprintf("%s?depend=%s", apkindex, url.QueryEscape(p))
+			href := fmt.Sprintf("%s?depend=%s&full=true", apkindex, url.QueryEscape(p))
 			fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
 		case "size":
 			i, err := strconv.ParseInt(after, 10, 64)
