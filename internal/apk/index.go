@@ -146,6 +146,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					header.JQ += ` # this is approximate`
 
 					header.Message = "# packages that provide " + strings.Join(provides, ", ")
+					header.MessageLink = strings.ReplaceAll(r.URL.String(), "provide=", "depend=")
 				} else {
 					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "D" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
 
@@ -157,6 +158,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					header.JQ += ` # this is approximate`
 
 					header.Message = "# packages that depend on " + strings.Join(depends, ", ")
+					header.MessageLink = strings.ReplaceAll(r.URL.String(), "depend=", "provide=")
 				}
 			}
 		} else {

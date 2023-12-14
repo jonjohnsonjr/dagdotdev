@@ -239,7 +239,7 @@ input ~ .tab {          /* grey line between tab and contents */
 <div>
 <h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
 </div>
-{{ if .Message }}<p>{{.Message}}</p>{{ end }}
+{{ if .Message }}<p><a class="mt" href="{{.MessageLink}}">{{.Message}}</a></p>{{ end }}
 {{ if .JQ }}<h4><span class="noselect">$</span>{{.JQ}}</h4>{{ end }}
 {{ if .PAXRecords }}<div><table><tr><th>PAXRecords</th><th></th></tr>
 {{ range $k, $v := .PAXRecords }}<tr><td>{{$k}}</td><td>{{$v}}</td></tr>{{ end }}
@@ -274,6 +274,7 @@ type HeaderData struct {
 	Repo             string
 	CosignTags       []CosignTag
 	Message          string
+	MessageLink      string
 	JQ               string
 	PAXRecords       map[string]string
 	Reference        string
