@@ -73,6 +73,8 @@ body {
   <li><a href="/https/packages.wolfi.dev/os/x86_64/APKINDEX.tar.gz">packages.wolfi.dev/os/x86_64</a></li>
   <li><a href="/https/packages.cgr.dev/os/aarch64/APKINDEX.tar.gz">packages.cgr.dev/os/aarch64</a></li>
   <li><a href="/https/packages.cgr.dev/os/x86_64/APKINDEX.tar.gz">packages.cgr.dev/os/x86_64</a></li>
+  <li><a href="/https/packages.cgr.dev/extras/aarch64/APKINDEX.tar.gz">packages.cgr.dev/extras/aarch64</a></li>
+  <li><a href="/https/packages.cgr.dev/extras/x86_64/APKINDEX.tar.gz">packages.cgr.dev/extras/x86_64</a></li>
   <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/aarch64/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/aarch64</a></li>
   <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/armhf/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/armhf</a></li>
   <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/armv7/APKINDEX.tar.gz">dl-cdn.alpinelinux.org/alpine/edge/main/armv7</a></li>
