@@ -1523,7 +1523,7 @@ func handlerForMT(s string) string {
 	case "application/vnd.oci.artifact.manifest.v1+json":
 		return `?image=`
 	}
-	if strings.HasSuffix(s, "+json") || strings.HasSuffix(s, "cose") || strings.HasSuffix(s, "cbor") {
+	if strings.HasSuffix(s, "+json") || strings.HasSuffix(s, "+dsse") || strings.HasSuffix(s, "cose") || strings.HasSuffix(s, "cbor") {
 		return `?blob=`
 	}
 
