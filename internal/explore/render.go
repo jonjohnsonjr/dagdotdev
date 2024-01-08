@@ -1541,6 +1541,9 @@ func getLink(s string) string {
 	if mt.IsIndex() {
 		return `https://github.com/opencontainers/image-spec/blob/main/image-index.md`
 	}
+	if strings.HasPrefix(s, "application/vnd.in-toto.") && strings.HasSuffix(s, "+dsse") {
+		return `https://github.com/in-toto/attestation/blob/a7a9d0712d5115af3e8e1f6b3564158a1bbb73e4/spec/v1/envelope.md`
+	}
 	switch mt {
 	case types.OCIConfigJSON, types.DockerConfigJSON:
 		return `https://github.com/opencontainers/image-spec/blob/main/config.md`
@@ -1553,7 +1556,7 @@ func getLink(s string) string {
 	case `application/vnd.dsse.envelope.v1+json`:
 		return `https://github.com/secure-systems-lab/dsse/blob/469c6e9fa6c4b7252fb71101084561cfc4cd0fa5/envelope.md`
 	case `application/vnd.in-toto+json`:
-		return `https://github.com/in-toto/attestation/blob/60f47ad17c4eb461dc18cabbef206ebcbcd666d9/spec/README.md#statement`
+		return `https://github.com/in-toto/attestation/blob/a7a9d0712d5115af3e8e1f6b3564158a1bbb73e4/spec/v1/statement.md`
 	case `spdx+json`:
 		return `https://github.com/spdx/spdx-spec/blob/7ba7bf571c0c3c3fd6a4bd780914d58f9274adcc/schemas/spdx-schema.json`
 	case "application/vnd.oci.artifact.manifest.v1+json":
