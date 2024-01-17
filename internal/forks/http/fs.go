@@ -749,12 +749,13 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 			ctype = DetectContentType(buf)
 			logs.Debug.Printf("DetectContentType = %s", ctype)
 
-			if buf[0] == '\x7f' || buf[1] == 'E' || buf[2] == 'L' || buf[3] == 'F' {
-				isElf = true
-				w.Header().Del("Last-Modified")
-				ctype = "elf"
+			if len(buf) > 4 {
+				if buf[0] == '\x7f' || buf[1] == 'E' || buf[2] == 'L' || buf[3] == 'F' {
+					isElf = true
+					w.Header().Del("Last-Modified")
+					ctype = "elf"
+				}
 			}
-
 		} else {
 			logs.Debug.Printf("ByExtension = %s", ctype)
 		}
