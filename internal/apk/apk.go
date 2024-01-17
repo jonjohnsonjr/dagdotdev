@@ -254,7 +254,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 		before, _, ok := strings.Cut(ref, "@")
 		if ok {
 			u := "https://" + strings.TrimPrefix(before, "/https/")
-			if h.keychain != nil {
+			if strings.Contains(ref, "packages.cgr.dev") && !strings.Contains(ref, "APKINDEX") {
 				header.JQ = "curl -L" + printToken + " " + u
 			} else {
 				header.JQ = "curl -L" + " " + u
@@ -697,7 +697,7 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 	}
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
 
-	if h.keychain != nil {
+	if strings.Contains(ref, "packages.cgr.dev") && !strings.Contains(ref, "APKINDEX") {
 		header.JQ = "curl -L" + printToken + " " + u + " | " + tarlink + " " + filelink
 	} else {
 		header.JQ = "curl -L" + " " + u + " | " + tarlink + " " + filelink
@@ -827,7 +827,7 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 		href := fmt.Sprintf("<a class=%q href=%q>%s</a>/<a class=%q href=%q>%s</a>", "mt", index, dir, "mt", ref, base)
 
 		u = href
-		if h.keychain != nil {
+		if strings.Contains(ref, "packages.cgr.dev") && !strings.Contains(ref, "APKINDEX") {
 			header.JQ = "curl -L" + printToken + " " + u + " | tar -Oxz " + filelink
 		} else {
 			header.JQ = "curl -L " + " " + u + " | tar -Oxz " + filelink
@@ -1025,7 +1025,7 @@ func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int
 			u = href
 		}
 
-		if h.keychain != nil {
+		if strings.Contains(ref, "packages.cgr.dev") && !strings.Contains(ref, "APKINDEX") {
 			header.JQ = "curl -L" + printToken + " " + u + " | " + tarflags
 		} else {
 			header.JQ = "curl -L" + " " + u + " | " + tarflags
