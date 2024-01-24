@@ -242,6 +242,8 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 				before, after, ok := strings.Cut(i, "=")
 				if ok {
 					pkg.provides[before] = after
+				} else {
+					pkg.provides[i] = ""
 				}
 			}
 		case "D":
