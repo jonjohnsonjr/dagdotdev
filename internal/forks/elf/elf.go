@@ -318,7 +318,9 @@ func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error
 
 	log.Printf("DynamicSymbols")
 	if _, err := f.DynamicSymbols(sr); err != nil {
-		return err
+		if !errors.Is(err, ErrNoSymbols) {
+			return err
+		}
 	}
 
 	log.Printf("Symbols")
