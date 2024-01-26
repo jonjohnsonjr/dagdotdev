@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -34,6 +33,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
+	"github.com/jonjohnsonjr/dag.dev/internal/gguf"
 	"github.com/jonjohnsonjr/dag.dev/internal/soci"
 	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
 	hgzip "github.com/nanmu42/gzip"
@@ -703,7 +703,7 @@ func (h *handler) renderBlobJSON(w http.ResponseWriter, r *http.Request, blobRef
 	}
 
 	// TODO: Can we do this in a streaming way?
-	input, err := ioutil.ReadAll(io.LimitReader(blob, tooBig))
+	input, err := io.ReadAll(io.LimitReader(blob, tooBig))
 	if err != nil {
 		return err
 	}
@@ -814,7 +814,21 @@ func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref name
 	}
 
 	return nil
+}
 
+func (h *handler) renderGGUF(w http.ResponseWriter, r io.Reader) error {
+	gr := gguf.NewGGUFFileReader(r)
+	gf, err := gr.ReadGGUFFile()
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, "GGUF Version: %d\n", gf.Header.Version)
+	for _, kv := range gf.MetadataKV {
+		fmt.Fprintf(w, "<p>%s: %s</p>\n", kv.Key, kv.Value)
+	}
+
+	return nil
 }
 
 func (h *handler) renderDockerfile(w http.ResponseWriter, r *http.Request, ref name.Reference, b []byte) error {
@@ -845,7 +859,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref name.Di
 	w.Header().Set("Cache-Control", "max-age=3600, immutable")
 
 	httpserve.ServeContent(w, r, "", time.Time{}, blob, func(w http.ResponseWriter, ctype string) error {
-		// Kind at this poin can be "gzip", "zstd" or ""
+		// Kind at this point can be "gzip", "zstd" or ""
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := headerTmpl.Execute(w, TitleData{ref.String()}); err != nil {
 			return err
@@ -875,6 +889,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref name.Di
 		} else if kind == "gzip" {
 			header.JQ += " | gunzip"
 		}
+
 		if blob.size < 0 || blob.size > httpserve.TooBig {
 			header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
 		}
@@ -918,6 +933,42 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	blob, ref, err := h.fetchBlob(w, r)
 	if err != nil {
 		return fmt.Errorf("fetchBlob: %w", err)
+	}
+	defer blob.Close()
+
+	if mt == "application/vnd.ollama.image.model" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := headerTmpl.Execute(w, TitleData{dig.String()}); err != nil {
+			return err
+		}
+		hash, err := v1.NewHash(dig.Identifier())
+		if err != nil {
+			return err
+		}
+		desc := v1.Descriptor{
+			Digest:    hash,
+			MediaType: types.MediaType(mt),
+		}
+		if size := r.URL.Query().Get("size"); size != "" {
+			if parsed, err := strconv.ParseInt(size, 10, 64); err == nil {
+				desc.Size = parsed
+			}
+		}
+		header := headerData(dig, desc)
+		header.Up = &RepoParent{
+			Parent:    dig.Context().String(),
+			Separator: "@",
+			Child:     dig.Identifier(),
+		}
+		header.JQ = crane("blob") + " " + dig.String()
+		if err := bodyTmpl.Execute(w, header); err != nil {
+			return fmt.Errorf("bodyTmpl: %w", err)
+		}
+		if err := h.renderGGUF(w, blob); err != nil {
+			return err
+		}
+		fmt.Fprintf(w, footer)
+		return nil
 	}
 
 	kind, original, unwrapped, err := h.tryNewIndex(w, r, dig, ref, blob)
