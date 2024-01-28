@@ -85,7 +85,7 @@ func (fs *layerFS) Open(original string) (httpserve.File, error) {
 		// into play mostly for ReadDir() at the top level, where we already scan
 		// the entire layer to tell FileServer "/" and "index.html" don't exist.
 		fs.headers = append(fs.headers, header)
-		if path.Clean("/"+header.Name) == name {
+		if got := path.Clean("/" + header.Name); got == name {
 			found = &layerFile{
 				name:   name,
 				header: header,
@@ -96,6 +96,8 @@ func (fs *layerFS) Open(original string) (httpserve.File, error) {
 			if header.Typeflag != tar.TypeDir {
 				return found, nil
 			}
+		} else {
+			logs.Debug.Printf("got: %q, want %q", got, name)
 		}
 	}
 

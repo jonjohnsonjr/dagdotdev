@@ -48,14 +48,17 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 	mt := r.URL.Query().Get("mt")
 	indexer, kind, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
 	if indexer == nil {
+		logs.Debug.Printf("nil indexer")
 		return kind, pr, tpr, err
 	}
 
 	// Render FS the old way while generating the index.
 	fs := h.newLayerFS(indexer, blob.size, prefix, ref, indexer.Type(), types.MediaType(mt))
 
+	logs.Debug.Printf("r.URL.Path=%q", r.URL.Path)
 	if strings.HasSuffix(r.URL.Path, "APKINDEX") {
-		filename := strings.TrimPrefix(r.URL.Path, "/")
+		// filename := strings.TrimPrefix(r.URL.Path, "/")
+		filename := r.URL.Path
 		log.Printf("opening %q", filename)
 		rc, err := fs.Open(filename)
 		if err != nil {

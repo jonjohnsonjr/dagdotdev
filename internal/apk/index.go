@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/google/go-containerregistry/pkg/logs"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
@@ -104,6 +105,7 @@ func (a apkindex) satisfies(depends []string) bool {
 }
 
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
+	logs.Debug.Printf("renderIndex(%q)", ref)
 	short := r.URL.Query().Get("short") != "false"
 	full := r.URL.Query().Get("full") != ""
 	provides := r.URL.Query()["provide"]
@@ -197,8 +199,10 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	added := false
 	pkg := apkindex{}
 
+	logs.Debug.Printf("calling Scan")
 	for scanner.Scan() {
 		line := scanner.Text()
+		logs.Debug.Printf("Scan = %q", line)
 
 		before, after, ok := strings.Cut(line, ":")
 		if !ok {

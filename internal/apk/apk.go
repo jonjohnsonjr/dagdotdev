@@ -480,6 +480,8 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		return h.renderFile(w, r, ref, kind, seek)
 	}
 
+	logs.Debug.Printf("ref=%q, prefix=%q, kind=%q, origin=%v, unwrapped=%v, err=%v", ref, prefix, kind, original, unwrapped, err)
+
 	return nil
 }
 
