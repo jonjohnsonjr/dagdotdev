@@ -217,7 +217,7 @@ th {
 {{ if .Search }}</p>
 <form action="" method="GET" autocomplete="off" spellcheck="false">
 <input size="100" type="text" name="search" value="{{.Search}}"/>
-<input type="submit" />
+<input type="submit" value="Search" />
 </form>
 <p>{{ end }}
 {{ if .Message }}<p><a class="mt" href="{{.MessageLink}}">{{.Message}}</a></p>{{ end }}
