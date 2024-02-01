@@ -139,7 +139,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			// TODO: This stuff is not super robust. We could write a real awk program to do it better.
 
 			// Link to long form.
-			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
+			header.JQ = "curl -sL" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
 
 			if len(provides) == 0 && len(depends) == 0 {
 				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
@@ -174,10 +174,10 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			}
 
 			if search != "" {
-				header.JQ += fmt.Sprintf("` | grep %q", search)
+				header.JQ += fmt.Sprintf(" | grep %q", search)
 			}
 		} else {
-			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
+			header.JQ = "curl -sL" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
 		}
 	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
 		before = path.Join(before, "APKINDEX.tar.gz")
@@ -185,12 +185,12 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
 		if short {
 			// Link to long form.
-			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
+			header.JQ = "curl -sL" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
 
 			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
 			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
 		} else {
-			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
+			header.JQ = "curl -sL" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
 		}
 	}
 
@@ -349,8 +349,16 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			hexsum := "sha1:" + pkg.checksum
 			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
 
-			if !strings.Contains(apk, search) {
-				continue
+			if search != "" {
+				if strings.HasPrefix(search, "^") {
+					if !strings.HasPrefix(apk, search[1:]) {
+						continue
+					}
+				} else {
+					if !strings.Contains(apk, search) {
+						continue
+					}
+				}
 			}
 			bold := pkg.version == last
 			if !bold {
@@ -411,7 +419,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 
 		u = href
 
-		header.JQ = "curl -L" + " " + u + " | tar -Oxz .PKGINFO"
+		header.JQ = "curl -sL" + " " + u + " | tar -Oxz .PKGINFO"
 	}
 
 	// TODO: We need a cookie or something.

@@ -255,9 +255,9 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 		if ok {
 			u := "https://" + strings.TrimPrefix(before, "/https/")
 			if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
-				header.JQ = "curl -L" + printToken + " " + u
+				header.JQ = "curl -sL" + printToken + " " + u
 			} else {
-				header.JQ = "curl -L" + " " + u
+				header.JQ = "curl -sL" + " " + u
 			}
 			if kind == "zstd" {
 				header.JQ += " | zstd -d"
@@ -719,9 +719,9 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
 
 	if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
-		header.JQ = "curl -L" + printToken + " " + u + " | " + tarlink + " " + filelink
+		header.JQ = "curl -sL" + printToken + " " + u + " | " + tarlink + " " + filelink
 	} else {
-		header.JQ = "curl -L" + " " + u + " | " + tarlink + " " + filelink
+		header.JQ = "curl -sL" + " " + u + " | " + tarlink + " " + filelink
 	}
 
 	if !stat.IsDir() {
@@ -849,9 +849,9 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 
 		u = href
 		if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
-			header.JQ = "curl -L" + printToken + " " + u + " | tar -Oxz " + filelink
+			header.JQ = "curl -sL" + printToken + " " + u + " | tar -Oxz " + filelink
 		} else {
-			header.JQ = "curl -L " + " " + u + " | tar -Oxz " + filelink
+			header.JQ = "curl -sL " + " " + u + " | tar -Oxz " + filelink
 		}
 	}
 
@@ -1047,9 +1047,9 @@ func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int
 		}
 
 		if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
-			header.JQ = "curl -L" + printToken + " " + u + " | " + tarflags
+			header.JQ = "curl -sL" + printToken + " " + u + " | " + tarflags
 		} else {
-			header.JQ = "curl -L" + " " + u + " | " + tarflags
+			header.JQ = "curl -sL" + " " + u + " | " + tarflags
 		}
 
 		if num > httpserve.TooBig {

@@ -214,6 +214,9 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 				return true
 			}
 
+			if strings.HasPrefix(search, "^") {
+				return !strings.HasPrefix(header.Name, search[1:])
+			}
 			return !strings.Contains(header.Name, search)
 		})
 	}
