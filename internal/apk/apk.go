@@ -335,6 +335,10 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	if full != "" {
 		qss += "&full=" + full
 	}
+	search := qs.Get("search")
+	if search != "" {
+		qss += "&search=" + search
+	}
 	p, root, err := splitFsURL(r.URL.Path)
 	if err != nil {
 		return err
@@ -452,6 +456,7 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 
 			return h.renderPkgInfo(w, r, rc, ref)
 		} else if strings.Contains(r.URL.Path, ".apk@") {
+			// Was I going to do something here???
 		}
 
 		log.Printf("serving http from cache")
@@ -580,6 +585,7 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 
 	header := headerData(ref, desc)
 
+	search := r.URL.Query().Get("search")
 	pax := r.URL.Query().Get("pax") == "true"
 
 	stat, err := f.Stat()
@@ -657,6 +663,14 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 		} else if kind == "tar+zstd" {
 			tarflags = "tar --zstd -tv"
 		}
+
+		if !strings.Contains(r.URL.Path, "APKINDEX.tar.gz") {
+			header.Search = ".PKGINFO"
+			if search != "" {
+				header.Search = search
+				tarflags += fmt.Sprintf(" | grep %q", search)
+			}
+		}
 	}
 
 	u, err := refToUrl(ref)
@@ -689,12 +703,17 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 		}
 	} else {
 		tarhref = "?all=true"
-		if r.URL.Query().Get("all") == "true" {
+		if r.URL.Query().Get("all") == "true" || search != "" {
 			if pax {
+				search = "" // so we cycle back to the original view
 				tarhref = "?all=false&pax=false"
 			} else {
 				tarhref = "?all=true&pax=true"
 			}
+		}
+
+		if search != "" {
+			tarhref += "&search=" + search
 		}
 	}
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)

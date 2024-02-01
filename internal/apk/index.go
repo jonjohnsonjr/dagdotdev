@@ -110,6 +110,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	full := r.URL.Query().Get("full") != ""
 	provides := r.URL.Query()["provide"]
 	depends := r.URL.Query()["depend"]
+	search := r.URL.Query().Get("search")
 
 	pkgs := []apkindex{}
 	ptov := map[string]string{}
@@ -122,6 +123,14 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	}
 
 	header := headerData(ref, v1.Descriptor{})
+	header.Search = "hello-wolfi"
+	if search != "" {
+		// Always show all results if we search.
+		full = true
+		header.Search = search
+	}
+
+	// TODO: Add search into the links.
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
@@ -163,6 +172,10 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					header.MessageLink = strings.ReplaceAll(r.URL.String(), "depend=", "provide=")
 				}
 			}
+
+			if search != "" {
+				header.JQ += fmt.Sprintf("` | grep %q", search)
+			}
 		} else {
 			header.JQ = "curl -L" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
 		}
@@ -199,10 +212,8 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	added := false
 	pkg := apkindex{}
 
-	logs.Debug.Printf("calling Scan")
 	for scanner.Scan() {
 		line := scanner.Text()
-		logs.Debug.Printf("Scan = %q", line)
 
 		before, after, ok := strings.Cut(line, ":")
 		if !ok {
@@ -338,6 +349,9 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			hexsum := "sha1:" + pkg.checksum
 			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
 
+			if !strings.Contains(apk, search) {
+				continue
+			}
 			bold := pkg.version == last
 			if !bold {
 				if full {

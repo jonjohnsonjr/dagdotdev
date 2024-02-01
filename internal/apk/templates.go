@@ -205,33 +205,6 @@ td {
 th {
 	text-align: left;
 }
-
-// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
-input + label { display: inline-block } /* show labels in line */
-input { display: none; }                /* hide radio buttons */
-input ~ .tab { display: none }          /* hide contents */
-
-/* show contents only for selected tab */
-#tab1:checked ~ .tab.content1,
-#tab2:checked ~ .tab.content2 { display: block; }
-
-input + label {             /* box with rounded corner */
-	display: inline-block;
-  border: 1px solid #999;
-  background: #EEE;
-  padding: 4px 12px;
-  border-radius: 4px 4px 0 0;
-  position: relative;
-  top: 1px;
-}
-input:checked + label {     /* white background for selected tab */
-  background: #FFF;
-  border-bottom: 1px solid transparent;
-}
-input ~ .tab {          /* grey line between tab and contents */
-  border-top: 1px solid #999;
-  padding-top: 0.5em;
-}
 </style>
 </head>
 `
@@ -241,6 +214,12 @@ input ~ .tab {          /* grey line between tab and contents */
 <div>
 <h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
 </div>
+{{ if .Search }}</p>
+<form action="" method="GET" autocomplete="off" spellcheck="false">
+<input size="100" type="text" name="search" value="{{.Search}}"/>
+<input type="submit" />
+</form>
+<p>{{ end }}
 {{ if .Message }}<p><a class="mt" href="{{.MessageLink}}">{{.Message}}</a></p>{{ end }}
 {{ if .JQ }}<h4><span class="noselect">$</span>{{.JQ}}</h4>{{ end }}
 {{ if .PAXRecords }}<div><table><tr><th>PAXRecords</th><th></th></tr>
@@ -273,6 +252,7 @@ type CosignTag struct {
 }
 
 type HeaderData struct {
+	Search           string
 	Repo             string
 	CosignTags       []CosignTag
 	Message          string

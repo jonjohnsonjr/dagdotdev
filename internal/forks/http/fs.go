@@ -32,6 +32,7 @@ import (
 	"github.com/jonjohnsonjr/dag.dev/internal/forks/elf"
 	"github.com/jonjohnsonjr/dag.dev/internal/forks/safefilepath"
 	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
+	"golang.org/x/exp/slices"
 )
 
 const TooBig = 1 << 24
@@ -200,6 +201,23 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 
 	var dirs dirEntryDirs = des
 
+	search := r.URL.Query().Get("search")
+	if search != "" {
+		dirs = slices.DeleteFunc(dirs, func(de fs.DirEntry) bool {
+			fi, err := de.Info()
+			if err != nil {
+				return true
+			}
+
+			header, ok := fi.Sys().(*tar.Header)
+			if !ok {
+				return true
+			}
+
+			return !strings.Contains(header.Name, search)
+		})
+	}
+
 	showlayer := strings.HasPrefix(r.URL.Path, "/sizes")
 	less := func(i, j int) bool {
 		ii, err := dirs.info(i)
@@ -244,7 +262,7 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 		}
 	}
 
-	showAll := r.URL.Query().Get("all") == "true"
+	showAll := r.URL.Query().Get("all") == "true" || search != ""
 
 	if !showAll {
 		sort.Slice(dirs, less)
@@ -1253,7 +1271,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 		}
 		setLastModified(w, d.ModTime())
 
-		if r.URL.Query().Get("all") == "true" {
+		if r.URL.Query().Get("all") == "true" || r.URL.Query().Get("search") != "" {
 			if ifs, ok := fsys.(ioFS); ok {
 				if efs, ok := ifs.fsys.(interface {
 					Everything() ([]fs.DirEntry, error)
@@ -1276,8 +1294,6 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 					}
 				}
 			}
-
-			// return
 		}
 
 		dirList(w, r, name, f, render)
