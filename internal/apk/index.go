@@ -139,7 +139,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			// TODO: This stuff is not super robust. We could write a real awk program to do it better.
 
 			// Link to long form.
-			header.JQ = "curl -sL" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
+			header.JQ = "curl -sL" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
 
 			if len(provides) == 0 && len(depends) == 0 {
 				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
@@ -177,7 +177,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 				header.JQ += fmt.Sprintf(" | grep %q", search)
 			}
 		} else {
-			header.JQ = "curl -sL" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
+			header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
 		}
 	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
 		before = path.Join(before, "APKINDEX.tar.gz")
@@ -185,12 +185,12 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
 		if short {
 			// Link to long form.
-			header.JQ = "curl -sL" + " " + u + ` | tar -Oxz <a class="mt" href="?short=false">APKINDEX</a>`
+			header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
 
 			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
 			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
 		} else {
-			header.JQ = "curl -sL" + " " + u + ` | tar -Oxz <a class="mt" href="?short=true">APKINDEX</a>`
+			header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
 		}
 	}
 
@@ -212,6 +212,9 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	added := false
 	pkg := apkindex{}
 
+	prevLines := []string{}
+	skip := false
+
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -226,14 +229,22 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			pkg = apkindex{}
 			added = false
 
-			if !short {
-				if !isCurl {
-					fmt.Fprintf(w, "</div><div>\n")
-				} else {
-					fmt.Fprintf(w, "\n")
+			if !skip {
+				if !short {
+					if !isCurl {
+						fmt.Fprintf(w, "</div><div>\n")
+					} else {
+						fmt.Fprintf(w, "\n")
+					}
 				}
 			}
 
+			skip = false
+
+			continue
+		}
+
+		if skip {
 			continue
 		}
 
@@ -287,16 +298,47 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 		}
 
 		switch before {
+		case "C", "P":
+			if search != "" {
+				prevLines = append(prevLines, line)
+				skip = false
+			} else {
+				fmt.Fprintf(w, "%s\n", line)
+			}
 		case "V":
 			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
 			hexsum := "sha1:" + pkg.checksum
 			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
 
-			if !isCurl {
-				fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
-			} else {
-				fmt.Fprintf(w, "V:%s\n", pkg.version)
+			// Set skip so that we don't print anything until the next "P:".
+			if search != "" {
+				if strings.HasPrefix(search, "^") {
+					if !strings.HasPrefix(apk, search[1:]) {
+						// log.Printf("!HasPrefix(%q, %q)", apk, search[1:])
+						skip = true
+					}
+				} else {
+					if !strings.Contains(apk, search) {
+						// log.Printf("!Contains(%q, %q)", apk, search)
+						skip = true
+					}
+				}
 			}
+
+			if !skip {
+				// Since we buffer the P: line, we need to print it if this matches.
+				for _, prevLine := range prevLines {
+					fmt.Fprintf(w, "%s\n", prevLine)
+				}
+
+				if !isCurl {
+					fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
+				} else {
+					fmt.Fprintf(w, "V:%s\n", pkg.version)
+				}
+			}
+			prevLines = []string{}
+
 		case "S", "I":
 			i, err := strconv.ParseInt(after, 10, 64)
 			if err != nil {
