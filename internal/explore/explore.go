@@ -1412,6 +1412,16 @@ func (h *handler) manifestHeader(ref name.Reference, desc v1.Descriptor) *Header
 				}
 			}
 		}
+	} else if strings.Contains(ref.Name(), "cgr.dev/chainguard") {
+		// We know these should have .att and .sig.
+		header.CosignTags = append(header.CosignTags, CosignTag{
+			Tag:   prefix + ".att",
+			Short: "att",
+		})
+		header.CosignTags = append(header.CosignTags, CosignTag{
+			Tag:   prefix + ".sig",
+			Short: "sig",
+		})
 	}
 
 	return header
