@@ -66,12 +66,17 @@ const (
 	text-decoration: inherit;
 }
 
+:root {
+  color-scheme: light dark;
+}
+
 body {
 	font-family: monospace;
 	width: fit-content;
 	overflow-wrap: anywhere;
 	padding: 12px;
 }
+
 </style>
 </head>
 <h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
@@ -165,6 +170,10 @@ That's not a question.
 	text-decoration: inherit;
 }
 
+:root {
+  color-scheme: light dark;
+}
+
 body {
 	font-family: monospace;
 	width: fit-content;
@@ -217,6 +226,10 @@ If you trust <a class="mt" href="https://github.com/jonjohnsonjr">me</a>, click 
 	text-decoration: inherit;
 }
 
+:root {
+  color-scheme: light dark;
+}
+
 body {
 	font-family: monospace;
 	width: fit-content;
@@ -258,15 +271,14 @@ input ~ .tab { display: none }          /* hide contents */
 input + label {             /* box with rounded corner */
 	display: inline-block;
   border: 1px solid #999;
-  background: #EEE;
   padding: 4px 12px;
   border-radius: 4px 4px 0 0;
   position: relative;
   top: 1px;
+  opacity: 50%;
 }
 input:checked + label {     /* white background for selected tab */
-  background: #FFF;
-  border-bottom: 1px solid transparent;
+  opacity: 100%;
 }
 input ~ .tab {          /* grey line between tab and contents */
   border-top: 1px solid #999;
