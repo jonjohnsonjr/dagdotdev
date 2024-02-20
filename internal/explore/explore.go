@@ -787,7 +787,7 @@ func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref name
 		return renderDer(w, b)
 	case "history":
 		if types.MediaType(r.URL.Query().Get("mt")).IsSchema1() {
-			return renderDockerfileSchema1(w, b)
+			return renderDockerfileSchema1(w, b, ref.Context())
 		} else {
 			return h.renderDockerfile(w, r, ref, b)
 		}

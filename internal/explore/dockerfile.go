@@ -11,14 +11,20 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
+
+type BlobSum struct {
+	BlobSum string `json:"blobSum"`
+}
 
 type Schema1History struct {
 	V1Compatibility string `json:"v1Compatibility"`
 }
 
 type Schema1 struct {
-	History []Schema1History `json:"history"`
+	FSLayers []BlobSum        `json:"fsLayers"`
+	History  []Schema1History `json:"history"`
 }
 
 type Config struct {
@@ -35,7 +41,7 @@ func whitespaceRepl(in []byte) []byte {
 	return bytes.Replace(in, []byte(" "), []byte(" \\\n"), 1)
 }
 
-func renderDockerfileSchema1(w io.Writer, b []byte) error {
+func renderDockerfileSchema1(w io.Writer, b []byte, repo name.Repository) error {
 	m := Schema1{}
 	err := json.Unmarshal(b, &m)
 	if err != nil {
@@ -43,6 +49,7 @@ func renderDockerfileSchema1(w io.Writer, b []byte) error {
 	}
 
 	args := []string{}
+	fmt.Fprintf(w, "<table>\n")
 	for i := len(m.History) - 1; i >= 0; i-- {
 		compat := m.History[i]
 		c := Compat{}
@@ -52,13 +59,43 @@ func renderDockerfileSchema1(w io.Writer, b []byte) error {
 
 		cb := strings.Join(c.ContainerConfig.Cmd, " ")
 
-		fmt.Fprintf(w, "<pre>\n")
+		href, digest, size := "", "", int64(0)
+		if i < len(m.FSLayers) {
+			fsl := m.FSLayers[i]
+			href = fmt.Sprintf("/fs/%s/", repo.Digest(fsl.BlobSum).String())
+			digest = fsl.BlobSum
+			if _, after, ok := strings.Cut(digest, ":"); ok {
+				if len(after) > 8 {
+					digest = after[:8]
+				}
+			}
+
+			if fsl.BlobSum != "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" {
+				l, err := remote.Layer(repo.Digest(fsl.BlobSum))
+				if err == nil {
+					size, _ = l.Size()
+				}
+			}
+		}
+
+		fmt.Fprintf(w, "<tr>\n")
+		fmt.Fprintf(w, "<td class=\"noselect\"><p><a href=%q><em>%s</em></a></p></td>\n", href, digest)
+		if size != 0 {
+			human := humanize.Bytes(uint64(size))
+			fmt.Fprintf(w, "<td class=\"noselect\"><p title=\"%d bytes\">%s</p></td>\n", size, human)
+		} else {
+			fmt.Fprintf(w, "<td></td>\n")
+		}
+
+		fmt.Fprintf(w, "<td>\n<pre>\n")
 		args, err = renderArg(w, cb, args)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "</pre>\n")
+		fmt.Fprintf(w, "</pre>\n</td>\n")
+		fmt.Fprintf(w, "</tr>\n")
 	}
+	fmt.Fprintf(w, "</table>\n")
 	return nil
 }
 
