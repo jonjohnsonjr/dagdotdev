@@ -52,10 +52,12 @@ func renderDockerfileSchema1(w io.Writer, b []byte) error {
 
 		cb := strings.Join(c.ContainerConfig.Cmd, " ")
 
+		fmt.Fprintf(w, "<pre>\n")
 		args, err = renderArg(w, cb, args)
 		if err != nil {
 			return err
 		}
+		fmt.Fprintf(w, "</pre>\n")
 	}
 	return nil
 }
