@@ -1344,6 +1344,26 @@ func renderAnnotations(w *jsonOutputter, o map[string]interface{}, raw *json.Raw
 					}
 				}
 			}
+		case "vnd.docker.reference.digest":
+			h := v1.Hash{}
+			if err := json.Unmarshal(v, &h); err != nil {
+				log.Printf("Unmarshal digest %q: %v", string(v), err)
+			} else {
+				w.LinkImage(w.repo, h.String())
+
+				// Don't fall through to renderRaw.
+				continue
+			}
+		case "vnd.docker.reference.type":
+			if js, ok := o[k]; ok {
+				if s, ok := js.(string); ok {
+					if s == "attestation-manifest" {
+						w.Doc("https://github.com/moby/buildkit/blob/master/docs/attestations/attestation-storage.md", strconv.Quote(s))
+						continue
+					}
+				}
+			}
+
 		case "dev.sigstore.cosign/bundle", "dev.sigstore.cosign/timestamp", "sh.brew.tab":
 			if js, ok := o[k]; ok {
 				if s, ok := js.(string); ok {
