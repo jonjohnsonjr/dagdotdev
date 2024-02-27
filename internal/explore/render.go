@@ -1314,6 +1314,10 @@ func renderAnnotations(w *jsonOutputter, o map[string]interface{}, raw *json.Raw
 		case "org.opencontainers.image.base.name":
 			if js, ok := o[k]; ok {
 				if s, ok := js.(string); ok {
+					if s == "scratch" {
+						w.Doc("https://hub.docker.com/_/scratch", strconv.Quote(s))
+						continue
+					}
 					ref, err := name.ParseReference(s)
 					if err != nil {
 						log.Printf("Parse[%q](%q): %v", k, ref, err)
