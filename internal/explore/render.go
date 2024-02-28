@@ -1353,7 +1353,7 @@ func renderAnnotations(w *jsonOutputter, o map[string]interface{}, raw *json.Raw
 			if err := json.Unmarshal(v, &h); err != nil {
 				log.Printf("Unmarshal digest %q: %v", string(v), err)
 			} else {
-				w.LinkImage(w.repo, h.String())
+				w.LinkImage(w.repo+"@"+h.String(), h.String())
 
 				// Don't fall through to renderRaw.
 				continue
@@ -1394,11 +1394,50 @@ func renderAnnotations(w *jsonOutputter, o map[string]interface{}, raw *json.Raw
 					}
 				}
 			}
-		case "org.opencontainers.image.documentation", "org.opencontainers.image.source", "org.opencontainers.image.url":
+		case "org.opencontainers.image.documentation", "org.opencontainers.image.url":
 			if js, ok := o[k]; ok {
 				if href, ok := js.(string); ok {
 					if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") {
 						w.BlueDoc(href, href)
+
+						// Don't fall through to renderRaw.
+						continue
+					}
+				}
+			}
+		case "org.opencontainers.image.source":
+			if js, ok := o[k]; ok {
+				if href, ok := js.(string); ok {
+					if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") {
+						// tianon has some syntax that is meaningful to github:
+						// https://github.com/docker-library/rabbitmq.git#6cc0f66ec13b06c153a7527c033cf1ad59a97ef3:3.13/ubuntu
+						// https://github.com/docker-library/rabbitmq/tree/6cc0f66ec13b06c153a7527c033cf1ad59a97ef3/3.13/ubuntu
+						before, after, ok := strings.Cut(href, "#")
+						if !ok {
+							w.BlueDoc(href, href)
+
+							// Don't fall through to renderRaw.
+							continue
+						}
+
+						if !strings.Contains(before, "github.com") {
+							w.BlueDoc(href, href)
+
+							// Don't fall through to renderRaw.
+							continue
+						}
+
+						prefix := strings.TrimSuffix(before, ".git")
+
+						commit, fp, ok := strings.Cut(after, ":")
+						if !ok {
+							w.BlueDoc(fmt.Sprintf("%s/tree/%s", prefix, after), href)
+
+							// Don't fall through to renderRaw.
+							continue
+						}
+
+						w.BlueDoc(fmt.Sprintf("%s/tree/%s/%s", prefix, commit, fp), href)
 
 						// Don't fall through to renderRaw.
 						continue

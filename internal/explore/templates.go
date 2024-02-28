@@ -303,7 +303,7 @@ input ~ .tab {          /* grey line between tab and contents */
 <input type="radio" name="tabs" id="tab2" />
 <label for="tab2">OCI</label>
 <div class="tab content1">
-Content-Type: {{if .MediaTypeLink}}<a class="mt" href="/{{.MediaTypeLink}}">{{.Descriptor.MediaType}}</a>{{else}}{{.Descriptor.MediaType}}{{end}}<br>
+Content-Type: {{if .MediaTypeLink}}<a class="mt" href="{{.MediaTypeLink}}">{{.Descriptor.MediaType}}</a>{{else}}{{.Descriptor.MediaType}}{{end}}<br>
 Docker-Content-Digest: <a class="mt" href="/{{.Handler}}{{$.Repo}}@{{.Descriptor.Digest}}{{if .EscapedMediaType}}&mt={{.EscapedMediaType}}{{end}}&size={{.Descriptor.Size}}">{{.Descriptor.Digest}}</a><br>
 Content-Length: {{if .SizeLink}}<a class="mt" href="{{.SizeLink}}">{{.Descriptor.Size}}</a>{{else}}{{.Descriptor.Size}}{{end}}<br>
 {{if $.Subject}}OCI-Subject: <a class="mt" href="/?image={{$.Repo}}@{{.Subject}}">{{.Subject}}</a><br>{{end}}
