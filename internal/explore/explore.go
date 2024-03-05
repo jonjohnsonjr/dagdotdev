@@ -584,6 +584,7 @@ func (h *handler) renderReferrers(w http.ResponseWriter, r *http.Request, src st
 	}
 
 	header := h.manifestHeader(ref.Digest(desc.Digest.String()), *desc)
+	header.JQ = fmt.Sprintf("curl -sL %s://%s/v2/%s/referrers/%s", ref.Scheme(), ref.RegistryStr(), ref.RepositoryStr(), ref.Identifier())
 	header.Referrers = false
 	header.Subject = ref.Identifier()
 
