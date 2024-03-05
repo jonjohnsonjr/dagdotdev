@@ -107,7 +107,7 @@ func (a apkindex) satisfies(depends []string) bool {
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
 	logs.Debug.Printf("renderIndex(%q)", ref)
 	short := r.URL.Query().Get("short") != "false"
-	full := r.URL.Query().Get("full") != ""
+	full := r.URL.Query().Get("full") != "" && r.URL.Query().Get("full") != "false"
 	provides := r.URL.Query()["provide"]
 	depends := r.URL.Query()["depend"]
 	search := r.URL.Query().Get("search")
@@ -156,8 +156,21 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					header.JQ += ` | cut -d" " -f1`
 					header.JQ += ` # this is approximate`
 
-					header.Message = "# packages that provide " + strings.Join(provides, ", ")
-					header.MessageLink = strings.ReplaceAll(r.URL.String(), "provide=", "depend=")
+					firstLink := "all packages"
+					firstHref := strings.ReplaceAll(r.URL.String(), "full=true", "full=false")
+					firstMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
+
+					if !full {
+						firstLink = "latest packages"
+						firstHref = strings.ReplaceAll(r.URL.String(), "full=false", "full=true")
+						firstMsg = fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
+					}
+
+					secondHref := strings.ReplaceAll(r.URL.String(), "provide=", "depend=")
+					secondLink := " provide " + strings.Join(provides, ", ")
+					secondMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", secondHref, secondLink)
+
+					header.Message = fmt.Sprintf("# %s that %s ", firstMsg, secondMsg)
 				} else {
 					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "D" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
 
@@ -168,8 +181,21 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					header.JQ += ` | cut -d" " -f1`
 					header.JQ += ` # this is approximate`
 
-					header.Message = "# packages that depend on " + strings.Join(depends, ", ")
-					header.MessageLink = strings.ReplaceAll(r.URL.String(), "depend=", "provide=")
+					firstLink := "all packages"
+					firstHref := strings.ReplaceAll(r.URL.String(), "full=true", "full=false")
+					firstMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
+
+					if !full {
+						firstLink = "latest packages"
+						firstHref = strings.ReplaceAll(r.URL.String(), "full=false", "full=true")
+						firstMsg = fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
+					}
+
+					secondHref := strings.ReplaceAll(r.URL.String(), "depend=", "provide=")
+					secondLink := " depend on " + strings.Join(depends, ", ")
+					secondMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", secondHref, secondLink)
+
+					header.Message = fmt.Sprintf("# %s that %s ", firstMsg, secondMsg)
 				}
 			}
 
