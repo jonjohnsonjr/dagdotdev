@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -109,7 +110,13 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	short := r.URL.Query().Get("short") != "false"
 	full := r.URL.Query().Get("full") != "" && r.URL.Query().Get("full") != "false"
 	provides := r.URL.Query()["provide"]
+	provides = slices.DeleteFunc(provides, func(s string) bool {
+		return s == ""
+	})
 	depends := r.URL.Query()["depend"]
+	depends = slices.DeleteFunc(depends, func(s string) bool {
+		return s == ""
+	})
 	search := r.URL.Query().Get("search")
 
 	pkgs := []apkindex{}
@@ -123,12 +130,13 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	}
 
 	header := headerData(ref, v1.Descriptor{})
-	header.Search = "hello-wolfi"
+	header.ShowSearch = true
 	if search != "" {
 		// Always show all results if we search.
 		full = true
 		header.Search = search
 	}
+	header.Full = full
 
 	// TODO: Add search into the links.
 	before, _, ok := strings.Cut(ref, "@")
@@ -144,8 +152,27 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 			if len(provides) == 0 && len(depends) == 0 {
 				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
 				header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk\n", $2}'`
+
+				firstLink := "all packages"
+				firstHref := strings.ReplaceAll(r.URL.String(), "full=true", "full=false")
+				firstMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
+
+				if !full {
+					firstLink = "latest packages"
+					firstHref = strings.ReplaceAll(r.URL.String(), "full=false", "full=true")
+					firstMsg = fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
+				}
+
+				secondMessage := "in APKINDEX"
+				if search != "" {
+					secondMessage = fmt.Sprintf("that contain %q", search)
+				}
+
+				header.Message = fmt.Sprintf("# %s %s", firstMsg, secondMessage)
 			} else {
+				header.Expanded = true
 				if len(provides) != 0 {
+					header.Provide = provides[0]
 					// awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}' | grep "so:libc.so.6" | cut -d" " -f1
 					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
 
@@ -172,6 +199,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 
 					header.Message = fmt.Sprintf("# %s that %s ", firstMsg, secondMsg)
 				} else {
+					header.Depend = depends[0]
 					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "D" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
 
 					for _, dep := range depends {

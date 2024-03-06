@@ -214,10 +214,18 @@ th {
 <div>
 <h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
 </div>
-{{ if .Search }}</p>
+{{ if .ShowSearch }}</p>
+<p>
 <form action="" method="GET" autocomplete="off" spellcheck="false">
+<input type="hidden" name="full" value="{{.Full}}"/>
 <input size="100" type="text" name="search" value="{{.Search}}"/>
 <input type="submit" value="Search" />
+</p>
+<details{{if .Expanded}} open{{end}}>
+<summary>Advanced Search</summary>
+<p><input size="100" type="text" name="depend" value="{{.Depend}}" placeholder="Depends"/></p>
+<p><input size="100" type="text" name="provide" value="{{.Provide}}" placeholder="Provides"/></p>
+</details>
 </form>
 <p>{{ end }}
 {{ if .Message }}<p>{{.Message}}</p>{{ end }}
@@ -252,7 +260,12 @@ type CosignTag struct {
 }
 
 type HeaderData struct {
+	ShowSearch       bool
+	Expanded         bool
+	Full             bool
 	Search           string
+	Depend           string
+	Provide          string
 	Repo             string
 	CosignTags       []CosignTag
 	Message          string
