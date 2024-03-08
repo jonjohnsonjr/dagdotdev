@@ -153,15 +153,21 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
 				header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk\n", $2}'`
 
-				firstLink := "all packages"
-				firstHref := strings.ReplaceAll(r.URL.String(), "full=true", "full=false")
-				firstMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
+				u := r.URL
+				q := u.Query()
 
-				if !full {
+				firstLink := "all packages"
+
+				if full {
+					q.Set("full", "false")
+				} else {
 					firstLink = "latest packages"
-					firstHref = strings.ReplaceAll(r.URL.String(), "full=false", "full=true")
-					firstMsg = fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
+					q.Set("full", "true")
 				}
+
+				u.RawQuery = q.Encode()
+				firstHref := u.String()
+				firstMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
 
 				secondMessage := "in APKINDEX"
 				if search != "" {
