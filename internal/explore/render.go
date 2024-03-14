@@ -878,11 +878,11 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 					}
 				}
 			}
-		case "content", "publicKey":
+		case "content", "publicKey", "verifier":
 			if inside(w.u, "dev.sigstore.cosign/bundle") {
 				if js, ok := o[k]; ok {
 					if s, ok := js.(string); ok {
-						if (w.path(".spec.publicKey") && w.kindVer("intoto/0.0.1")) || (w.path(".spec.signature.publicKey.content") && w.kindVer("hashedrekord/0.0.1")) {
+						if (w.path(".spec.publicKey") && w.kindVer("intoto/0.0.1")) || (w.path(".spec.signature.publicKey.content") && w.kindVer("hashedrekord/0.0.1")) || (strings.HasPrefix(strings.Join(w.jq, ""), ".spec.signatures") && w.kindVer("dsse/0.0.1")) {
 							u := *w.u
 							qs := u.Query()
 							qs.Add("jq", strings.Join(w.jq, ""))
@@ -898,7 +898,7 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 			}
 		case "value":
 			if inside(w.u, "dev.sigstore.cosign/bundle") {
-				if (w.path(".spec.content.hash.value") && w.kindVer("intoto/0.0.1")) || (w.path(".spec.data.hash.value") && w.kindVer("hashedrekord/0.0.1")) {
+				if (w.path(".spec.content.hash.value") && w.kindVer("intoto/0.0.1")) || (w.path(".spec.data.hash.value") && w.kindVer("hashedrekord/0.0.1")) || (w.path(".spec.envelopeHash.value") && w.kindVer("dsse/0.0.1")) {
 					if i, ok := o["algorithm"]; ok {
 						if s, ok := i.(string); ok {
 							if s == "sha256" {
