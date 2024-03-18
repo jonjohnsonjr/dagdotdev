@@ -375,7 +375,12 @@ func renderRaw(w *jsonOutputter, raw *json.RawMessage) error {
 		return renderMap(w, vv, raw)
 	case string:
 		vs := v.(string)
-		w.Value([]byte(strconv.Quote(vs)))
+		if strings.HasPrefix(vs, "https://") && !strings.Contains(vs, " ") {
+			// Probably a link?
+			w.Printf(`"<a class="mt" href="%s">%s</a>"`, vs, html.EscapeString(strings.Trim(strconv.Quote(vs), `"`)))
+		} else {
+			w.Value([]byte(strconv.Quote(vs)))
+		}
 		return nil
 	default:
 		b, err := raw.MarshalJSON()
@@ -509,9 +514,21 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 				continue
 			}
 		case "name":
-			if w.dockerHub {
-				if js, ok := o[k]; ok {
-					if s, ok := js.(string); ok {
+			if js, ok := o[k]; ok {
+				if s, ok := js.(string); ok {
+					if strings.HasPrefix(s, "pkg:") {
+						p, err := parsePurl(s)
+						if err == nil {
+							u, err := p.url(w.repo)
+							if err == nil {
+								w.BlueDoc(u, s)
+
+								// Don't fall through to renderRaw.
+								continue
+							}
+						}
+					}
+					if w.dockerHub {
 						w.LinkRepo(path.Join(w.repo, s), s)
 						continue
 					}
@@ -809,6 +826,16 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 
 						// Don't fall through to renderRaw.
 						continue
+					} else if strings.HasPrefix(href, "pkg:") {
+						p, err := parsePurl(href)
+						if err == nil {
+							u, err := p.url(w.repo)
+							if err == nil {
+								w.BlueDoc(u, href)
+								// Don't fall through to renderRaw.
+								continue
+							}
+						}
 					}
 				}
 			}
@@ -1231,6 +1258,20 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 					continue
 				}
 			}
+		case "identifier":
+			if js, ok := o[k]; ok {
+				if href, ok := js.(string); ok {
+					if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") || strings.HasPrefix(href, "git://") {
+						w.BlueDoc(gitUrl(href), href)
+
+						continue
+					} else if _, after, ok := strings.Cut(href, "docker-image://"); ok {
+						w.LinkImage(after, href)
+
+						continue
+					}
+				}
+			}
 		}
 
 		if w.mt == "application/cose" {
@@ -1409,37 +1450,7 @@ func renderAnnotations(w *jsonOutputter, o map[string]interface{}, raw *json.Raw
 			if js, ok := o[k]; ok {
 				if href, ok := js.(string); ok {
 					if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") {
-						// tianon has some syntax that is meaningful to github:
-						// https://github.com/docker-library/rabbitmq.git#6cc0f66ec13b06c153a7527c033cf1ad59a97ef3:3.13/ubuntu
-						// https://github.com/docker-library/rabbitmq/tree/6cc0f66ec13b06c153a7527c033cf1ad59a97ef3/3.13/ubuntu
-						before, after, ok := strings.Cut(href, "#")
-						if !ok {
-							w.BlueDoc(href, href)
-
-							// Don't fall through to renderRaw.
-							continue
-						}
-
-						if !strings.Contains(before, "github.com") {
-							w.BlueDoc(href, href)
-
-							// Don't fall through to renderRaw.
-							continue
-						}
-
-						prefix := strings.TrimSuffix(before, ".git")
-
-						commit, fp, ok := strings.Cut(after, ":")
-						if !ok {
-							w.BlueDoc(fmt.Sprintf("%s/tree/%s", prefix, after), href)
-
-							// Don't fall through to renderRaw.
-							continue
-						}
-
-						w.BlueDoc(fmt.Sprintf("%s/tree/%s/%s", prefix, commit, fp), href)
-
-						// Don't fall through to renderRaw.
+						w.BlueDoc(gitUrl(href), href)
 						continue
 					}
 				}
@@ -1675,4 +1686,31 @@ func shouldSize(mt string) bool {
 		strings.HasSuffix(mt, "tar.gzip") ||
 		strings.HasSuffix(mt, "tar+gzip") ||
 		strings.HasSuffix(mt, "tar+zstd")
+}
+
+// TODO: Just reuse this:
+// https://github.com/moby/moby/blob/ff05850e7e0d101c90cdafdb7f359b335e9f2fc3/builder/remotecontext/urlutil/urlutil.go
+//
+// Example:
+// In:  https://github.com/docker-library/rabbitmq.git#6cc0f66ec13b06c153a7527c033cf1ad59a97ef3:3.13/ubuntu
+// Out: https://github.com/docker-library/rabbitmq/tree/6cc0f66ec13b06c153a7527c033cf1ad59a97ef3/3.13/ubuntu
+func gitUrl(href string) string {
+	before, after, ok := strings.Cut(href, "#")
+	if !ok {
+		return href
+	}
+
+	if !strings.Contains(before, "github.com") {
+		return href
+	}
+
+	prefix := strings.TrimSuffix(before, ".git")
+	prefix = strings.ReplaceAll(prefix, "git://", "https://")
+
+	commit, fp, ok := strings.Cut(after, ":")
+	if !ok {
+		return fmt.Sprintf("%s/tree/%s", prefix, after)
+	}
+
+	return fmt.Sprintf("%s/tree/%s/%s", prefix, commit, fp)
 }
