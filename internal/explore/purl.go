@@ -44,6 +44,17 @@ func (p *purl) url(repo string) (string, error) {
 		if !strings.Contains(p.version, ":") {
 			delim = ":"
 		}
+		dig := p.qualifiers.Get("digest")
+		if dig != "" {
+			if delim == ":" {
+				// tag and digest
+				return fmt.Sprintf("/%s%s:%s@%s", h, repository, p.version, dig), nil
+			}
+			// just digest
+			return fmt.Sprintf("/%s%s%s%s", h, repository, delim, dig), nil
+		}
+
+		// tag or digest as version
 		return fmt.Sprintf("/%s%s%s%s", h, repository, delim, p.version), nil
 	case "oci":
 		if p.version == "" {
