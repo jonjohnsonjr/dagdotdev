@@ -5,8 +5,10 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"html"
 	"io"
@@ -159,6 +161,11 @@ func (h *handler) errHandler(hfe HandleFuncE) http.HandlerFunc {
 
 func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	qs := r.URL.Query()
+
+	if args := flag.Args(); len(args) != 0 {
+		log.Printf("args[0] = %s", args[0])
+		return h.renderArg(w, r, args[0])
+	}
 
 	if q := qs.Get("url"); q != "" {
 		u, err := url.PathUnescape(q)
@@ -490,8 +497,131 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (h *handler) renderArg(w http.ResponseWriter, r *http.Request, arg string) error {
+	qs := r.URL.Query()
+	qss := "?"
+	provides, ok := qs["provide"]
+	if ok {
+		for i, dep := range provides {
+			provides[i] = url.QueryEscape(dep)
+		}
+		qss += "provide=" + strings.Join(provides, "&provide=")
+		log.Printf("qss = %q", qss)
+	}
+	depends, ok := qs["depend"]
+	if ok {
+		for i, dep := range depends {
+			depends[i] = url.QueryEscape(dep)
+		}
+		qss += "&depend=" + strings.Join(depends, "&depend=")
+		log.Printf("qss = %q", qss)
+	}
+	full := qs.Get("full")
+	if full != "" {
+		qss += "&full=" + full
+	}
+
+	f, err := os.Open(arg)
+	if err != nil {
+		return err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	ref := fmt.Sprintf("%s@%d", arg, info.ModTime().Unix())
+
+	index, err := h.getIndex(r.Context(), ref)
+	if err != nil {
+		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
+	}
+	if index != nil {
+		fs, err := h.indexedFS(w, r, ref, index)
+		if err != nil {
+			return err
+		}
+
+		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("rendering APKINDEX: %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderIndex(w, r, rc, ref)
+		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("rendering SBOM: %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderSBOM(w, r, rc, ref)
+		} else if strings.HasSuffix(r.URL.Path, "/.PKGINFO") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("rendering .PKGINFO: %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderPkgInfo(w, r, rc, ref)
+		} else if strings.Contains(r.URL.Path, ".apk@") {
+			// Was I going to do something here???
+		}
+
+		log.Printf("serving http from cache")
+		httpserve.FileServer(httpserve.FS(fs)).ServeHTTP(w, r)
+		return nil
+	}
+
+	// Determine if this is actually a filesystem thing.
+	blob, prefix, err := h.fetchArg(w, r, arg)
+	if err != nil {
+		return fmt.Errorf("fetchArg: %w", err)
+	}
+
+	kind, original, unwrapped, err := h.tryNewIndex(w, r, prefix, ref, blob)
+	if err != nil {
+		return fmt.Errorf("failed to index blob %q: %w", ref, err)
+	}
+	if unwrapped != nil {
+		logs.Debug.Printf("unwrapped, kind = %q", kind)
+		seek := &sizeSeeker{unwrapped, -1}
+		return h.renderFile(w, r, ref, kind, seek)
+	}
+	if original != nil {
+		logs.Debug.Printf("original")
+		seek := &sizeSeeker{original, blob.size}
+		return h.renderFile(w, r, ref, kind, seek)
+	}
+
+	logs.Debug.Printf("ref=%q, prefix=%q, kind=%q, origin=%v, unwrapped=%v, err=%v", ref, prefix, kind, original, unwrapped, err)
+
+	return nil
+}
+
 func getUpstreamURL(r *http.Request) (string, error) {
 	return refToUrl(r.URL.Path)
+}
+
+type fileSeeker struct {
+	file string
+}
+
+func (fs *fileSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadCloser, error) {
+	logs.Debug.Printf("cacheSeeker.Reader(%d, %d)", off, end)
+	f, err := os.Open(fs.file)
+	if err != nil {
+		return nil, err
+	}
+	return io.NopCloser(io.NewSectionReader(f, off, end-off)), nil
 }
 
 func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, index soci.Index) (*soci.SociFS, error) {
@@ -501,12 +631,19 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 	}
 	mt := toc.MediaType
 
-	cachedUrl, err := getUpstreamURL(r)
-	if err != nil {
-		return nil, err
-	}
+	var blob soci.BlobSeeker
 
-	blob := LazyBlob(cachedUrl, toc.Csize, h.keychain)
+	if args := flag.Args(); len(args) > 0 {
+		log.Printf("args[0] = %s", args[0])
+		blob = &fileSeeker{args[0]}
+	} else {
+		cachedUrl, err := getUpstreamURL(r)
+		if err != nil {
+			return nil, err
+		}
+
+		blob = LazyBlob(cachedUrl, toc.Csize, h.keychain)
+	}
 	prefix := strings.TrimPrefix(ref, "/")
 	fs := soci.FS(index, blob, prefix, ref, respTooBig, types.MediaType(mt), h.renderHeader)
 

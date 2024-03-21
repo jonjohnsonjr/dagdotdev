@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -87,6 +88,51 @@ func (h *handler) listCatalog(w http.ResponseWriter, r *http.Request, ref name.R
 	return &remote.Catalogs{
 		Repos: repos,
 	}, err
+}
+
+// Fetch blob from registry or URL.
+func (h *handler) fetchArg(w http.ResponseWriter, r *http.Request, arg string) (*sizeBlob, string, error) {
+	ref := ""
+
+	var (
+		err     error
+		p, root string
+	)
+	if r.URL.Path == "/" {
+	} else {
+		p, root, err = splitFsURL(r.URL.Path)
+		if err != nil {
+			return nil, "", err
+		}
+
+		// TODO: Use sha1 for digest.
+		prefix, rest, ok := strings.Cut(p, "@")
+		if !ok {
+			return nil, "", fmt.Errorf("missing @ (this should not happen): %q", p)
+		}
+
+		// We want to get the part after @ but before the filepath.
+		digest, _, ok := strings.Cut(rest, "/")
+		if !ok {
+			ref = prefix + "@" + rest
+		} else {
+			ref = prefix + "@" + digest
+		}
+	}
+
+	rc, err := os.Open(arg)
+	if err != nil {
+		return nil, "", err
+	}
+
+	info, err := rc.Stat()
+	if err != nil {
+		return nil, "", err
+	}
+
+	blob := &sizeBlob{rc, info.Size()}
+
+	return blob, root + ref, err
 }
 
 // Fetch blob from registry or URL.
