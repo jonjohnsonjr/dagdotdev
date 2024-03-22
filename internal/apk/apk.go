@@ -104,6 +104,7 @@ func New(opts ...Option) http.Handler {
 	// Janky workaround for downloading via the "urls" field.
 	mux.HandleFunc("/http/", h.errHandler(h.renderFS))
 	mux.HandleFunc("/https/", h.errHandler(h.renderFS))
+	mux.HandleFunc("/file/", h.errHandler(h.renderLocalFS))
 
 	// Try to detect mediaType.
 	mux.HandleFunc("/blob/", h.errHandler(h.renderFS))
@@ -114,7 +115,7 @@ func New(opts ...Option) http.Handler {
 }
 
 func splitFsURL(p string) (string, string, error) {
-	for _, prefix := range []string{"/fs/", "/layers/", "/https/", "/http/", "/blob/", "/cache/", "/size/"} {
+	for _, prefix := range []string{"/fs/", "/layers/", "/https/", "/http/", "/blob/", "/cache/", "/size/", "/file/"} {
 		if strings.HasPrefix(p, prefix) {
 			return strings.TrimPrefix(p, prefix), prefix, nil
 		}
@@ -162,9 +163,10 @@ func (h *handler) errHandler(hfe HandleFuncE) http.HandlerFunc {
 func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	qs := r.URL.Query()
 
-	if args := flag.Args(); len(args) != 0 {
-		log.Printf("args[0] = %s", args[0])
-		return h.renderArg(w, r, args[0])
+	args := flag.Args()
+	if len(args) != 0 {
+		// log.Printf("args[0] = %s", args[0])
+		// return h.renderArg(w, r, args[0])
 	}
 
 	if q := qs.Get("url"); q != "" {
@@ -182,12 +184,12 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	// Cache landing page for 5 minutes.
-	// TODO: Uncomment this.
-	w.Header().Set("Cache-Control", "max-age=300")
-	w.Write([]byte(landingPage))
+	// TODO: Walk dir for APKINDEX.tar.gz
+	header := Landing{
+		Locals: args,
+	}
 
-	return nil
+	return landingTmpl.Execute(w, header)
 }
 
 func renderOctets(w http.ResponseWriter, r *http.Request, b []byte) error {
@@ -260,8 +262,21 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 
 		before, _, ok := strings.Cut(ref, "@")
 		if ok {
-			u := "https://" + strings.TrimPrefix(before, "/https/")
-			if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+			u, err := refToUrl(before)
+			if err != nil {
+				return err
+			}
+			scheme, _, ok := strings.Cut(u, "://")
+			if !ok {
+				return fmt.Errorf("no scheme in %q", u)
+			}
+			if scheme == "file" {
+				u = strings.TrimPrefix(u, "file://")
+			}
+
+			if scheme == "file" {
+				header.JQ = "cat" + " " + u
+			} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
 				header.JQ = "curl -sL" + printToken + " " + u
 			} else {
 				header.JQ = "curl -sL" + " " + u
@@ -497,6 +512,177 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
+	qs := r.URL.Query()
+	qss := "?"
+	provides, ok := qs["provide"]
+	if ok {
+		for i, dep := range provides {
+			provides[i] = url.QueryEscape(dep)
+		}
+		qss += "provide=" + strings.Join(provides, "&provide=")
+		log.Printf("qss = %q", qss)
+	}
+	depends, ok := qs["depend"]
+	if ok {
+		for i, dep := range depends {
+			depends[i] = url.QueryEscape(dep)
+		}
+		qss += "&depend=" + strings.Join(depends, "&depend=")
+		log.Printf("qss = %q", qss)
+	}
+	full := qs.Get("full")
+	if full != "" {
+		qss += "&full=" + full
+	}
+	search := qs.Get("search")
+	if search != "" {
+		qss += "&search=" + search
+	}
+	p, root, err := splitFsURL(r.URL.Path)
+	if err != nil {
+		return err
+	}
+
+	// TODO: We only _really_ want to do this for APKINDEX.tar.gz
+	// For the actual foo.apk fetch WITHOUT a hash (unlikely), we need to look up control section
+	// hash in the index and redirect to that.
+	u, err := getUpstreamURL(r)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("u: %s", u)
+	u = strings.TrimPrefix(u, "file://")
+	f, err := os.Open(u)
+	if err != nil {
+		return err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	ref := fmt.Sprintf("%s@%d", u, info.ModTime().Unix())
+	// We want to get the part after @ but before the filepath.
+	before, rest, ok := strings.Cut(p, "@")
+	if !ok || strings.Contains(u, "APKINDEX.tar.gz") {
+		// TODO: Consider caring about W/"..." vs "..."?
+		etagHex := fmt.Sprintf("%d", (info.ModTime().Unix()))
+
+		// We want to get the part after @ but before the filepath.
+		before, rest, ok := strings.Cut(p, "@")
+		if !ok {
+			redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
+			if before, rest, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz"); ok {
+				redir = fmt.Sprintf("%sAPKINDEX.tar.gz@etag:%s%s", before, etagHex, rest)
+			}
+			http.Redirect(w, r, redir+qss, http.StatusFound)
+			return nil
+		}
+
+		redir := fmt.Sprintf("%s%s@etag:%s", root, before, etagHex)
+		ref = before + "@" + rest
+
+		if digest, final, ok := strings.Cut(rest, "/"); ok {
+			ref = before + "@" + digest
+			redir = redir + "/" + final
+		}
+
+		if redir != r.URL.Path {
+			log.Printf("%q != %q", redir, r.URL.Path)
+			if strings.Contains(before, "APKINDEX.tar.gz") {
+				http.Redirect(w, r, redir+qss, http.StatusFound)
+				return nil
+			}
+		}
+
+		ref = root + ref
+	} else {
+		ref = before + "@" + rest
+
+		if digest, _, ok := strings.Cut(rest, "/"); ok {
+			ref = before + "@" + digest
+		}
+
+		ref = root + ref
+	}
+
+	index, err := h.getIndex(r.Context(), ref)
+	if err != nil {
+		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
+	}
+	if index != nil {
+		fs, err := h.indexedFS(w, r, ref, index)
+		if err != nil {
+			return err
+		}
+
+		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("rendering APKINDEX: %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderIndex(w, r, rc, ref)
+		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("rendering SBOM: %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderSBOM(w, r, rc, ref)
+		} else if strings.HasSuffix(r.URL.Path, "/.PKGINFO") {
+			filename := strings.TrimPrefix(r.URL.Path, "/")
+			log.Printf("rendering .PKGINFO: %q", filename)
+			rc, err := fs.Open(filename)
+			if err != nil {
+				return fmt.Errorf("open(%q): %w", filename, err)
+			}
+			defer rc.Close()
+
+			return h.renderPkgInfo(w, r, rc, ref)
+		} else if strings.Contains(r.URL.Path, ".apk@") {
+			// Was I going to do something here???
+		}
+
+		log.Printf("serving http from cache")
+		httpserve.FileServer(httpserve.FS(fs)).ServeHTTP(w, r)
+		return nil
+	}
+
+	// Determine if this is actually a filesystem thing.
+	blob, prefix, err := h.fetchArg(w, r, u)
+	if err != nil {
+		return fmt.Errorf("fetchBlob: %w", err)
+	}
+
+	kind, original, unwrapped, err := h.tryNewIndex(w, r, prefix, ref, blob)
+	if err != nil {
+		return fmt.Errorf("failed to index blob %q: %w", ref, err)
+	}
+	if unwrapped != nil {
+		logs.Debug.Printf("unwrapped, kind = %q", kind)
+		seek := &sizeSeeker{unwrapped, -1}
+		return h.renderFile(w, r, ref, kind, seek)
+	}
+	if original != nil {
+		logs.Debug.Printf("original")
+		seek := &sizeSeeker{original, blob.size}
+		return h.renderFile(w, r, ref, kind, seek)
+	}
+
+	logs.Debug.Printf("ref=%q, prefix=%q, kind=%q, origin=%v, unwrapped=%v, err=%v", ref, prefix, kind, original, unwrapped, err)
+
+	return nil
+}
+
 func (h *handler) renderArg(w http.ResponseWriter, r *http.Request, arg string) error {
 	qs := r.URL.Query()
 	qss := "?"
@@ -525,6 +711,7 @@ func (h *handler) renderArg(w http.ResponseWriter, r *http.Request, arg string) 
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	info, err := f.Stat()
 	if err != nil {
 		return err
@@ -633,15 +820,15 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 
 	var blob soci.BlobSeeker
 
-	if args := flag.Args(); len(args) > 0 {
-		log.Printf("args[0] = %s", args[0])
-		blob = &fileSeeker{args[0]}
-	} else {
-		cachedUrl, err := getUpstreamURL(r)
-		if err != nil {
-			return nil, err
-		}
+	cachedUrl, err := getUpstreamURL(r)
+	if err != nil {
+		return nil, err
+	}
 
+	if _, p, ok := strings.Cut(cachedUrl, "file://"); ok {
+		log.Printf("cachedUrl: %s", p)
+		blob = &fileSeeker{p}
+	} else {
 		blob = LazyBlob(cachedUrl, toc.Csize, h.keychain)
 	}
 	prefix := strings.TrimPrefix(ref, "/")
@@ -691,7 +878,10 @@ func headerData(ref string, desc v1.Descriptor) *HeaderData {
 
 func refToUrl(p string) (string, error) {
 	scheme := "https://"
-	if strings.HasPrefix(p, "/http/") {
+	if strings.HasPrefix(p, "/file/") {
+		p = strings.TrimPrefix(p, "/file/")
+		scheme = "file://"
+	} else if strings.HasPrefix(p, "/http/") {
 		p = strings.TrimPrefix(p, "/http/")
 		scheme = "http://"
 	} else {
@@ -820,6 +1010,9 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 		return fmt.Errorf("no scheme in %q", u)
 	}
 	dir = scheme + "://" + path.Dir(after)
+	if scheme == "file" {
+		dir = strings.TrimPrefix(dir, "file://")
+	}
 	base := path.Base(u)
 
 	before, _, ok := strings.Cut(ref, "@")
@@ -855,7 +1048,10 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 	}
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
 
-	if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+	log.Printf("scheme: %q", scheme)
+	if scheme == "file" {
+		header.JQ = "cat" + " " + u + " | " + tarlink + " " + filelink
+	} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
 		header.JQ = "curl -sL" + printToken + " " + u + " | " + tarlink + " " + filelink
 	} else {
 		header.JQ = "curl -sL" + " " + u + " | " + tarlink + " " + filelink
@@ -972,12 +1168,19 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
-		u := "https://" + strings.TrimPrefix(before, "/https/")
+		u, err := refToUrl(ref)
+		if err != nil {
+			return err
+		}
 		scheme, after, ok := strings.Cut(u, "://")
 		if !ok {
 			return fmt.Errorf("no scheme in %q", u)
 		}
 		dir := scheme + "://" + path.Dir(after)
+		if scheme == "file" {
+			dir = strings.TrimPrefix(dir, "file://")
+		}
+
 		base := path.Base(u)
 
 		index := path.Join(path.Dir(before), "APKINDEX.tar.gz")
@@ -985,7 +1188,9 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 		href := fmt.Sprintf("<a class=%q href=%q>%s</a>/<a class=%q href=%q>%s</a>", "mt", index, dir, "mt", ref, base)
 
 		u = href
-		if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+		if scheme == "file" {
+			header.JQ = "cat" + " " + u + " | tar -Oxz " + filelink
+		} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
 			header.JQ = "curl -sL" + printToken + " " + u + " | tar -Oxz " + filelink
 		} else {
 			header.JQ = "curl -sL " + " " + u + " | tar -Oxz " + filelink
@@ -1174,6 +1379,9 @@ func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int
 		before, _, ok := strings.Cut(ref, "@")
 		if ok {
 			dir := scheme + "://" + path.Dir(after)
+			if scheme == "file" {
+				dir = strings.TrimPrefix(dir, "file://")
+			}
 			base := path.Base(u)
 
 			index := path.Join(path.Dir(before), "APKINDEX.tar.gz")
@@ -1183,7 +1391,9 @@ func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int
 			u = href
 		}
 
-		if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+		if scheme == "file" {
+			header.JQ = "cat" + " " + u + " | " + tarflags
+		} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
 			header.JQ = "curl -sL" + printToken + " " + u + " | " + tarflags
 		} else {
 			header.JQ = "curl -sL" + " " + u + " | " + tarflags

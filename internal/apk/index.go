@@ -141,13 +141,30 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	// TODO: Add search into the links.
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
-		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
+		u, err := refToUrl(before)
+		if err != nil {
+			return err
+		}
+		scheme, after, ok := strings.Cut(u, "://")
+		if !ok {
+			return fmt.Errorf("no scheme in %q", u)
+		}
+		u = scheme + "://" + strings.TrimSuffix(after, "/")
+		if scheme == "file" {
+			u = strings.TrimPrefix(u, "file://")
+		}
+
+		// u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
 		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
 		if short {
 			// TODO: This stuff is not super robust. We could write a real awk program to do it better.
 
 			// Link to long form.
-			header.JQ = "curl -sL" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
+			if scheme == "file" {
+				header.JQ = "cat" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
+			} else {
+				header.JQ = "curl -sL" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
+			}
 
 			if len(provides) == 0 && len(depends) == 0 {
 				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
@@ -237,20 +254,44 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 				header.JQ += fmt.Sprintf(" | grep %q", search)
 			}
 		} else {
-			header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
+			if scheme == "file" {
+				header.JQ = "cat" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
+			} else {
+				header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
+			}
 		}
 	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
 		before = path.Join(before, "APKINDEX.tar.gz")
-		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
+
+		u, err := refToUrl(before)
+		if err != nil {
+			return err
+		}
+		scheme, after, ok := strings.Cut(u, "://")
+		if !ok {
+			return fmt.Errorf("no scheme in %q", u)
+		}
+		u = scheme + "://" + strings.TrimSuffix(after, "/")
+		if scheme == "file" {
+			u = strings.TrimPrefix(u, "file://")
+		}
 		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
 		if short {
 			// Link to long form.
-			header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
+			if scheme == "file" {
+				header.JQ = "cat" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
+			} else {
+				header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
+			}
 
 			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
 			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
 		} else {
-			header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
+			if scheme == "file" {
+				header.JQ = "cat" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
+			} else {
+				header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
+			}
 		}
 	}
 
@@ -506,13 +547,19 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 	header := headerData(ref, v1.Descriptor{})
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
-		u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
+		u, err := refToUrl(before)
+		if err != nil {
+			return err
+		}
 
 		scheme, after, ok := strings.Cut(u, "://")
 		if !ok {
 			return fmt.Errorf("no scheme in %q", u)
 		}
 		dir := scheme + "://" + path.Dir(after)
+		if scheme == "file" {
+			dir = strings.TrimPrefix(dir, "file://")
+		}
 		base := path.Base(u)
 
 		index := path.Join(path.Dir(before), "APKINDEX.tar.gz")
@@ -521,7 +568,11 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 
 		u = href
 
-		header.JQ = "curl -sL" + " " + u + " | tar -Oxz .PKGINFO"
+		if scheme == "file" {
+			header.JQ = "cat" + " " + u + " | tar -Oxz .PKGINFO"
+		} else {
+			header.JQ = "curl -sL" + " " + u + " | tar -Oxz .PKGINFO"
+		}
 	}
 
 	// TODO: We need a cookie or something.

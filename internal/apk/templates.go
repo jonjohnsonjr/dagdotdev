@@ -7,19 +7,21 @@ import (
 )
 
 var (
-	headerTmpl *template.Template
-	bodyTmpl   *template.Template
-	oauthTmpl  *template.Template
+	landingTmpl *template.Template
+	headerTmpl  *template.Template
+	bodyTmpl    *template.Template
+	oauthTmpl   *template.Template
 )
 
 func init() {
+	landingTmpl = template.Must(template.New("landingTemplate").Parse(landingTemplate))
 	headerTmpl = template.Must(template.New("headerTemplate").Parse(headerTemplate))
 	bodyTmpl = template.Must(template.New("bodyTemplate").Parse(bodyTemplate))
 	oauthTmpl = template.Must(template.New("oauthTemplate").Parse(oauthTemplate))
 }
 
 const (
-	landingPage = `
+	landingTemplate = `
 <html>
 <body>
 <head>
@@ -66,6 +68,12 @@ body {
 <input size="100" type="text" name="url" value=""/>
 <input type="submit" />
 </form>
+{{ if .Locals }}
+<h3>Local Repo</h3>
+<p>
+{{ range .Locals }}<li><a href="/file/{{.}}/APKINDEX">{{.}}</a></li>{{end}}
+</p>
+{{ end}}
 <p>
 <h4>Interesting examples</h4>
 <ul>
@@ -239,6 +247,10 @@ th {
 </html>
 `
 )
+
+type Landing struct {
+	Locals []string
+}
 
 type RepoParent struct {
 	Parent    string
