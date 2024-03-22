@@ -68,10 +68,16 @@ body {
 <input size="100" type="text" name="url" value=""/>
 <input type="submit" />
 </form>
-{{ if .Locals }}
-<h3>Local Repo</h3>
+{{ if .Indices }}
+<h4>Local APKINDEX</h4>
 <p>
-{{ range .Locals }}<li><a href="/file/{{.}}/APKINDEX">{{.}}</a></li>{{end}}
+{{ range .Indices }}<li><a href="/file/{{.}}/APKINDEX">{{.}}</a></li>{{end}}
+</p>
+{{ end}}
+{{ if .Apks }}
+<h4>Local APKs</h4>
+<p>
+{{ range .Apks }}<li><a href="/file/{{.}}">{{.}}</a></li>{{end}}
 </p>
 {{ end}}
 <p>
@@ -249,7 +255,8 @@ th {
 )
 
 type Landing struct {
-	Locals []string
+	Indices []string
+	Apks    []string
 }
 
 type RepoParent struct {

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -184,12 +185,26 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	// TODO: Walk dir for APKINDEX.tar.gz
-	header := Landing{
-		Locals: args,
+	data := Landing{}
+	if len(args) != 0 {
+		indices := []string{}
+		apks := []string{}
+		if err := filepath.WalkDir(args[0], func(path string, d fs.DirEntry, err error) error {
+			if strings.HasSuffix(path, "APKINDEX.tar.gz") {
+				indices = append(indices, path)
+			} else if strings.HasSuffix(path, ".apk") {
+				apks = append(apks, path)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		data.Indices = indices
+		data.Apks = apks
 	}
 
-	return landingTmpl.Execute(w, header)
+	return landingTmpl.Execute(w, data)
 }
 
 func renderOctets(w http.ResponseWriter, r *http.Request, b []byte) error {
@@ -554,21 +569,21 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 
 	log.Printf("u: %s", u)
 	u = strings.TrimPrefix(u, "file://")
-	f, err := os.Open(u)
-	if err != nil {
-		return err
-	}
-	info, err := f.Stat()
-	if err != nil {
-		return err
-	}
 
-	ref := fmt.Sprintf("%s@%d", u, info.ModTime().Unix())
+	ref := ""
 	// We want to get the part after @ but before the filepath.
 	before, rest, ok := strings.Cut(p, "@")
 	if !ok || strings.Contains(u, "APKINDEX.tar.gz") {
-		// TODO: Consider caring about W/"..." vs "..."?
-		etagHex := fmt.Sprintf("%d", (info.ModTime().Unix()))
+		// TODO: This is dumb we should not even bother indexing local things.
+		f, err := os.Open(u)
+		if err != nil {
+			return err
+		}
+		h := sha256.New()
+		if _, err := io.Copy(h, f); err != nil {
+			return err
+		}
+		etagHex := hex.EncodeToString(h.Sum(make([]byte, 0, h.Size())))
 
 		// We want to get the part after @ but before the filepath.
 		before, rest, ok := strings.Cut(p, "@")
