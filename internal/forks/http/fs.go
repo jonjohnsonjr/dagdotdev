@@ -355,25 +355,28 @@ func dirList(w http.ResponseWriter, r *http.Request, fname string, f File, rende
 			return false
 		}
 
-		return i < j
+		if !strings.HasPrefix(r.URL.Path, "/layers/") && !strings.HasPrefix(r.URL.Path, "/sizes/") {
+			return i < j
+		}
 
-		// if in == jn {
-		// 	iw, jw := dirs.whiteout(i), dirs.whiteout(j)
-		// 	io, jo := dirs.overwritten(i), dirs.overwritten(j)
-		// 	ii, ji := dirs.index(i), dirs.index(j)
+		// Only interesting for overlays.
+		if in == jn {
+			iw, jw := dirs.whiteout(i), dirs.whiteout(j)
+			io, jo := dirs.overwritten(i), dirs.overwritten(j)
+			ii, ji := dirs.index(i), dirs.index(j)
 
-		// 	iStays := iw == "" && io == ""
-		// 	jStrike := jw != "" || jo != ""
-		// 	if iStays && jStrike {
-		// 		return true
-		// 	}
+			iStays := iw == "" && io == ""
+			jStrike := jw != "" || jo != ""
+			if iStays && jStrike {
+				return true
+			}
 
-		// 	if ji != ii {
-		// 		return ii < ji
-		// 	}
-		// }
+			if ji != ii {
+				return ii < ji
+			}
+		}
 
-		// return in < jn
+		return in < jn
 	}
 	sort.Slice(dirs, less)
 

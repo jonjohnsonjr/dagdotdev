@@ -859,7 +859,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref name.Di
 	// Allow this to be cached for an hour.
 	w.Header().Set("Cache-Control", "max-age=3600, immutable")
 
-	httpserve.ServeContent(w, r, "", time.Time{}, blob, func(w http.ResponseWriter, ctype string) error {
+	httpserve.ServeContent(w, r, "", time.Time{}, blob, func(w http.ResponseWriter, r *http.Request, ctype string) error {
 		// Kind at this point can be "gzip", "zstd" or ""
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := headerTmpl.Execute(w, TitleData{ref.String()}); err != nil {
@@ -1440,7 +1440,7 @@ func headerData(ref name.Reference, desc v1.Descriptor) *HeaderData {
 	}
 }
 
-func renderHeader(w http.ResponseWriter, fname string, prefix string, refs string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, refs string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
 	ref, err := name.ParseReference(refs)
 	if err != nil {
 		return err

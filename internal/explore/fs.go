@@ -58,8 +58,8 @@ func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string,
 	}
 }
 
-func (fs *layerFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.File, ctype string) error {
-	return renderHeader(w, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size, f, ctype)
+func (fs *layerFS) RenderHeader(w http.ResponseWriter, r *http.Request, fname string, f httpserve.File, ctype string) error {
+	return renderHeader(w, r, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size, f, ctype)
 }
 
 func (fs *layerFS) Open(original string) (httpserve.File, error) {
