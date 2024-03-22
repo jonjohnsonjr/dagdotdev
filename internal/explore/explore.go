@@ -1263,7 +1263,7 @@ func (h *handler) multiFS(w http.ResponseWriter, r *http.Request, dig name.Diges
 	}
 
 	prefix := strings.TrimPrefix(ref, "/")
-	return soci.NewMultiFS(fss, prefix, dig, desc.Size, desc.MediaType, renderDir), nil
+	return soci.NewMultiFS(fss, prefix, dig.String(), desc.Size, desc.MediaType, renderDir), nil
 }
 
 // Flatten layers of an image and serve as a filesystem.
@@ -1440,7 +1440,11 @@ func headerData(ref name.Reference, desc v1.Descriptor) *HeaderData {
 	}
 }
 
-func renderHeader(w http.ResponseWriter, fname string, prefix string, ref name.Reference, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+func renderHeader(w http.ResponseWriter, fname string, prefix string, refs string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+	ref, err := name.ParseReference(refs)
+	if err != nil {
+		return err
+	}
 	stat, err := f.Stat()
 	if err != nil {
 		return err
@@ -1530,7 +1534,12 @@ func renderHeader(w http.ResponseWriter, fname string, prefix string, ref name.R
 	return bodyTmpl.Execute(w, header)
 }
 
-func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, ref name.Reference, f httpserve.File, ctype string) error {
+func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, refs string, f httpserve.File, ctype string) error {
+	ref, err := name.ParseReference(refs)
+	if err != nil {
+		return err
+	}
+
 	// This must be a directory because it wasn't part of a filesystem
 	stat, err := f.Stat()
 	if err != nil {

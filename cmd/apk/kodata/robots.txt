@@ -1,0 +1,19 @@
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: *
+Allow: /$
+Disallow: /
+
+User-agent: *
+Disallow: /fs/
+Disallow: /http/
+Disallow: /https/
+Disallow: /raw/
+Disallow: /blob/
+Disallow: /json/
+Disallow: /gzip/
+Disallow: /oauth/

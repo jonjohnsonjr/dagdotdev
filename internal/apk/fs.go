@@ -1,4 +1,4 @@
-package explore
+package apk
 
 import (
 	"archive/tar"
@@ -35,6 +35,7 @@ type tarReader interface {
 
 // Implements http.FileSystem.
 type layerFS struct {
+	h       *handler
 	prefix  string
 	tr      tarReader
 	headers []*tar.Header
@@ -48,6 +49,7 @@ type layerFS struct {
 func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string, mt types.MediaType) *layerFS {
 	logs.Debug.Printf("size: %d, prefix: %q, ref: %q, kind: %q", size, prefix, ref, kind)
 	return &layerFS{
+		h:       h,
 		tr:      tr,
 		size:    size,
 		prefix:  prefix,
@@ -58,13 +60,15 @@ func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string,
 	}
 }
 
-func (fs *layerFS) RenderHeader(w http.ResponseWriter, fname string, f httpserve.File, ctype string) error {
-	return renderHeader(w, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size, f, ctype)
+func (fs *layerFS) RenderHeader(w http.ResponseWriter, r *http.Request, fname string, f httpserve.File, ctype string) error {
+	return fs.h.renderHeader(w, r, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size, f, ctype)
 }
 
 func (fs *layerFS) Open(original string) (httpserve.File, error) {
 	logs.Debug.Printf("Open(%q)", original)
+	logs.Debug.Printf("prefix=%q", fs.prefix)
 	name := strings.TrimPrefix(original, fs.prefix)
+	logs.Debug.Printf("name=%q", name)
 
 	var found httpserve.File
 	// Scan through the layer, looking for a matching tar.Header.Name.
@@ -81,7 +85,7 @@ func (fs *layerFS) Open(original string) (httpserve.File, error) {
 		// into play mostly for ReadDir() at the top level, where we already scan
 		// the entire layer to tell FileServer "/" and "index.html" don't exist.
 		fs.headers = append(fs.headers, header)
-		if path.Clean("/"+header.Name) == name {
+		if got := path.Clean("/" + header.Name); got == name {
 			found = &layerFile{
 				name:   name,
 				header: header,
@@ -92,6 +96,8 @@ func (fs *layerFS) Open(original string) (httpserve.File, error) {
 			if header.Typeflag != tar.TypeDir {
 				return found, nil
 			}
+		} else {
+			logs.Debug.Printf("got: %q, want %q", got, name)
 		}
 	}
 

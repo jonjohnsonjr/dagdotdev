@@ -29,15 +29,17 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dag.dev/internal/forks/elf"
 	"github.com/jonjohnsonjr/dag.dev/internal/forks/safefilepath"
 	"github.com/jonjohnsonjr/dag.dev/internal/xxd"
+	"golang.org/x/exp/slices"
 )
 
-const TooBig = 1 << 15
+const TooBig = 1 << 24
 
 // HeaderRenderer renders a header for a FileSystem.
 type HeaderRenderer interface {
-	RenderHeader(w http.ResponseWriter, name string, f File, ctype string) error
+	RenderHeader(w http.ResponseWriter, r *http.Request, name string, f File, ctype string) error
 }
 
 // A Dir implements FileSystem using the native file system restricted to a
@@ -59,7 +61,7 @@ type HeaderRenderer interface {
 type Dir string
 
 // RenderHeader is unused.
-func (d Dir) RenderHeader(w http.ResponseWriter, name string, f File, ctype string) error {
+func (d Dir) RenderHeader(w http.ResponseWriter, r *http.Request, name string, f File, ctype string) error {
 	// We don't use this.
 	return nil
 }
@@ -199,6 +201,26 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 
 	var dirs dirEntryDirs = des
 
+	search := r.URL.Query().Get("search")
+	if search != "" {
+		dirs = slices.DeleteFunc(dirs, func(de fs.DirEntry) bool {
+			fi, err := de.Info()
+			if err != nil {
+				return true
+			}
+
+			header, ok := fi.Sys().(*tar.Header)
+			if !ok {
+				return true
+			}
+
+			if strings.HasPrefix(search, "^") {
+				return !strings.HasPrefix(header.Name, search[1:])
+			}
+			return !strings.Contains(header.Name, search)
+		})
+	}
+
 	showlayer := strings.HasPrefix(r.URL.Path, "/sizes")
 	less := func(i, j int) bool {
 		ii, err := dirs.info(i)
@@ -242,7 +264,12 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 			return ii.Size() > ji.Size()
 		}
 	}
-	sort.Slice(dirs, less)
+
+	showAll := r.URL.Query().Get("all") == "true" || search != ""
+
+	if !showAll {
+		sort.Slice(dirs, less)
+	}
 
 	if len(dirs) > TooBig {
 		dirs = dirs[0:TooBig]
@@ -253,6 +280,15 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 	if render != nil {
 		if err := render(); err != nil {
 			return fmt.Errorf("render(): %w", err)
+		}
+	}
+
+	fprefix := ""
+	if _, after, ok := strings.Cut(prefix, "@"); ok {
+		if _, after, ok := strings.Cut(after, "/"); ok {
+			fprefix = after
+		} else {
+			fprefix = "/"
 		}
 	}
 
@@ -269,11 +305,18 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 		// name may contain '?' or '#', which must be escaped to remain
 		// part of the URL path, and not indicate the start of a query
 		// string or fragment.
-		url := url.URL{Path: strings.TrimPrefix(name, "/")}
+		u := url.URL{Path: strings.TrimPrefix(name, "/")}
+
 		if info == nil {
-			fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", url.String(), htmlReplacer.Replace(name))
+			fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
+		} else if showAll {
+			if strings.HasPrefix(name, fprefix) || fprefix == "/" {
+				u.Path = strings.TrimPrefix(u.Path, fprefix)
+				u.Path = strings.TrimPrefix(u.Path, "/")
+				fmt.Fprint(w, tarListAll(i, dirs, info, u, prefix, fprefix, r.URL.Query().Get("pax") == "true"))
+			}
 		} else {
-			fmt.Fprint(w, tarListSize(i, dirs, showlayer, info, url, prefix))
+			fmt.Fprint(w, tarListSize(i, dirs, showlayer, info, u, prefix))
 			fmt.Fprint(w, "\n")
 		}
 	}
@@ -284,6 +327,7 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 func dirList(w http.ResponseWriter, r *http.Request, fname string, f File, render renderFunc) {
 	logs.Debug.Printf("dirList: %q", fname)
 	prefix := fname
+
 	// Prefer to use ReadDir instead of Readdir,
 	// because the former doesn't require calling
 	// Stat on every entry of a directory on Unix.
@@ -311,30 +355,32 @@ func dirList(w http.ResponseWriter, r *http.Request, fname string, f File, rende
 			return false
 		}
 
-		if in == jn {
-			iw, jw := dirs.whiteout(i), dirs.whiteout(j)
-			io, jo := dirs.overwritten(i), dirs.overwritten(j)
-			ii, ji := dirs.index(i), dirs.index(j)
+		return i < j
 
-			iStays := iw == "" && io == ""
-			jStrike := jw != "" || jo != ""
-			if iStays && jStrike {
-				return true
-			}
+		// if in == jn {
+		// 	iw, jw := dirs.whiteout(i), dirs.whiteout(j)
+		// 	io, jo := dirs.overwritten(i), dirs.overwritten(j)
+		// 	ii, ji := dirs.index(i), dirs.index(j)
 
-			if ji != ii {
-				return ii < ji
-			}
-		}
+		// 	iStays := iw == "" && io == ""
+		// 	jStrike := jw != "" || jo != ""
+		// 	if iStays && jStrike {
+		// 		return true
+		// 	}
 
-		return in < jn
+		// 	if ji != ii {
+		// 		return ii < ji
+		// 	}
+		// }
+
+		// return in < jn
 	}
 	sort.Slice(dirs, less)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	if render != nil {
-		if err := render(w, ""); err != nil {
+		if err := render(w, r, ""); err != nil {
 			logs.Debug.Printf("render(w): %v", err)
 		}
 	}
@@ -371,6 +417,54 @@ func dirList(w http.ResponseWriter, r *http.Request, fname string, f File, rende
 		}
 	}
 	fmt.Fprintf(w, "</pre>\n</body>\n</html>")
+}
+
+func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix string, pax bool) string {
+	header, ok := fi.Sys().(*tar.Header)
+	if !ok {
+		name := fi.Name()
+		ts := "????-??-?? ??:??"
+		ug := "?/?"
+		mode := "d?????????"
+		padding := 18 - len(ug)
+		s := fmt.Sprintf("%s %s %*d %s", mode, ug, padding, 0, ts)
+		s += fmt.Sprintf(" <a href=\"%s\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
+		return s
+	}
+	ts := header.ModTime.Format("2006-01-02 15:04")
+	ug := fmt.Sprintf("%d/%d", header.Uid, header.Gid)
+	mode := modeStr(header)
+	padding := 18 - len(ug)
+	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.Bytes(uint64(header.Size)), padding, header.Size, ts)
+
+	name := dirs.name(i)
+	if header.Linkname != "" {
+		if header.Linkname == "." {
+			u.Path = path.Dir(u.Path)
+		} else if containsDotDot(header.Linkname) {
+			u.Path = strings.TrimPrefix(header.Linkname, "/")
+		} else if strings.HasPrefix(header.Linkname, "/") {
+			u.Path = path.Join(strings.TrimSuffix(uprefix, fprefix), header.Linkname)
+		} else {
+			u.Path = path.Join(u.Path, "..", header.Linkname)
+		}
+		if header.Typeflag == tar.TypeLink {
+			name += " link to " + header.Linkname
+		} else {
+			name += " -> " + header.Linkname
+		}
+	}
+
+	s += fmt.Sprintf(" <a href=\"%s?all=true\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
+	if pax {
+		for k, v := range header.PAXRecords {
+			s += fmt.Sprintf("    %s: %s\n", htmlReplacer.Replace(k), htmlReplacer.Replace(v))
+		}
+		if len(header.PAXRecords) != 0 {
+			s += "\n"
+		}
+	}
+	return s
 }
 
 func tarList(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL, uprefix string) string {
@@ -642,7 +736,7 @@ var errSeeker = errors.New("seeker can't seek")
 var errNoOverlap = errors.New("invalid range: failed to overlap")
 
 // TODO: Define sentinel error to return early.
-type renderFunc func(w http.ResponseWriter, ctype string) error
+type renderFunc func(w http.ResponseWriter, r *http.Request, ctype string) error
 
 // if name is empty, filename is unknown. (used for mime type, before sniffing)
 // if modtime.IsZero(), modtime is unknown.
@@ -658,6 +752,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	code := http.StatusOK
 	br := bufio.NewReaderSize(content, sniffLen)
 
+	isElf := false
 	// If Content-Type isn't set, use the file's extension to find it, but
 	// if the Content-Type is unset explicitly, do not sniff the type.
 	ctypes, haveType := w.Header()["Content-Type"]
@@ -671,8 +766,17 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 				http.Error(w, "serveContent.Peek: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+
 			ctype = DetectContentType(buf)
 			logs.Debug.Printf("DetectContentType = %s", ctype)
+
+			if len(buf) > 4 {
+				if buf[0] == '\x7f' || buf[1] == 'E' || buf[2] == 'L' || buf[3] == 'F' {
+					isElf = true
+					w.Header().Del("Last-Modified")
+					ctype = "elf"
+				}
+			}
 		} else {
 			logs.Debug.Printf("ByExtension = %s", ctype)
 		}
@@ -775,7 +879,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	}
 
 	if render != nil && r.URL.Query().Get("dl") == "" {
-		if err := render(w, ctype); err != nil {
+		if err := render(w, r, ctype); err != nil {
 			logs.Debug.Printf("render(w): %v", err)
 		} else {
 			fmt.Fprintf(w, "<pre>")
@@ -798,21 +902,41 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 				sendSize = TooBig
 			}
 
-			rw := w
-			var w io.Writer
-			if strings.HasPrefix(ctype, "text/") || strings.Contains(ctype, "json") {
-				w = &dumbEscaper{buf: bufio.NewWriter(rw)}
-			} else {
-				w = xxd.NewWriter(rw, sendSize)
-			}
-
-			if sendSize < 0 {
-				if _, err := io.Copy(w, sendContent); err != nil {
-					logs.Debug.Printf("Copy: %v", err)
+			if isElf {
+				key := r.URL.Path
+				if r.URL.Query().Get("render") == "elf" {
+					err := elf.Print(w, size, br, key)
+					if err != nil {
+						log.Printf("elf print: %v", err)
+						http.Error(w, "elf.Print: "+err.Error(), http.StatusInternalServerError)
+						return
+					}
+				} else {
+					err := elf.Xxd(w, size, br, key)
+					if err != nil {
+						log.Printf("elf xxd: %v", err)
+						http.Error(w, "elf.Xxd: "+err.Error(), http.StatusInternalServerError)
+						return
+					}
 				}
 			} else {
-				if _, err := io.CopyN(w, sendContent, sendSize); err != nil {
-					logs.Debug.Printf("CopyN: %v", err)
+				rw := w
+				var w io.Writer
+
+				if strings.HasPrefix(ctype, "text/") || strings.Contains(ctype, "json") {
+					w = &dumbEscaper{buf: bufio.NewWriter(rw)}
+				} else {
+					w = xxd.NewWriter(rw, sendSize)
+				}
+
+				if sendSize < 0 {
+					if _, err := io.Copy(w, sendContent); err != nil {
+						logs.Debug.Printf("Copy: %v", err)
+					}
+				} else {
+					if _, err := io.CopyN(w, sendContent, sendSize); err != nil {
+						logs.Debug.Printf("CopyN: %v", err)
+					}
 				}
 			}
 		} else {
@@ -1072,7 +1196,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, modtime time.Tim
 }
 
 // name is '/'-separated, not filepath.Separator.
-func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name string, redirect bool) {
+func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name string, redirect bool) {
 	const indexPage = "/index.html"
 
 	// redirect .../index.html to .../
@@ -1083,7 +1207,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name strin
 		return
 	}
 
-	f, err := fs.Open(name)
+	f, err := fsys.Open(name)
 	if err != nil {
 		logs.Debug.Printf("serveFile: %v", err)
 		msg, code := toHTTPError(err)
@@ -1127,7 +1251,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name strin
 
 		// use contents of index.html for directory, if present
 		index := strings.TrimSuffix(name, "/") + indexPage
-		ff, err := fs.Open(index)
+		ff, err := fsys.Open(index)
 		if err == nil {
 			defer ff.Close()
 			dd, err := ff.Stat()
@@ -1138,8 +1262,8 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name strin
 		}
 	}
 
-	render := func(w http.ResponseWriter, ctype string) error {
-		return fs.RenderHeader(w, name, f, ctype)
+	render := func(w http.ResponseWriter, r *http.Request, ctype string) error {
+		return fsys.RenderHeader(w, r, name, f, ctype)
 	}
 
 	// Still a directory? (we didn't find an index.html file)
@@ -1149,6 +1273,32 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name strin
 			return
 		}
 		setLastModified(w, d.ModTime())
+
+		if r.URL.Query().Get("all") == "true" || r.URL.Query().Get("search") != "" {
+			if ifs, ok := fsys.(ioFS); ok {
+				if efs, ok := ifs.fsys.(interface {
+					Everything() ([]fs.DirEntry, error)
+				}); ok {
+					des, err := efs.Everything()
+					if err != nil {
+						log.Printf("everything: %v", err)
+					}
+
+					renderf := func() error {
+						if render == nil {
+							return nil
+						}
+						return render(w, r, "")
+					}
+					if err := DirList(w, r, name, des, renderf); err != nil {
+						log.Printf("DirList: %v", err)
+					} else {
+						return
+					}
+				}
+			}
+		}
+
 		dirList(w, r, name, f, render)
 		return
 	}
@@ -1241,9 +1391,9 @@ type ioFS struct {
 	fsys fs.FS
 }
 
-func (i ioFS) RenderHeader(w http.ResponseWriter, name string, f File, ctype string) error {
+func (i ioFS) RenderHeader(w http.ResponseWriter, r *http.Request, name string, f File, ctype string) error {
 	if hr, ok := i.fsys.(HeaderRenderer); ok {
-		return hr.RenderHeader(w, name, f, ctype)
+		return hr.RenderHeader(w, r, name, f, ctype)
 	}
 	logs.Debug.Printf("i.fsys (%T) does not implement RenderHeader", i.fsys)
 	return nil

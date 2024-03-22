@@ -40,7 +40,7 @@ type Indexer struct {
 // Original stream (buffered rc to Peek)
 // Unwrapped stream (ungzip or unzstd, nil if we could not unwrap or err != nil)
 // Error (maybe nil)
-func NewIndexer(rc io.ReadCloser, w io.WriteCloser, span int64, mediaType string) (*Indexer, string, io.ReadCloser, io.ReadCloser, error) {
+func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*Indexer, string, io.ReadCloser, io.ReadCloser, error) {
 	logs.Debug.Printf("NewIndexer")
 
 	kind, pr, tpr, err := Peek(rc)
