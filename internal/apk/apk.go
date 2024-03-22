@@ -164,12 +164,6 @@ func (h *handler) errHandler(hfe HandleFuncE) http.HandlerFunc {
 func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	qs := r.URL.Query()
 
-	args := flag.Args()
-	if len(args) != 0 {
-		// log.Printf("args[0] = %s", args[0])
-		// return h.renderArg(w, r, args[0])
-	}
-
 	if q := qs.Get("url"); q != "" {
 		u, err := url.PathUnescape(q)
 		if err != nil {
@@ -186,18 +180,20 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	data := Landing{}
-	if len(args) != 0 {
+	if args := flag.Args(); len(args) != 0 {
 		indices := []string{}
 		apks := []string{}
-		if err := filepath.WalkDir(args[0], func(path string, d fs.DirEntry, err error) error {
-			if strings.HasSuffix(path, "APKINDEX.tar.gz") {
-				indices = append(indices, path)
-			} else if strings.HasSuffix(path, ".apk") {
-				apks = append(apks, path)
+		for _, arg := range args {
+			if err := filepath.WalkDir(arg, func(path string, d fs.DirEntry, err error) error {
+				if strings.HasSuffix(path, "APKINDEX.tar.gz") {
+					indices = append(indices, path)
+				} else if strings.HasSuffix(path, ".apk") {
+					apks = append(apks, path)
+				}
+				return nil
+			}); err != nil {
+				return err
 			}
-			return nil
-		}); err != nil {
-			return err
 		}
 
 		data.Indices = indices
@@ -676,117 +672,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 	blob, prefix, err := h.fetchArg(w, r, u)
 	if err != nil {
 		return fmt.Errorf("fetchBlob: %w", err)
-	}
-
-	kind, original, unwrapped, err := h.tryNewIndex(w, r, prefix, ref, blob)
-	if err != nil {
-		return fmt.Errorf("failed to index blob %q: %w", ref, err)
-	}
-	if unwrapped != nil {
-		logs.Debug.Printf("unwrapped, kind = %q", kind)
-		seek := &sizeSeeker{unwrapped, -1}
-		return h.renderFile(w, r, ref, kind, seek)
-	}
-	if original != nil {
-		logs.Debug.Printf("original")
-		seek := &sizeSeeker{original, blob.size}
-		return h.renderFile(w, r, ref, kind, seek)
-	}
-
-	logs.Debug.Printf("ref=%q, prefix=%q, kind=%q, origin=%v, unwrapped=%v, err=%v", ref, prefix, kind, original, unwrapped, err)
-
-	return nil
-}
-
-func (h *handler) renderArg(w http.ResponseWriter, r *http.Request, arg string) error {
-	qs := r.URL.Query()
-	qss := "?"
-	provides, ok := qs["provide"]
-	if ok {
-		for i, dep := range provides {
-			provides[i] = url.QueryEscape(dep)
-		}
-		qss += "provide=" + strings.Join(provides, "&provide=")
-		log.Printf("qss = %q", qss)
-	}
-	depends, ok := qs["depend"]
-	if ok {
-		for i, dep := range depends {
-			depends[i] = url.QueryEscape(dep)
-		}
-		qss += "&depend=" + strings.Join(depends, "&depend=")
-		log.Printf("qss = %q", qss)
-	}
-	full := qs.Get("full")
-	if full != "" {
-		qss += "&full=" + full
-	}
-
-	f, err := os.Open(arg)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return err
-	}
-
-	ref := fmt.Sprintf("%s@%d", arg, info.ModTime().Unix())
-
-	index, err := h.getIndex(r.Context(), ref)
-	if err != nil {
-		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
-	}
-	if index != nil {
-		fs, err := h.indexedFS(w, r, ref, index)
-		if err != nil {
-			return err
-		}
-
-		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
-			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering APKINDEX: %q", filename)
-			rc, err := fs.Open(filename)
-			if err != nil {
-				return fmt.Errorf("open(%q): %w", filename, err)
-			}
-			defer rc.Close()
-
-			return h.renderIndex(w, r, rc, ref)
-		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
-			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering SBOM: %q", filename)
-			rc, err := fs.Open(filename)
-			if err != nil {
-				return fmt.Errorf("open(%q): %w", filename, err)
-			}
-			defer rc.Close()
-
-			return h.renderSBOM(w, r, rc, ref)
-		} else if strings.HasSuffix(r.URL.Path, "/.PKGINFO") {
-			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering .PKGINFO: %q", filename)
-			rc, err := fs.Open(filename)
-			if err != nil {
-				return fmt.Errorf("open(%q): %w", filename, err)
-			}
-			defer rc.Close()
-
-			return h.renderPkgInfo(w, r, rc, ref)
-		} else if strings.Contains(r.URL.Path, ".apk@") {
-			// Was I going to do something here???
-		}
-
-		log.Printf("serving http from cache")
-		httpserve.FileServer(httpserve.FS(fs)).ServeHTTP(w, r)
-		return nil
-	}
-
-	// Determine if this is actually a filesystem thing.
-	blob, prefix, err := h.fetchArg(w, r, arg)
-	if err != nil {
-		return fmt.Errorf("fetchArg: %w", err)
 	}
 
 	kind, original, unwrapped, err := h.tryNewIndex(w, r, prefix, ref, blob)

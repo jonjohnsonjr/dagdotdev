@@ -1,6 +1,6 @@
-# `oci.dag.dev`
+# `apk.dag.dev`
 
-This is a web server for exploring the contents of an OCI registry.
+This is a web server for exploring the contents of an APK repository.
 
 In the future, it may be all the best kinds of dags.
 
@@ -17,7 +17,21 @@ Some things will probably break if the environment is different.
 For local testing, I usually:
 
 ```
-CACHE_DIR=/tmp/oci go run ./cmd/oci -v
+CACHE_DIR=/tmp/apk go run ./cmd/apk -v
+```
+
+If you want to point this at local files (e.g. under `./packages`), pass a directory to argv.
+
+Since `apk` would be a terrible binary name, I've symlinked `apeekay` to it, so you can:
+
+```
+go install ./cmd/apeekay
+```
+
+And then run:
+
+```
+apeekay ./packages
 ```
 
 On Cloud Run, I set `CACHE_BUCKET` to a GCS bucket in the same region as the service.
@@ -29,12 +43,10 @@ If you want to use ambient creds, set `AUTH=keychain`.
 Deploying to cloud run should look something like:
 
 ```
-gcloud run deploy explore --image $(ko build ./cmd/oci -B)
+gcloud run deploy apk --image $(ko build ./cmd/apk -B)
 ```
 
 It is a good idea to deploy it in the same region as your `CACHE_BUCKET` and (if possible) registry in order to avoid egress costs.
-
-See also [`apk.dag.dev`](./cmd/apk/README.md);
 
 ## Contributions
 
