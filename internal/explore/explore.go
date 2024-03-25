@@ -36,7 +36,7 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/internal/gguf"
 	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
 	"github.com/jonjohnsonjr/dagdotdev/internal/xxd"
-	hgzip "github.com/nanmu42/gzip"
+	"github.com/klauspost/compress/gzhttp"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 )
@@ -115,7 +115,7 @@ func New(opts ...Option) http.Handler {
 
 	mux.HandleFunc("/zurl/", h.errHandler(h.renderZurl))
 
-	h.mux = hgzip.DefaultHandler().WrapHandler(mux)
+	h.mux = gzhttp.GzipHandler(mux)
 
 	return &h
 }

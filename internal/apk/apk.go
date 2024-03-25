@@ -37,7 +37,7 @@ import (
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
 	"github.com/jonjohnsonjr/dagdotdev/internal/xxd"
-	hgzip "github.com/nanmu42/gzip"
+	"github.com/klauspost/compress/gzhttp"
 	"golang.org/x/oauth2"
 )
 
@@ -112,7 +112,7 @@ func New(args []string, opts ...Option) http.Handler {
 	// Try to detect mediaType.
 	mux.HandleFunc("/blob/", h.errHandler(h.renderFS))
 
-	h.mux = hgzip.DefaultHandler().WrapHandler(mux)
+	h.mux = gzhttp.GzipHandler(mux)
 
 	return &h
 }
