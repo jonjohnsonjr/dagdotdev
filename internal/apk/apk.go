@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"html"
 	"io"
@@ -53,6 +52,8 @@ type handler struct {
 	keychain  authn.Keychain
 	userAgent string
 
+	args []string
+
 	// digest -> remote.desc
 	manifests map[string]*remote.Descriptor
 
@@ -82,8 +83,9 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
-func New(opts ...Option) http.Handler {
+func New(args []string, opts ...Option) http.Handler {
 	h := handler{
+		args:       args,
 		manifests:  map[string]*remote.Descriptor{},
 		pings:      map[string]*transport.PingResp{},
 		sawTags:    map[string][]string{},
@@ -180,7 +182,7 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	data := Landing{}
-	if args := flag.Args(); len(args) != 0 {
+	if args := h.args; len(args) != 0 {
 		indices := []string{}
 		apks := []string{}
 		for _, arg := range args {

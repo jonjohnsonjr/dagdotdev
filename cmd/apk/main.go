@@ -52,5 +52,5 @@ func main() {
 		opt = append(opt, apk.WithKeychain(gcrane.Keychain))
 	}
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), apk.New(opt...)))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), apk.New(flag.Args(), opt...)))
 }
