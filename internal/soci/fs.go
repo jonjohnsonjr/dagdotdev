@@ -17,7 +17,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
+	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 )
 
 // More than enough for FileServer to Peek at file contents.

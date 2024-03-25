@@ -12,8 +12,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/jonjohnsonjr/dag.dev/internal/forks/compress/flate"
-	"github.com/jonjohnsonjr/dag.dev/internal/soci"
+	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/flate"
+	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
 	"github.com/spf13/cobra"
 )
 

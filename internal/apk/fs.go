@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
+	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 )
 
 // Lots of debugging that we don't want to compile into the binary.

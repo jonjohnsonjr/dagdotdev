@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dag.dev/internal/forks/compress/flate"
+	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/flate"
 )
 
 type TOC struct {

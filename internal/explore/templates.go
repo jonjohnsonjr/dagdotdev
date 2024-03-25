@@ -134,7 +134,7 @@ That's not a question.
 <p>Tl;dr, you can seek to an arbitrary position in a gzip stream if you know the 32KiB of uncompressed data that comes just before it, so by storing ~1% of the uncompressed layer size, I can jump ahead to predetermined locations and start reading from there rather than reading the entire layer.</p>
 <p>Thanks <a href="https://github.com/aidansteele">@aidansteele</a>!</p>
 <h4>Is this open source?</h4>
-<p>Yes! See <a href="https://github.com/jonjohnsonjr/dag.dev">here</a>.</p>
+<p>Yes! See <a href="https://github.com/jonjohnsonjr/dagdotdev">here</a>.</p>
 </body>
 </html>
 `

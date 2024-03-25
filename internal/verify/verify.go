@@ -25,7 +25,7 @@ import (
 	"io"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/jonjohnsonjr/dag.dev/internal/and"
+	"github.com/jonjohnsonjr/dagdotdev/internal/and"
 )
 
 // SizeUnknown is a sentinel value to indicate that the expected size is not known.

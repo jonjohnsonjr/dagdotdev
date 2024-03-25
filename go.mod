@@ -1,4 +1,4 @@
-module github.com/jonjohnsonjr/dag.dev
+module github.com/jonjohnsonjr/dagdotdev
 
 go 1.18
 

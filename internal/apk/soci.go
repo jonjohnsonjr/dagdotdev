@@ -13,8 +13,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	httpserve "github.com/jonjohnsonjr/dag.dev/internal/forks/http"
-	"github.com/jonjohnsonjr/dag.dev/internal/soci"
+	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
+	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
 )
 
 // 5 MB.

@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dag.dev/internal/explore"
+	"github.com/jonjohnsonjr/dagdotdev/internal/explore"
 
 	sha256simd "github.com/minio/sha256-simd"
 )

@@ -16,7 +16,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dag.dev/internal/soci"
+	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
 )
 
 type Cache interface {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dag.dev/internal/apk"
-	"github.com/jonjohnsonjr/dag.dev/internal/explore"
+	"github.com/jonjohnsonjr/dagdotdev/internal/apk"
+	"github.com/jonjohnsonjr/dagdotdev/internal/explore"
 )
 
 var auth = flag.Bool("auth", false, "use docker credentials")

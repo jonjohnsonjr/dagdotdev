@@ -16,7 +16,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/jonjohnsonjr/dag.dev/internal/verify"
+	"github.com/jonjohnsonjr/dagdotdev/internal/verify"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 )

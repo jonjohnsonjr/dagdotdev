@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jonjohnsonjr/dag.dev/internal/gzip"
-	"github.com/jonjohnsonjr/dag.dev/internal/zstd"
+	"github.com/jonjohnsonjr/dagdotdev/internal/gzip"
+	"github.com/jonjohnsonjr/dagdotdev/internal/zstd"
 )
 
 // Pretends to implement Seek because ServeContent only cares about checking

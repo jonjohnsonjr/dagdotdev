@@ -21,7 +21,7 @@ import (
 	"compress/gzip"
 	"io"
 
-	"github.com/jonjohnsonjr/dag.dev/internal/and"
+	"github.com/jonjohnsonjr/dagdotdev/internal/and"
 )
 
 // MagicHeader is the start of gzip files.

@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/jonjohnsonjr/dag.dev/internal/and"
+	"github.com/jonjohnsonjr/dagdotdev/internal/and"
 	"github.com/klauspost/compress/zstd"
 )
 

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jonjohnsonjr/dag.dev/internal/explore/lexer"
+	"github.com/jonjohnsonjr/dagdotdev/internal/explore/lexer"
 )
 
 func evalBytes(j string, b []byte) ([]byte, string, error) {
