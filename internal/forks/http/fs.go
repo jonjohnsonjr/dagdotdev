@@ -35,7 +35,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-const TooBig = 1 << 24
+const TooBig = elf.TooBig
 
 // HeaderRenderer renders a header for a FileSystem.
 type HeaderRenderer interface {

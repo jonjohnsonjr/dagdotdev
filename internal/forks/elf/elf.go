@@ -21,7 +21,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-const TooBig = 1 << 13
+const TooBig = 1 << 16
 
 // map of url path to a *File
 // This goes through 3 stages:

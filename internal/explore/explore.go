@@ -1639,7 +1639,7 @@ func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref name.
 		}
 
 		if num > httpserve.TooBig {
-			header.JQ += fmt.Sprintf(" | head -n %d", httpserve.TooBig)
+			header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
 		}
 
 		return bodyTmpl.Execute(w, header)
