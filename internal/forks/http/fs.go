@@ -915,10 +915,25 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 						return
 					}
 				} else {
-					err := elf.Xxd(w, size, br, key)
+					pr, err := elf.Xxd(w, size, br, key)
 					if err != nil {
 						log.Printf("elf xxd: %v", err)
-						http.Error(w, "elf.Xxd: "+err.Error(), http.StatusInternalServerError)
+						http.Error(w, "<p>elf.Xxd: "+err.Error()+"</p>", http.StatusInternalServerError)
+
+						rw := w
+						var w io.Writer
+
+						w = xxd.NewWriter(rw, sendSize)
+						if sendSize < 0 {
+							if _, err := io.Copy(w, pr); err != nil {
+								logs.Debug.Printf("Copy: %v", err)
+							}
+						} else {
+							if _, err := io.CopyN(w, pr, sendSize); err != nil {
+								logs.Debug.Printf("CopyN: %v", err)
+							}
+						}
+
 						return
 					}
 				}

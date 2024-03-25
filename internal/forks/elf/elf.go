@@ -361,17 +361,7 @@ func Print(w io.Writer, size int64, r io.Reader, key string) error {
 	return nil
 }
 
-func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
-	// Read and decode ELF identifier
-	var ident [16]uint8
-	pr, ident, ok, err := Peek(r)
-	if err != nil {
-		return fmt.Errorf("elf.Peek: %w", err)
-	}
-	if !ok {
-		return &FormatError{0, "bad magic number", ident[0:4]}
-	}
-
+func Xxd(w io.Writer, size int64, r io.Reader, key string) (io.Reader, error) {
 	sendSize := size
 	if size > TooBig {
 		sendSize = TooBig
@@ -380,10 +370,22 @@ func Xxd(w io.Writer, size int64, r io.Reader, key string) error {
 		buf:  bufio.NewWriter(w),
 		size: sendSize,
 	}
+
+	// Read and decode ELF identifier
+	var ident [16]uint8
+	pr, ident, ok, err := Peek(r)
 	r = io.TeeReader(pr, hw)
+	if err != nil {
+		return pr, fmt.Errorf("elf.Peek: %w", err)
+	}
+	if !ok {
+		return pr, &FormatError{0, "bad magic number", ident[0:4]}
+	}
 
-	// TODO: Tee r into an xxd thing and have a link.
+	return pr, xxd(hw, size, ident, r, key)
+}
 
+func xxd(hw io.Writer, size int64, ident [16]uint8, r io.Reader, key string) error {
 	f := new(File)
 	f.stringTables = map[uint32][]byte{}
 	f.Class = Class(ident[EI_CLASS])
