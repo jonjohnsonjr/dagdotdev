@@ -1369,16 +1369,18 @@ func (h *handler) manifestHeader(ref name.Reference, desc v1.Descriptor) *Header
 	header.JQ = crane("manifest") + " " + ref.String()
 	header.Referrers = true
 
+	identifiers := strings.TrimPrefix(ref.String(), ref.Context().String())
+
 	// Handle clicking repo to list tags and such.
-	if strings.Contains(ref.String(), "@") && strings.Index(ref.String(), "@") < strings.Index(ref.String(), ":") {
+	if strings.Contains(identifiers, "@") && strings.Index(identifiers, "@") < strings.Index(identifiers, ":") {
 		chunks := strings.SplitN(ref.String(), "@", 2)
 		header.Up = &RepoParent{
 			Parent:    ref.Context().String(),
 			Child:     chunks[1],
 			Separator: "@",
 		}
-	} else if strings.Contains(ref.String(), ":") {
-		chunks := strings.SplitN(ref.String(), ":", 2)
+	} else if strings.Contains(identifiers, ":") {
+		chunks := strings.SplitN(identifiers, ":", 2)
 		header.Up = &RepoParent{
 			Parent:    ref.Context().String(),
 			Child:     chunks[1],
