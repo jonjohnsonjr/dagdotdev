@@ -132,8 +132,6 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	header := headerData(ref, v1.Descriptor{})
 	header.ShowSearch = true
 	if search != "" {
-		// Always show all results if we search.
-		full = true
 		header.Search = search
 	}
 	header.Full = full
