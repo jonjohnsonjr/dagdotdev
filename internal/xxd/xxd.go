@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-
-	"github.com/google/go-containerregistry/pkg/logs"
 )
 
 var (
@@ -30,12 +28,7 @@ type Writer struct {
 	ascii  []byte
 }
 
-// TODO: restrict to some reasonable number
 func (w *Writer) Write(p []byte) (n int, err error) {
-	left := int(w.cursor % 16)
-	if left != 0 {
-		logs.Debug.Printf("left = %d", left)
-	}
 	for _, r := range p {
 		if w.size != 0 && w.cursor >= w.size {
 			break
