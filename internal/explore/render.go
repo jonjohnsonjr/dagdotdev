@@ -478,16 +478,23 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 			w.Layers(image, "layers")
 		} else if k == "history" && shouldHistory(w.mt) {
 			w.History(k)
-		} else if k == "os.version" {
-			if os, ok := o["os"]; ok {
-				if oss, ok := os.(string); ok {
-					if oss == "windows" {
-						w.Annotation(hcsshim, k)
+		} else {
+			linkWindows := false
+			if k == "os.version" {
+				if os, ok := o["os"]; ok {
+					if oss, ok := os.(string); ok {
+						if oss == "windows" {
+							linkWindows = true
+						}
 					}
 				}
 			}
-		} else {
-			w.Key(k)
+
+			if linkWindows {
+				w.Annotation(hcsshim, k)
+			} else {
+				w.Key(k)
+			}
 		}
 		if _, err := strconv.Atoi(k); err == nil || strings.Contains(k, ".") {
 			if len(w.jq) == 0 {
