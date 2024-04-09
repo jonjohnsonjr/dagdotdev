@@ -374,6 +374,10 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	if search != "" {
 		qss += "&search=" + search
 	}
+	short := qs.Get("short")
+	if short != "" {
+		qss += "&short=" + short
+	}
 	p, root, err := splitFsURL(r.URL.Path)
 	if err != nil {
 		return err
