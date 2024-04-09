@@ -328,7 +328,7 @@ func (b *BlobSeeker) ReadAt(p []byte, off int64) (n int, err error) {
 
 func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadCloser, error) {
 	if b.rl == nil {
-		if err := b.init(off, end+1); err != nil {
+		if err := b.init(off, end-1); err != nil {
 			return nil, err
 		}
 	}
@@ -354,7 +354,7 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 	if err != nil {
 		return nil, err
 	}
-	rangeVal := fmt.Sprintf("bytes=%d-%d", off, end+1)
+	rangeVal := fmt.Sprintf("bytes=%d-%d", off, end-1)
 	req.Header.Set("Range", rangeVal)
 	logs.Debug.Printf("Fetching %s at %s ...\n", rangeVal, b.Url)
 	res, err := b.rl.Client.Transport.RoundTrip(req) // NOT DefaultClient; don't want redirects
