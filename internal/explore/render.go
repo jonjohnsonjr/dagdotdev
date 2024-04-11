@@ -377,7 +377,10 @@ func renderRaw(w *jsonOutputter, raw *json.RawMessage) error {
 		vs := v.(string)
 		if strings.HasPrefix(vs, "https://") && !strings.Contains(vs, " ") {
 			// Probably a link?
+			w.tabf()
 			w.Printf(`"<a class="mt" href="%s">%s</a>"`, vs, html.EscapeString(strings.Trim(strconv.Quote(vs), `"`)))
+			w.unfresh()
+			w.key = false
 		} else {
 			w.Value([]byte(strconv.Quote(vs)))
 		}
