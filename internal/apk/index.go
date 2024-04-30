@@ -303,6 +303,12 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(in, 1<<16))
 
+	// Allow 1MB of allocations because some lines are huge in alpine, like community/coq.provides.
+	// Default to 16KB because the default is 4KB which is too small even for wolfi.
+	buf := make([]byte, 16*1024)
+	big := 1024*1024
+	scanner.Buffer(buf, big)
+
 	prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
 	if !ok {
 		return fmt.Errorf("something funky with path...")
