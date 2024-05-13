@@ -141,6 +141,11 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
+	if r.Header.Get("User-Agent") == "Go-http-client/1.1" {
+		http.Error(w, "set a user-agent you coward", http.StatusForbidden)
+		return
+	}
+
 	if r.URL.Path == "/favicon.svg" || r.URL.Path == "/favicon.ico" {
 		w.Header().Set("Cache-Control", "max-age=3600")
 		http.ServeFile(w, r, filepath.Join(os.Getenv("KO_DATA_PATH"), "favicon.svg"))
