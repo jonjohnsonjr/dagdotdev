@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/storage v1.40.0
 	github.com/digitorus/timestamp v0.0.0-20230220124323-d542479a2425
 	github.com/dustin/go-humanize v1.0.1
-	github.com/fxamacker/cbor/v2 v2.4.0
+	github.com/fxamacker/cbor/v2 v2.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-containerregistry v0.13.0
 	github.com/klauspost/compress v1.15.11
