@@ -3,7 +3,7 @@ module github.com/jonjohnsonjr/dagdotdev
 go 1.21
 
 require (
-	cloud.google.com/go/storage v1.39.1
+	cloud.google.com/go/storage v1.40.0
 	github.com/digitorus/timestamp v0.0.0-20230220124323-d542479a2425
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fxamacker/cbor/v2 v2.4.0
