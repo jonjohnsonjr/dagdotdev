@@ -1436,12 +1436,18 @@ func (h *handler) manifestHeader(ref name.Reference, desc v1.Descriptor) *Header
 }
 
 func headerData(ref name.Reference, desc v1.Descriptor) *HeaderData {
+	handler := handlerForMT(string(desc.MediaType))
+	sep := "?"
+	if strings.Contains(handler, "?") {
+		sep = "&"
+	}
 	return &HeaderData{
 		Repo:             ref.Context().String(),
 		Reference:        ref.String(),
 		CosignTags:       []CosignTag{},
 		Descriptor:       &desc,
-		Handler:          handlerForMT(string(desc.MediaType)),
+		Handler:          handler,
+		QuerySep:         sep,
 		EscapedMediaType: url.QueryEscape(string(desc.MediaType)),
 		MediaTypeLink:    getLink(string(desc.MediaType)),
 	}
