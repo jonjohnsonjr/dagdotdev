@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/apk"
 	"github.com/jonjohnsonjr/dagdotdev/internal/explore"
+	"github.com/jonjohnsonjr/dagdotdev/internal/git"
 )
 
 var auth = flag.Bool("auth", false, "use docker credentials")
@@ -60,6 +61,16 @@ func run(args []string) error {
 		}
 
 		return http.ListenAndServe(fmt.Sprintf(":%s", port), explore.New(opt...))
+	case "git":
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
+		log.Printf("listening on %s", port)
+
+		opt := []git.Option{git.WithUserAgent("dagdotdev")}
+
+		return http.ListenAndServe(fmt.Sprintf(":%s", port), git.New(args[1:], opt...))
 	default:
 		return fmt.Errorf("usage %s apk | %s oci", os.Args[0], os.Args[0])
 	}

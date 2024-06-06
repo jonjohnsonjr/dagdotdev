@@ -1,6 +1,8 @@
 module github.com/jonjohnsonjr/dagdotdev
 
-go 1.21
+go 1.21.0
+
+toolchain go1.22.4
 
 require (
 	cloud.google.com/go/storage v1.41.0
@@ -65,6 +67,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240429193739-8cf5692501f6 // indirect
 	google.golang.org/grpc v1.63.2 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
+	rsc.io/gitfs v1.0.0 // indirect
 )
 
 replace (
