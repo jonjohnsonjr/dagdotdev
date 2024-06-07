@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/rsc.io/gitfs"
+	"golang.org/x/exp/maps"
 
 	"github.com/klauspost/compress/gzhttp"
 )
@@ -354,6 +355,9 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 	}
 	name = strings.TrimPrefix(path.Clean(name), "/")
 
+	p := strings.TrimPrefix(name, prefix)
+	p = strings.TrimPrefix(p, "/")
+
 	f, err := fsys.Open(name)
 	if err != nil {
 		return fmt.Errorf("Open(%q): %w", name, err)
@@ -377,20 +381,16 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 		hd.JQ = "git cat-file -p " + tfs.Tree()
 
 		if strings.HasPrefix(u, "https://github.com") {
-			hd.RepoLink = fmt.Sprintf("%s/tree/%s", u, hash.String())
-
-			if sys := d.Sys(); sys != nil {
-				if e, ok := sys.(*gitfs.DirEntry); ok && e != nil {
-					if d.Name() == "." {
-						hd.Path = ""
-					} else {
-						p := strings.TrimPrefix(name, prefix)
-						p = strings.TrimPrefix(p, "/")
-
-						// TODO: Revisit this.
-						hd.Path = p
-						hd.RepoLink = fmt.Sprintf("%s/%s", hd.RepoLink, p)
-					}
+			hd.RepoLink = fmt.Sprintf("%s/tree/%s", strings.TrimSuffix(u, ".git"), hash.String())
+		}
+		if sys := d.Sys(); sys != nil {
+			if e, ok := sys.(*gitfs.DirEntry); ok && e != nil {
+				if d.Name() == "." {
+					hd.Path = ""
+				} else {
+					// TODO: Revisit this.
+					hd.Path = p
+					hd.RepoLink = fmt.Sprintf("%s/%s", hd.RepoLink, p)
 				}
 			}
 		}
@@ -422,6 +422,8 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 			return fmt.Errorf("ReadDir: %w", err)
 		}
 
+		var modules map[string]string
+
 		for _, de := range des {
 			stat, err := de.Info()
 			if err != nil {
@@ -436,7 +438,26 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 				url := url.URL{Path: strings.TrimPrefix(string(e.Name), "/")}
 				href := url.String()
 				anchor := htmlReplacer.Replace(string(e.Name))
-				if e.Mode == 0o40000 {
+				if e.Mode == 0o160000 {
+					// TODO: Do this once per commit?
+					if len(modules) == 0 {
+						maybeSubmodules, err := fsys.Open(path.Join(prefix, ".gitmodules"))
+						if err == nil {
+							modules, err = parseSubmodules(maybeSubmodules)
+							if err != nil {
+								return fmt.Errorf("parseSubmodules: %w", err)
+							}
+						}
+					}
+
+					mod, ok := modules[path.Join(p, de.Name())]
+					if !ok {
+						return fmt.Errorf("no module for %q, have %v", p, maps.Keys(modules))
+					}
+
+					href := fmt.Sprintf("/?url=%s@%s", mod, e.Hash)
+					fmt.Fprintf(w, "%06o commit %s\t<a href=%q>%s</a>\n", e.Mode, e.Hash, href, anchor)
+				} else if e.Mode == 0o40000 {
 					fmt.Fprintf(w, "%06o tree %s\t<a href=%q>%s</a>\n", e.Mode, e.Hash, href+"/", anchor)
 				} else {
 					fmt.Fprintf(w, "%06o blob %s\t<a href=%q>%s</a>\n", e.Mode, e.Hash, href, anchor)
@@ -456,6 +477,34 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 	return nil
 }
 
+func parseSubmodules(r io.Reader) (map[string]string, error) {
+	scanner := bufio.NewScanner(r)
+	submodules := map[string]string{}
+	u, p := "", ""
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		if strings.HasPrefix(line, "path") {
+			if _, after, ok := strings.Cut(line, "="); ok {
+				p = strings.TrimSpace(after)
+			}
+		} else if strings.HasPrefix(line, "url") {
+			if _, after, ok := strings.Cut(line, "="); ok {
+				u = strings.TrimSpace(after)
+			}
+		}
+
+		if u != "" && p != "" {
+			if strings.HasPrefix(u, "git://github.com") {
+				u = strings.Replace(u, "git://", "https://", 1)
+			}
+			submodules[p] = u
+			u, p = "", ""
+		}
+	}
+	return submodules, scanner.Err()
+}
+
 func headerData(r *http.Request, u, ref, p string) HeaderData {
 	_, repo, _ := strings.Cut(u, "://")
 
@@ -466,7 +515,7 @@ func headerData(r *http.Request, u, ref, p string) HeaderData {
 
 	if ref != "" {
 		if strings.HasPrefix(u, "https://github.com") {
-			hd.RepoLink = fmt.Sprintf("%s/commit/%s", hd.RepoLink, ref)
+			hd.RepoLink = fmt.Sprintf("%s/commit/%s", strings.TrimSuffix(hd.RepoLink, ".git"), ref)
 		}
 
 		hd.Ref = ref
