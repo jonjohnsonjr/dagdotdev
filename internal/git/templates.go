@@ -51,8 +51,8 @@ body {
 <p>
 <h4>Interesting examples</h4>
 <ul>
-	<li><a href="/?url=https://github.com/jonjohnsonjr/dagdotdev@HEAD">https://github.com/jonjohnsonjr/dagdotdev</a></li>
-	<li><a href="/?url=https://github.com/wolfi-dev/os@HEAD">https://github.com/wolfi-dev/os</a></li>
+	<li><a href="/?url=https://github.com/jonjohnsonjr/dagdotdev@HEAD">github.com/jonjohnsonjr/dagdotdev</a></li>
+	<li><a href="/?url=https://github.com/wolfi-dev/os@HEAD">github.com/wolfi-dev/os</a></li>
 </ul>
 </p>
 <h3>FAQ</h3>
@@ -76,6 +76,15 @@ This service lives on <a href="https://cloud.run">Cloud Run</a> and uses (a fork
 <title>{{.Title}}</title>
 <link rel="icon" href="/favicon.svg">
 <style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
 .link {
 	position: relative;
 	bottom: .125em;
@@ -114,7 +123,7 @@ pre {
 <body>
 <div>
 <h1><a class="top" href="/">🪢 <span class="link">Git Explorer</span></a></h1>
-<h2><a href="{{.Href}}">{{.Reference}}<a></h2>
+<h2><a class="mt" href="{{.RepoLink}}">{{.Repo}}</a>{{ if .Ref }}<a class="mt" href="/?url={{ .Repo }}">@</a><a class="mt" href="{{ .RefLink }}">{{ .Ref }}</a>{{if .Path }}/<a class="mt" href="{{ .PathLink }}">{{ .Path }}</a>{{ end }}{{ end }}</h2>
 </div>
 {{ if .Message }}<p>{{.Message}}</p>{{ end }}
 {{ if .JQ }}<h4><span class="noselect">$</span>{{.JQ}}</h4>{{ end }}`
@@ -130,8 +139,13 @@ type TitleData struct {
 }
 
 type HeaderData struct {
-	Message   string
-	JQ        string
-	Reference string
-	Href      string
+	Message string
+	JQ      string
+
+	Repo     string
+	RepoLink string
+	Ref      string
+	RefLink  string
+	Path     string
+	PathLink string
 }

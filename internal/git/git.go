@@ -175,19 +175,14 @@ func (h *handler) renderCommit(w http.ResponseWriter, r *http.Request, u string)
 	if err := headerTmpl.Execute(w, TitleData{u}); err != nil {
 		return err
 	}
-	hdr := HeaderData{
-		Reference: strings.TrimPrefix(u, "https://"),
-		Href:      u,
-		JQ:        "git cat-file -p " + resolved.String(),
-	}
 
-	if strings.HasPrefix(u, "https://github.com") {
-		hdr.Reference = fmt.Sprintf("%s@%s", hdr.Reference, resolved.String())
-		hdr.Href = fmt.Sprintf("%s/commit/%s", hdr.Href, resolved.String())
-	}
-	if err := bodyTmpl.Execute(w, hdr); err != nil {
+	hd := headerData(r, u, resolved.String(), "")
+	hd.JQ = "git cat-file -p " + resolved.String()
+
+	if err := bodyTmpl.Execute(w, hd); err != nil {
 		return err
 	}
+
 	fmt.Fprintf(w, "<pre>\n")
 	scanner := bufio.NewScanner(bytes.NewReader(cdata))
 	for scanner.Scan() {
@@ -249,18 +244,26 @@ func (h *handler) renderRefs(w http.ResponseWriter, r *http.Request, u string) e
 	if err := headerTmpl.Execute(w, TitleData{u}); err != nil {
 		return err
 	}
-	if err := bodyTmpl.Execute(w, HeaderData{
-		Reference: strings.TrimPrefix(u, "https://"),
-		Href:      u,
-		JQ:        "git ls-remote",
-	}); err != nil {
+	hd := HeaderData{
+		Repo:     strings.TrimPrefix(u, "https://"),
+		RepoLink: u,
+		JQ:       "git ls-remote",
+	}
+
+	if strings.HasPrefix(u, "https://github.com") {
+		// We don't have a way to show all refs, so just link to branches.
+		hd.RepoLink = fmt.Sprintf("%s/branches", strings.TrimSuffix(hd.RepoLink, "/"))
+	}
+
+	if err := bodyTmpl.Execute(w, hd); err != nil {
 		return err
 	}
 	fmt.Fprintf(w, "<pre>\n")
 	fmt.Fprintf(w, "From %s\n", u)
 	for _, ref := range refs {
 		href := fmt.Sprintf("/?url=%s@%s", u, ref.Hash.String())
-		fmt.Fprintf(w, "<a href=%q>%s</a>\t%s\n", href, ref.Hash.String(), ref.Name)
+		refhref := fmt.Sprintf("/?url=%s@%s", u, ref.Name)
+		fmt.Fprintf(w, "<a href=%q>%s</a>\t<a class=\"mt\" href=%q>%s<a>\n", href, ref.Hash.String(), refhref, ref.Name)
 	}
 	fmt.Fprintf(w, "</pre>\n")
 	fmt.Fprintf(w, footer)
@@ -361,27 +364,25 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 		return fmt.Errorf("Stat(%q): %w", name, err)
 	}
 
-	hdr := HeaderData{
-		Reference: strings.TrimPrefix(u, "https://"),
-		Href:      u,
-	}
+	hd := headerData(r, u, hash.String(), name)
 
 	if tfs, ok := fsys.(interface{ Tree() string }); ok {
-		hdr.JQ = "git cat-file -p " + tfs.Tree()
+		hd.JQ = "git cat-file -p " + tfs.Tree()
 
 		if strings.HasPrefix(u, "https://github.com") {
-			hdr.Reference = fmt.Sprintf("%s@%s", hdr.Reference, hash.String())
-			hdr.Href = fmt.Sprintf("%s/tree/%s", hdr.Href, hash.String())
+			hd.RepoLink = fmt.Sprintf("%s/tree/%s", u, hash.String())
 
 			if sys := d.Sys(); sys != nil {
 				if e, ok := sys.(*gitfs.DirEntry); ok && e != nil {
-					if d.Name() != "." {
-
+					if d.Name() == "." {
+						hd.Path = ""
+					} else {
 						p := strings.TrimPrefix(name, prefix)
 						p = strings.TrimPrefix(p, "/")
 
-						hdr.Reference = fmt.Sprintf("%s/%s", hdr.Reference, p)
-						hdr.Href = fmt.Sprintf("%s/%s", hdr.Href, p)
+						// TODO: Revisit this.
+						hd.Path = p
+						hd.RepoLink = fmt.Sprintf("%s/%s", hd.RepoLink, p)
 					}
 				}
 			}
@@ -390,15 +391,15 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 
 	if sys := d.Sys(); sys != nil {
 		if e, ok := sys.(*gitfs.DirEntry); ok && e != nil {
-			hdr.JQ = "git cat-file -p " + e.Hash.String()
+			hd.JQ = "git cat-file -p " + e.Hash.String()
 		}
 	}
 
 	if !d.IsDir() && d.Size() > tooBig {
-		hdr.JQ = fmt.Sprintf("%s | head -c %d", hdr.JQ, tooBig)
+		hd.JQ = fmt.Sprintf("%s | head -c %d", hd.JQ, tooBig)
 	}
 
-	if err := bodyTmpl.Execute(w, hdr); err != nil {
+	if err := bodyTmpl.Execute(w, hd); err != nil {
 		return err
 	}
 
@@ -446,6 +447,31 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 	fmt.Fprintf(w, footer)
 
 	return nil
+}
+
+func headerData(r *http.Request, u, ref, p string) HeaderData {
+	_, repo, _ := strings.Cut(u, "://")
+
+	hd := HeaderData{
+		Repo:     repo,
+		RepoLink: u,
+	}
+
+	if ref != "" {
+		if strings.HasPrefix(u, "https://github.com") {
+			hd.RepoLink = fmt.Sprintf("%s/commit/%s", hd.RepoLink, ref)
+		}
+
+		hd.Ref = ref
+		hd.RefLink = fmt.Sprintf("/?url=%s@%s", u, ref)
+
+		if p != "" {
+			hd.Path = p
+			hd.PathLink = path.Dir(strings.TrimSuffix(r.URL.Path, "/"))
+		}
+	}
+
+	return hd
 }
 
 func getUpstreamURL(r *http.Request) (string, error) {
