@@ -364,6 +364,13 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 		return fmt.Errorf("Stat(%q): %w", name, err)
 	}
 
+	if d.IsDir() && !strings.HasSuffix(r.URL.Path, "/") {
+		redir := r.URL.Path + "/"
+		log.Printf("redirected to resolved hash %q", redir)
+		http.Redirect(w, r, redir, http.StatusFound)
+		return nil
+	}
+
 	hd := headerData(r, u, hash.String(), name)
 
 	if tfs, ok := fsys.(interface{ Tree() string }); ok {
