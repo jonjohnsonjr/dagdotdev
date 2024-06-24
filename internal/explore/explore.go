@@ -899,6 +899,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref name.Di
 		if blob.size < 0 || blob.size > httpserve.TooBig {
 			header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
 		}
+		log.Printf("ctype=%q", ctype)
 		if !strings.HasPrefix(ctype, "text/") && !strings.Contains(ctype, "json") {
 			header.JQ += " | xxd"
 		}
@@ -1454,6 +1455,7 @@ func headerData(ref name.Reference, desc v1.Descriptor) *HeaderData {
 }
 
 func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, refs string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+	log.Printf("ctype=%q", ctype)
 	ref, err := name.ParseReference(refs)
 	if err != nil {
 		return err
@@ -1525,11 +1527,15 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 	}
 	header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags + " " + filelink
 
-	if stat.Size() > httpserve.TooBig {
-		header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-	}
-	if ctype == "application/octet-stream" {
-		header.JQ += " | xxd"
+	if r.URL.Query().Get("render") == "elf" {
+		header.JQ += " | objdump -x -"
+	} else {
+		if stat.Size() > httpserve.TooBig {
+			header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
+		}
+		if ctype == "application/octet-stream" || ctype == "elf" {
+			header.JQ += " | xxd"
+		}
 	}
 
 	if stat.IsDir() {
