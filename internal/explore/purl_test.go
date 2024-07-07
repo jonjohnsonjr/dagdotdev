@@ -64,7 +64,7 @@ func TestPurl(t *testing.T) {
 		"https://github.com/package-url/purl-spec/tree/244fd47e07d1004f0aed9c",
 	}, {
 		"pkg:github/wolfi-dev/os@92940c6d5e40c38f076ad57ec660e765f8ef2e7a#openssl.yaml",
-		"https://github.com/wolfi-dev/os/blob/92940c6d5e40c38f076ad57ec660e765f8ef2e7a/openssl.yaml",
+		"https://github.com/wolfi-dev/os/tree/92940c6d5e40c38f076ad57ec660e765f8ef2e7a/openssl.yaml",
 		//}, {
 		//"pkg:apk/alpine/foo@1.2.3?arch=x86_64",
 		//"https://pkgs.alpinelinux.org/packages?name=foo&branch=edge&arch=x86_64",
