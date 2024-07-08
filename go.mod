@@ -13,7 +13,7 @@ require (
 	github.com/google/go-containerregistry v0.13.0
 	github.com/klauspost/compress v1.15.11
 	github.com/minio/sha256-simd v1.0.1
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	golang.org/x/crypto v0.23.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/oauth2 v0.21.0
