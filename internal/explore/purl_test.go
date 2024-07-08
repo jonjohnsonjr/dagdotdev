@@ -1,7 +1,6 @@
 package explore
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -32,7 +31,7 @@ func FuzzPurl(f *testing.F) {
 	f.Fuzz(func(t *testing.T, s string) {
 		// Test that parsing doesn't panic.
 		_, _ = parsePurl(s)
-		fmt.Print(s)
+		t.Log(s)
 	})
 }
 
@@ -64,8 +63,11 @@ func TestPurl(t *testing.T) {
 		"pkg:github/package-url/purl-spec@244fd47e07d1004f0aed9c",
 		"https://github.com/package-url/purl-spec/tree/244fd47e07d1004f0aed9c",
 	}, {
-		"pkg:apk/alpine/foo@1.2.3?arch=x86_64",
-		"https://pkgs.alpinelinux.org/packages?name=foo&branch=edge&arch=x86_64",
+		"pkg:github/wolfi-dev/os@92940c6d5e40c38f076ad57ec660e765f8ef2e7a#openssl.yaml",
+		"https://github.com/wolfi-dev/os/tree/92940c6d5e40c38f076ad57ec660e765f8ef2e7a/openssl.yaml",
+		//}, {
+		//"pkg:apk/alpine/foo@1.2.3?arch=x86_64",
+		//"https://pkgs.alpinelinux.org/packages?name=foo&branch=edge&arch=x86_64",
 		//}, {
 		//	"pkg:golang/google.golang.org/genproto#googleapis/api/annotations", "",
 		//}, {

@@ -81,7 +81,7 @@ func (p *purl) url(repo string) (string, error) {
 		}
 		return fmt.Sprintf("/%s%s%s%s", h, repository, delim, p.version), nil
 	case "github":
-		return fmt.Sprintf("https://github.com/%s/%s/tree/%s", p.namespace, p.name, p.version), nil
+		return "https://github.com/" + path.Join(p.namespace, p.name, "tree", p.version, p.subpath), nil
 	case "bitbucket":
 		return fmt.Sprintf("https://www.bitbucket.org/%s/%s/changeset/%s", p.namespace, p.name, p.version), nil
 	case "apk":
