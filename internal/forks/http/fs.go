@@ -1215,16 +1215,6 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, modtime time.Tim
 
 // name is '/'-separated, not filepath.Separator.
 func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name string, redirect bool) {
-	const indexPage = "/index.html"
-
-	// redirect .../index.html to .../
-	// can't use Redirect() because that would make the path absolute,
-	// which would be a problem running under StripPrefix
-	if strings.HasSuffix(r.URL.Path, indexPage) {
-		localRedirect(w, r, "./")
-		return
-	}
-
 	f, err := fsys.Open(name)
 	if err != nil {
 		logs.Debug.Printf("serveFile: %v", err)
@@ -1265,18 +1255,6 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 		if url == "" || url[len(url)-1] != '/' {
 			localRedirect(w, r, path.Base(url)+"/")
 			return
-		}
-
-		// use contents of index.html for directory, if present
-		index := strings.TrimSuffix(name, "/") + indexPage
-		ff, err := fsys.Open(index)
-		if err == nil {
-			defer ff.Close()
-			dd, err := ff.Stat()
-			if err == nil {
-				d = dd
-				f = ff
-			}
 		}
 	}
 
