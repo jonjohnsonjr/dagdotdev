@@ -614,6 +614,39 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 					}
 				}
 			}
+		case "sha512":
+			if w.name != "" {
+				if _, err := name.ParseReference(w.name); err == nil {
+					if js, ok := o["sha512"]; ok {
+						if d, ok := js.(string); ok {
+							w.LinkImage(w.name+"@"+"sha512"+":"+d, d)
+
+							// Don't fall through to renderRaw.
+							continue
+						}
+					}
+				} else if strings.HasPrefix(w.name, "pkg:") {
+					p, err := parsePurl(w.name)
+					if err == nil {
+						if js, ok := o["sha512"]; ok {
+							if d, ok := js.(string); ok {
+								p.version = "sha512:" + d
+								href, err := p.url(w.repo)
+								if err == nil {
+									w.BlueDoc(href, d)
+
+									// Don't fall through to renderRaw.
+									continue
+								} else {
+									log.Printf("p.url: %v", err)
+								}
+							}
+						}
+					} else {
+						log.Printf("purl: %v", err)
+					}
+				}
+			}
 		case "mediaType":
 			mt := ""
 			if err := json.Unmarshal(v, &mt); err != nil {

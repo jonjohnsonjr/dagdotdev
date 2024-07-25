@@ -219,7 +219,12 @@ func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, 
 		return nil, "", fmt.Errorf("second chunk too short: %s", chunks[1])
 	}
 
-	digest := chunks[1][:71]
+	digest := ""
+	if strings.HasPrefix(chunks[1], "sha256:") {
+		digest = chunks[1][:71]
+	} else if strings.HasPrefix(chunks[1], "sha512:") {
+		digest = chunks[1][:135]
+	}
 
 	ref := strings.Join([]string{chunks[0], digest}, "@")
 	if ref == "" {
@@ -273,7 +278,12 @@ func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, er
 		return "", fmt.Errorf("second chunk too short: %s", chunks[1])
 	}
 
-	digest := chunks[1][:71]
+	digest := ""
+	if strings.HasPrefix(chunks[1], "sha256:") {
+		digest = chunks[1][:71]
+	} else if strings.HasPrefix(chunks[1], "sha512:") {
+		digest = chunks[1][:135]
+	}
 
 	ref := strings.Join([]string{chunks[0], digest}, "@")
 	if ref == "" {
@@ -365,7 +375,12 @@ func (h *handler) getDigest(w http.ResponseWriter, r *http.Request) (name.Digest
 		return name.Digest{}, "", fmt.Errorf("second chunk too short: %s", chunks[1])
 	}
 
-	digest := chunks[1][:71]
+	digest := ""
+	if strings.HasPrefix(chunks[1], "sha256:") {
+		digest = chunks[1][:71]
+	} else if strings.HasPrefix(chunks[1], "sha512:") {
+		digest = chunks[1][:135]
+	}
 
 	ref := strings.Join([]string{chunks[0], digest}, "@")
 	if ref == "" {

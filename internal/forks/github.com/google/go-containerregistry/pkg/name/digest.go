@@ -17,6 +17,7 @@ package name
 import (
 	// nolint: depguard
 	_ "crypto/sha256" // Recommended by go-digest.
+	"log"
 	"strings"
 
 	"github.com/opencontainers/go-digest"
@@ -68,13 +69,20 @@ func NewDigest(name string, opts ...Option) (Digest, error) {
 	}
 	base := parts[0]
 	dig := parts[1]
-	prefix := digest.Canonical.String() + ":"
-	if !strings.HasPrefix(dig, prefix) {
+
+	log.Printf("dig: %q", dig)
+	if strings.HasPrefix(dig, "sha256:") {
+		hex := strings.TrimPrefix(dig, "sha256:")
+		if err := digest.SHA256.Validate(hex); err != nil {
+			return Digest{}, err
+		}
+	} else if strings.HasPrefix(dig, "sha512:") {
+		hex := strings.TrimPrefix(dig, "sha512:")
+		if err := digest.SHA512.Validate(hex); err != nil {
+			return Digest{}, err
+		}
+	} else {
 		return Digest{}, newErrBadName("unsupported digest algorithm: %s", dig)
-	}
-	hex := strings.TrimPrefix(dig, prefix)
-	if err := digest.Canonical.Validate(hex); err != nil {
-		return Digest{}, err
 	}
 
 	tag, err := NewTag(base, opts...)

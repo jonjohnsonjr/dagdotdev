@@ -79,6 +79,8 @@ func Hasher(name string) (hash.Hash, error) {
 	switch name {
 	case "sha256":
 		return crypto.SHA256.New(), nil
+	case "sha512":
+		return crypto.SHA512.New(), nil
 	default:
 		return nil, fmt.Errorf("unsupported hash: %q", name)
 	}
