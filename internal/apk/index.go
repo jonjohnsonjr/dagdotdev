@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"chainguard.dev/apko/pkg/apk/apk"
 	"github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/logs"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -306,7 +307,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 	// Allow 1MB of allocations because some lines are huge in alpine, like community/coq.provides.
 	// Default to 16KB because the default is 4KB which is too small even for wolfi.
 	buf := make([]byte, 16*1024)
-	big := 1024*1024
+	big := 1024 * 1024
 	scanner.Buffer(buf, big)
 
 	prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
@@ -383,7 +384,7 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 
 		if short {
 			if before == "V" {
-				_, exists := ptov[pkg.name]
+				got, exists := ptov[pkg.name]
 
 				prerelease := strings.Contains(pkg.version, "_") &&
 					strings.Contains(pkg.version, "_alpha") ||
@@ -395,7 +396,17 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 					continue
 				}
 
-				ptov[pkg.name] = pkg.version
+				old, err := apk.ParseVersion(got)
+				if err != nil {
+					ptov[pkg.name] = pkg.version
+				} else {
+					new, err := apk.ParseVersion(pkg.version)
+					if err == nil {
+						if apk.CompareVersions(old, new) < 0 {
+							ptov[pkg.name] = pkg.version
+						}
+					}
+				}
 			}
 			if before == "p" {
 			}
