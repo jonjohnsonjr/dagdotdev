@@ -196,10 +196,42 @@ type sociEntry interface {
 	Index() int
 }
 
-func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.DirEntry, render func() error) error {
+func DirList(w http.ResponseWriter, r *http.Request, fsys FileSystem, prefix string, des []fs.DirEntry, render func() error) error {
 	logs.Debug.Printf("DirList: %q", prefix)
 
 	var dirs dirEntryDirs = des
+
+	apks := map[string]string{}
+	ownerLength := 0
+	if fsys != nil {
+		if db, err := fsys.Open("lib/apk/db/installed"); err != nil {
+			log.Printf("no apk: %v", err)
+		} else {
+			scanner := bufio.NewScanner(db)
+			owner := ""
+			dir := ""
+			for scanner.Scan() {
+				line := scanner.Text()
+				k, v, ok := strings.Cut(line, ":")
+				if !ok {
+					owner, dir = "", ""
+					continue
+				}
+				switch k {
+				case "P":
+					owner = v
+					ownerLength = max(len(owner), ownerLength)
+				case "R":
+					apks[path.Join(dir, v)] = owner
+				case "F":
+					dir = v
+				}
+			}
+			if err := scanner.Err(); err != nil {
+				log.Printf("apk scan: %v", err)
+			}
+		}
+	}
 
 	search := r.URL.Query().Get("search")
 	if search != "" {
@@ -316,7 +348,7 @@ func DirList(w http.ResponseWriter, r *http.Request, prefix string, des []fs.Dir
 				fmt.Fprint(w, tarListAll(i, dirs, info, u, prefix, fprefix, r.URL.Query().Get("pax") == "true"))
 			}
 		} else {
-			fmt.Fprint(w, tarListSize(i, dirs, showlayer, info, u, prefix))
+			fmt.Fprint(w, tarListSize(i, dirs, showlayer, info, u, prefix, apks, ownerLength))
 			fmt.Fprint(w, "\n")
 		}
 	}
@@ -550,7 +582,7 @@ func tarList(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL, upr
 	return s
 }
 
-func tarListSize(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL, uprefix string) string {
+func tarListSize(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL, uprefix string, apks map[string]string, ownerLength int) string {
 	layer := dirs.layer(i)
 	whiteout := dirs.whiteout(i)
 	overwritten := dirs.overwritten(i)
@@ -586,6 +618,10 @@ func tarListSize(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL,
 			}
 		}
 		s = prefix + " " + s
+	}
+	if ownerLength != 0 {
+		owner := apks[header.Name]
+		s = fmt.Sprintf("<small>%*s</small> ", ownerLength, owner) + s
 	}
 	name := dirs.name(i)
 	if header.Linkname != "" {
@@ -1286,7 +1322,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 						}
 						return render(w, r, "")
 					}
-					if err := DirList(w, r, name, des, renderf); err != nil {
+					if err := DirList(w, r, fsys, name, des, renderf); err != nil {
 						log.Printf("DirList: %v", err)
 					} else {
 						return

@@ -1036,7 +1036,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	f := renderDirSize(w, r, index.TOC().Csize, dig, index.TOC().Type, types.MediaType(mt), len(des))
-	return httpserve.DirList(w, r, ref, des, f)
+	return httpserve.DirList(w, r, httpserve.FS(fs), ref, des, f)
 }
 
 func (h *handler) renderFats(w http.ResponseWriter, r *http.Request) error {
@@ -1061,7 +1061,7 @@ func (h *handler) renderFats(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	f := renderDirSize(w, r, desc.Size, dig, "tar", desc.MediaType, len(des))
-	return httpserve.DirList(w, r, ref, des, f)
+	return httpserve.DirList(w, r, httpserve.FS(mfs), ref, des, f)
 }
 
 func (h *handler) renderImage(w http.ResponseWriter, r *http.Request, ref name.Digest, mt string) error {

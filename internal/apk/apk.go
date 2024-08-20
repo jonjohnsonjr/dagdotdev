@@ -1241,7 +1241,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	f := h.renderDirSize(w, r, index.TOC().Csize, ref, index.TOC().Type, types.MediaType(mt), len(des))
-	return httpserve.DirList(w, r, ref, des, f)
+	return httpserve.DirList(w, r, httpserve.FS(fs), ref, des, f)
 }
 
 func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref string, kind string, mediaType types.MediaType, num int) func() error {
