@@ -16,7 +16,7 @@ require (
 	golang.org/x/crypto v0.25.0
 	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3
 	golang.org/x/oauth2 v0.21.0
-	golang.org/x/sync v0.7.0
+	golang.org/x/sync v0.8.0
 )
 
 require (
