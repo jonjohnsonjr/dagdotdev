@@ -435,6 +435,7 @@ func (s *SociFS) Open(original string) (fs.File, error) {
 		chased, _, err := s.chase(name, 0)
 		if err != nil {
 			// Possibly a directory?
+			log.Printf("failed to chase %q: %v", name, err)
 			return s.err(name), nil
 		}
 
@@ -603,9 +604,24 @@ func (s *SociFS) chase(original string, gen int) (*TOCFile, string, error) {
 			for _, dir := range dirs {
 				if fm.Name == dir {
 					// todo: re-fetch header.Linkname/<rest>
-					prefix := path.Clean("/" + fm.Name)
-					next := path.Join(fm.Linkname, strings.TrimPrefix(name, prefix))
-					return s.chase(next, gen+1)
+
+					// lib/libgo.so.23.0.0
+					// usr/lib64/libgo.so.23.0.0
+					// usr/lib/libgo.so.23.0.0
+
+					if strings.HasPrefix(fm.Linkname, "/") {
+						prefix := path.Clean("/" + fm.Name)
+						next := path.Join(fm.Linkname, strings.TrimPrefix(name, prefix))
+						log.Printf("chase(%q): refetch(%q); fm.Name=%q, fm.Linkname=%q, name=%q", original, next, fm.Name, fm.Linkname, name)
+						return s.chase(next, gen+1)
+					} else {
+						prefix := path.Clean("/" + fm.Name)
+						linkdir := path.Dir(fm.Name)
+						targetdir := path.Join(linkdir, fm.Linkname)
+						next := path.Join(targetdir, strings.TrimPrefix(name, prefix))
+						log.Printf("chase(%q): refetch(%q); fm.Name=%q, fm.Linkname=%q, name=%q, linkdir=%q, targetdir=%q", original, next, fm.Name, fm.Linkname, name, linkdir, targetdir)
+						return s.chase(next, gen+1)
+					}
 				}
 			}
 		}
@@ -625,6 +641,7 @@ type sociFile struct {
 func (s *sociFile) Stat() (fs.FileInfo, error) {
 	if s.fm == nil {
 		// We don't have an entry, so we need to synthesize one.
+		log.Printf("Stat(%q) has no fm", s.name)
 		return &dirInfo{s.name}, nil
 	}
 
