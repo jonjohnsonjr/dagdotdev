@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/klauspost/compress/zstd"
@@ -45,7 +46,7 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 
 	kind, pr, tpr, err := Peek(rc)
 	if err != nil {
-		return nil, kind, pr, tpr, err
+		return nil, kind, pr, tpr, fmt.Errorf("Peek: %w", err)
 	}
 
 	logs.Debug.Printf("Peeked: %q", kind)
@@ -85,7 +86,7 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 		i.updates = make(chan *flate.Checkpoint, 10)
 		zr, err := gzip.NewReaderWithSpans(pr, span, i.updates)
 		if err != nil {
-			return nil, kind, pr, nil, err
+			return nil, kind, pr, nil, fmt.Errorf("gzip.NewReader: %w", err)
 		}
 
 		i.zr = zr
@@ -94,7 +95,7 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 		i.zupdates = make(chan *zstd.Checkpoint, 10)
 		zr, err := zstd.NewReader(pr, zstd.WithCheckpoints(i.zupdates), zstd.WithDecoderConcurrency(1))
 		if err != nil {
-			return nil, kind, pr, nil, err
+			return nil, kind, pr, nil, fmt.Errorf("zstd.NewReader: %w", err)
 		}
 		i.zr = zr
 		i.tr = tar.NewReader(zr)

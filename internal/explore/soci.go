@@ -39,7 +39,7 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 	mt := r.URL.Query().Get("mt")
 	indexer, kind, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
 	if indexer == nil {
-		return kind, pr, tpr, err
+		return kind, pr, tpr, fmt.Errorf("NewIndexer: %w", err)
 	}
 
 	// Render FS the old way while generating the index.
@@ -58,7 +58,7 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 
 	toc, err := indexer.TOC()
 	if err != nil {
-		return kind, nil, nil, err
+		return kind, nil, nil, fmt.Errorf("TOC(): %w", err)
 	}
 	if h.tocCache != nil {
 		if err := h.tocCache.Put(r.Context(), key, toc); err != nil {

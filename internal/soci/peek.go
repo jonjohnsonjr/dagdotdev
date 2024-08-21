@@ -3,6 +3,7 @@ package soci
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 
 	ogzip "compress/gzip"
@@ -37,16 +38,16 @@ func Peek(rc io.ReadCloser) (string, io.ReadCloser, io.ReadCloser, error) {
 	pr := &and.ReadCloser{Reader: buf, CloseFunc: rc.Close}
 
 	// Should be enough to read first block?
-	zb, err := buf.Peek(1024)
+	zb, err := buf.Peek(1 << 16)
 	if err != nil {
 		if err != io.EOF {
-			return "", pr, nil, err
+			return "", pr, nil, fmt.Errorf("buf.Peek: %w", err)
 		}
 	}
 
 	br := bytes.NewReader(zb)
 	if ok, zpr, err := gzip.Peek(br); err != nil {
-		return "", pr, nil, err
+		return "", pr, nil, fmt.Errorf("gzip.Peek: %w", err)
 	} else if ok {
 		zr, err := ogzip.NewReader(zpr)
 		if err != nil {
@@ -54,7 +55,7 @@ func Peek(rc io.ReadCloser) (string, io.ReadCloser, io.ReadCloser, error) {
 		}
 		ok, tpr, err := tarPeek(zr)
 		if err != nil {
-			return "", pr, nil, err
+			return "", pr, nil, fmt.Errorf("tar.Peek: %w", err)
 		}
 		if ok {
 			return "tar+gzip", pr, tpr, nil
@@ -65,7 +66,7 @@ func Peek(rc io.ReadCloser) (string, io.ReadCloser, io.ReadCloser, error) {
 
 	br = bytes.NewReader(zb)
 	if ok, zpr, err := zstdPeek(br); err != nil {
-		return "", pr, nil, err
+		return "", pr, nil, fmt.Errorf("zstd.Peek: %w", err)
 	} else if ok {
 		zr, err := kzstd.NewReader(zpr)
 		if err != nil {
@@ -73,7 +74,7 @@ func Peek(rc io.ReadCloser) (string, io.ReadCloser, io.ReadCloser, error) {
 		}
 		ok, tpr, err := tarPeek(zr.IOReadCloser())
 		if err != nil {
-			return "", pr, nil, err
+			return "", pr, nil, fmt.Errorf("tarPeek: %w", err)
 		}
 		if ok {
 			return "tar+zstd", pr, tpr, nil
@@ -84,7 +85,7 @@ func Peek(rc io.ReadCloser) (string, io.ReadCloser, io.ReadCloser, error) {
 
 	br = bytes.NewReader(zb)
 	if ok, tpr, err := tarPeek(io.NopCloser(br)); err != nil {
-		return "", pr, nil, err
+		return "", pr, nil, fmt.Errorf("tarpeek: %w", err)
 	} else if ok {
 		return "tar", pr, tpr, nil
 	}
@@ -135,7 +136,7 @@ func tarPeek(rc io.ReadCloser) (bool, io.ReadCloser, error) {
 		if err == io.EOF {
 			return false, prc, nil
 		}
-		return false, prc, err
+		return false, prc, fmt.Errorf("tar.Peek(512): %w", err)
 	}
 
 	magic := string(block[257:][:6])
