@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 
 	ogzip "compress/gzip"
 
@@ -68,6 +69,7 @@ func Peek(rc io.ReadCloser) (string, io.ReadCloser, io.ReadCloser, error) {
 	if ok, zpr, err := zstdPeek(br); err != nil {
 		return "", pr, nil, fmt.Errorf("zstd.Peek: %w", err)
 	} else if ok {
+		log.Printf("looks like zstd")
 		zr, err := kzstd.NewReader(zpr)
 		if err != nil {
 			return "", pr, nil, err
@@ -134,6 +136,9 @@ func tarPeek(rc io.ReadCloser) (bool, io.ReadCloser, error) {
 	if err != nil {
 		// https://github.com/google/go-containerregistry/issues/367
 		if err == io.EOF {
+			if len(block) == 0 {
+				return true, prc, nil
+			}
 			return false, prc, nil
 		}
 		return false, prc, fmt.Errorf("tar.Peek(512): %w", err)
@@ -141,5 +146,22 @@ func tarPeek(rc io.ReadCloser) (bool, io.ReadCloser, error) {
 
 	magic := string(block[257:][:6])
 	isTar := magic == magicGNU || magic == magicUSTAR
+	if !isTar {
+		block, _ := pr.Peek(1024)
+		if len(block) == 1024 && isZeroes(block) {
+			log.Printf("this looks like an empty tar")
+			return true, prc, nil
+		}
+	}
 	return isTar, prc, nil
+}
+
+func isZeroes(block []byte) bool {
+	for _, b := range block {
+		if b != 0 {
+			return false
+		}
+	}
+
+	return true
 }
