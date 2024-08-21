@@ -209,7 +209,7 @@ func (h *handler) renderRepo(w http.ResponseWriter, r *http.Request, repo string
 
 	reg := ref.RegistryStr()
 	googleRepo := reg == "registry.k8s.io" || reg == "mirror.gcr.io" || (isGoogle(reg) && ref.RepositoryStr() != "")
-	hubRepo := strings.HasPrefix(repo, "index.docker.io") || strings.HasPrefix(repo, "docker.io") && strings.Count(repo, "/") == 1
+	hubRepo := (strings.HasPrefix(repo, "index.docker.io") || strings.HasPrefix(repo, "docker.io")) && strings.Count(repo, "/") == 1
 
 	if googleRepo {
 		return h.renderGoogleRepo(w, r, repo)
