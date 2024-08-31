@@ -75,6 +75,6 @@ require (
 )
 
 replace (
-	github.com/google/go-containerregistry => ./internal/forks/github.com/google/go-containerregistry
-	github.com/klauspost/compress => ./internal/forks/github.com/klauspost/compress
+	github.com/google/go-containerregistry => ./pkg/forks/github.com/google/go-containerregistry
+	github.com/klauspost/compress => ./pkg/forks/github.com/klauspost/compress
 )
