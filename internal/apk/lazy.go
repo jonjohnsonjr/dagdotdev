@@ -8,15 +8,13 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/go-containerregistry/pkg/name"
 )
 
 type BlobSeeker struct {
 	size int64
 
-	keychain authn.Keychain
+	keychain func(*http.Request) error
 
 	Body   io.ReadCloser
 	Status int
@@ -26,7 +24,7 @@ type BlobSeeker struct {
 	cachedUrl string
 }
 
-func LazyBlob(cachedUrl string, size int64, keychain authn.Keychain) *BlobSeeker {
+func LazyBlob(cachedUrl string, size int64, keychain func(*http.Request) error) *BlobSeeker {
 	return &BlobSeeker{
 		Url:       cachedUrl,
 		cachedUrl: cachedUrl,
@@ -58,17 +56,8 @@ func (b *BlobSeeker) ReadAt(p []byte, off int64) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	if b.keychain != nil {
-		ref := name.MustParseReference("gcr.io/example")
-		auth, err := b.keychain.Resolve(ref.Context().Registry)
-		if err != nil {
-			return 0, fmt.Errorf("keychain resolve: %w", err)
-		}
-		basic, err := auth.Authorization()
-		if err != nil {
-			return 0, fmt.Errorf("keychain auth: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+basic.Password)
+	if err := b.keychain(req); err != nil {
+		return 0, err
 	}
 	rangeVal := fmt.Sprintf("bytes=%d-%d", off, off+int64(len(p))-1)
 	req.Header.Set("Range", rangeVal)
@@ -119,17 +108,8 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 	if err != nil {
 		return nil, err
 	}
-	if b.keychain != nil {
-		ref := name.MustParseReference("gcr.io/example")
-		auth, err := b.keychain.Resolve(ref.Context().Registry)
-		if err != nil {
-			return nil, fmt.Errorf("keychain resolve: %w", err)
-		}
-		basic, err := auth.Authorization()
-		if err != nil {
-			return nil, fmt.Errorf("keychain auth: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+basic.Password)
+	if err := b.keychain(req); err != nil {
+		return nil, err
 	}
 	rangeVal := fmt.Sprintf("bytes=%d-%d", off, end-1)
 	req.Header.Set("Range", rangeVal)

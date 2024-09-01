@@ -229,17 +229,8 @@ func (h *handler) fetchUrl(u string) (*sizeBlob, error) {
 	if err != nil {
 		return nil, err
 	}
-	if h.keychain != nil {
-		ref := name.MustParseReference("gcr.io/example")
-		auth, err := h.keychain.Resolve(ref.Context().Registry)
-		if err != nil {
-			return nil, fmt.Errorf("keychain resolve: %w", err)
-		}
-		basic, err := auth.Authorization()
-		if err != nil {
-			return nil, fmt.Errorf("keychain auth: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+basic.Password)
+	if err := h.addAuth(req); err != nil {
+		return nil, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

@@ -29,6 +29,7 @@ import (
 	"github.com/digitorus/timestamp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -50,6 +51,7 @@ const printToken = ` -H "Authorization: Bearer $(gcloud auth print-access-token)
 type handler struct {
 	mux       http.Handler
 	keychain  authn.Keychain
+	cgauth    Authenticator
 	userAgent string
 
 	args []string
@@ -74,6 +76,12 @@ type Option func(h *handler)
 func WithKeychain(keychain authn.Keychain) Option {
 	return func(h *handler) {
 		h.keychain = keychain
+	}
+}
+
+func WithAuth(a Authenticator) Option {
+	return func(h *handler) {
+		h.cgauth = a
 	}
 }
 
@@ -735,7 +743,7 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 		log.Printf("cachedUrl: %s", p)
 		blob = &fileSeeker{p}
 	} else {
-		blob = LazyBlob(cachedUrl, toc.Csize, h.keychain)
+		blob = LazyBlob(cachedUrl, toc.Csize, h.addAuth)
 	}
 	prefix := strings.TrimPrefix(ref, "/")
 	fs := soci.FS(index, blob, prefix, ref, respTooBig, types.MediaType(mt), h.renderHeader)
@@ -1311,4 +1319,27 @@ func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int
 
 		return bodyTmpl.Execute(w, header)
 	}
+}
+
+func (h *handler) addAuth(req *http.Request) error {
+	if h.cgauth != nil {
+		if req.URL.Host == "apk.cgr.dev" {
+			return h.cgauth.AddAuth(req.Context(), req)
+		}
+	}
+	if h.keychain != nil {
+		ref := name.MustParseReference("gcr.io/example")
+		auth, err := h.keychain.Resolve(ref.Context().Registry)
+		if err != nil {
+			return fmt.Errorf("keychain resolve: %w", err)
+		}
+		basic, err := auth.Authorization()
+		if err != nil {
+			return fmt.Errorf("keychain auth: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+basic.Password)
+		return nil
+	}
+
+	return nil
 }
