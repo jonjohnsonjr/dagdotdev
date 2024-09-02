@@ -250,7 +250,14 @@ func (h *handler) fetchUrl(u string) (*sizeBlob, error) {
 func (h *handler) headUrl(u string) (string, error) {
 	log.Printf("HEAD %v", u)
 
-	resp, err := http.Head(u)
+	req, err := http.NewRequest(http.MethodHead, u, nil)
+	if err != nil {
+		return "", err
+	}
+	if err := h.addAuth(req); err != nil {
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}

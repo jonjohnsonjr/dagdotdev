@@ -46,6 +46,10 @@ func run(args []string) error {
 		if *auth || os.Getenv("AUTH") == "keychain" {
 			opt = append(opt, apk.WithKeychain(gcrane.Keychain))
 		}
+		if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
+			cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "https://apk.cgr.dev")
+			opt = append(opt, apk.WithAuth(cgauth))
+		}
 
 		return http.ListenAndServe(fmt.Sprintf(":%s", port), apk.New(args[1:], opt...))
 	case "oci":
