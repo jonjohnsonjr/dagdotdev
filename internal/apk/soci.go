@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
@@ -218,22 +216,4 @@ func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64,
 	}
 
 	return h.getIndexN(ctx, prefix, idx)
-}
-
-func (h *handler) createFs(w http.ResponseWriter, r *http.Request, ref string, dig name.Digest, index soci.Index, size int64, mt types.MediaType, urls []string, opts []remote.Option) (*soci.SociFS, error) {
-	if opts == nil {
-		opts = h.remoteOptions(w, r, dig.Context().Name())
-	}
-	opts = append(opts, remote.WithSize(size))
-
-	cachedStr := ""
-	if len(urls) > 0 {
-		cachedStr = urls[0]
-	}
-	blob := remote.LazyBlob(dig, cachedStr, nil, opts...)
-
-	// We never saw a non-nil Body, we can do the range.
-	prefix := strings.TrimPrefix(ref, "/")
-	fs := soci.FS(index, blob, prefix, dig.String(), respTooBig, mt, h.renderHeader)
-	return fs, nil
 }
