@@ -422,9 +422,9 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 				fmt.Fprintf(w, "%s\n", line)
 			}
 		case "V":
-			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
+			apk := pkg.name + "-" + pkg.version + ".apk"
 			hexsum := "sha1:" + pkg.checksum
-			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
+			href := path.Join(prefix, apk) + "@" + hexsum
 
 			// Set skip so that we don't print anything until the next "P:".
 			if search != "" {
@@ -503,9 +503,9 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Read
 				continue
 			}
 
-			apk := fmt.Sprintf("%s-%s.apk", pkg.name, pkg.version)
+			apk := pkg.name + "-" + pkg.version + ".apk"
 			hexsum := "sha1:" + pkg.checksum
-			href := fmt.Sprintf("%s@%s", path.Join(prefix, apk), hexsum)
+			href := path.Join(prefix, apk) + "@" + hexsum
 
 			if search != "" {
 				if strings.HasPrefix(search, "^") {
