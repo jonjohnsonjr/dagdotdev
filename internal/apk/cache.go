@@ -577,6 +577,8 @@ type apkCache struct {
 type apkCacheEntry struct {
 	etag string
 	b    []byte
+	ptov map[string]string
+	pkgs []apkindex
 }
 
 func (a *apkCache) Get(ref string) ([]byte, bool) {
