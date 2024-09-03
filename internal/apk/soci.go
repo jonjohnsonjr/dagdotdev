@@ -1,6 +1,7 @@
 package apk
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -64,7 +65,14 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 		}
 		defer rc.Close()
 
-		if err := h.renderIndex(w, r, rc, ref); err != nil {
+		b, err := io.ReadAll(rc)
+		if err != nil {
+			return kind, nil, nil, fmt.Errorf("reading %q", filename)
+		}
+
+		h.apkCache.Put(ref, b)
+
+		if err := h.renderIndex(w, r, bytes.NewReader(b), ref); err != nil {
 			return kind, nil, nil, fmt.Errorf("renderIndex(%q): %w", filename, err)
 		}
 	} else {

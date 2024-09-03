@@ -565,3 +565,40 @@ func buildIndexCache() cache {
 	}
 	return &multiCache{caches}
 }
+
+func buildApkCache() *apkCache {
+	return &apkCache{make(map[string]*apkCacheEntry)}
+}
+
+type apkCache struct {
+	m map[string]*apkCacheEntry
+}
+
+type apkCacheEntry struct {
+	etag string
+	b    []byte
+}
+
+func (a *apkCache) Get(ref string) ([]byte, bool) {
+	before, digest, ok := strings.Cut(ref, "@")
+	if !ok {
+		log.Printf("ref: %q", ref)
+		return nil, false
+	}
+
+	e, ok := a.m[before]
+	if !ok || e.etag != digest {
+		return nil, false
+	}
+
+	return e.b, true
+}
+
+func (a *apkCache) Put(ref string, b []byte) {
+	before, digest, ok := strings.Cut(ref, "@")
+	if !ok {
+		log.Printf("ref: %q", ref)
+		return
+	}
+	a.m[before] = &apkCacheEntry{digest, b}
+}

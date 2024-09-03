@@ -64,6 +64,7 @@ type handler struct {
 
 	tocCache   cache
 	indexCache cache
+	apkCache   *apkCache
 
 	sync.Mutex
 	sawTags map[string][]string
@@ -99,6 +100,7 @@ func New(args []string, opts ...Option) http.Handler {
 		sawTags:    map[string][]string{},
 		tocCache:   buildTocCache(),
 		indexCache: buildIndexCache(),
+		apkCache:   buildApkCache(),
 	}
 
 	for _, opt := range opts {
@@ -475,13 +477,25 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
 			log.Printf("rendering APKINDEX: %q", filename)
+
+			if b, ok := h.apkCache.Get(ref); ok {
+				return h.renderIndex(w, r, bytes.NewReader(b), ref)
+			}
+
 			rc, err := fs.Open(filename)
 			if err != nil {
 				return fmt.Errorf("open(%q): %w", filename, err)
 			}
 			defer rc.Close()
 
-			return h.renderIndex(w, r, rc, ref)
+			b, err := io.ReadAll(rc)
+			if err != nil {
+				return fmt.Errorf("reading %q", filename)
+			}
+
+			h.apkCache.Put(ref, b)
+
+			return h.renderIndex(w, r, bytes.NewReader(b), ref)
 		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
 			log.Printf("rendering SBOM: %q", filename)
