@@ -18,6 +18,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/logs"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 )
 
 type apkindex struct {
@@ -105,6 +106,42 @@ func (a apkindex) satisfies(depends []string) bool {
 	}
 
 	return true
+}
+
+// TODO: We want to be able to render links inside APKINDEX full view too like .PKGINFO (commit, origin, etc)
+func (h *handler) renderApkError(w http.ResponseWriter, r *http.Request, ref string, err error) error {
+	before, _, ok := strings.Cut(ref, ".apk")
+	if !ok {
+		return fmt.Errorf("this shouldn't happen: %w", err)
+	}
+	li := strings.LastIndex(before, "/")
+	if li == -1 {
+		return fmt.Errorf("this shouldn't happen: %w", err)
+	}
+	apkindex, apk := path.Join(before[:li], "APKINDEX.tar.gz", "APKINDEX"), before[li+1:]
+	href := fmt.Sprintf("%s?short=false&search=%s", apkindex, apk)
+	msg := fmt.Sprintf(`Could not load APK, <a href="%s">see APKINDEX entry</a>`, href)
+
+	httpserve.ServeContent(w, r, "", time.Time{}, strings.NewReader(err.Error()), func(w http.ResponseWriter, r *http.Request, ctype string) error {
+		// Kind at this poin can be "gzip", "zstd" or ""
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
+			return err
+		}
+		desc := v1.Descriptor{}
+		if size := r.URL.Query().Get("size"); size != "" {
+			if parsed, err := strconv.ParseInt(size, 10, 64); err == nil {
+				desc.Size = parsed
+			}
+		}
+		header := headerData(ref, desc)
+
+		header.Message = msg
+
+		return bodyTmpl.Execute(w, header)
+	})
+
+	return nil
 }
 
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {

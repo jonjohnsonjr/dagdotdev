@@ -517,6 +517,9 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	// Determine if this is actually a filesystem thing.
 	blob, prefix, err := h.fetchBlob(w, r)
 	if err != nil {
+		if strings.Contains(r.URL.Path, ".apk@") {
+			return h.renderApkError(w, r, ref, err)
+		}
 		return fmt.Errorf("fetchBlob: %w", err)
 	}
 
