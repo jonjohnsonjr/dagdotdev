@@ -478,24 +478,13 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
 			log.Printf("rendering APKINDEX: %q", filename)
 
-			if b, ok := h.apkCache.Get(ref); ok {
-				return h.renderIndex(w, r, bytes.NewReader(b), ref)
-			}
-
 			rc, err := fs.Open(filename)
 			if err != nil {
 				return fmt.Errorf("open(%q): %w", filename, err)
 			}
 			defer rc.Close()
 
-			b, err := io.ReadAll(rc)
-			if err != nil {
-				return fmt.Errorf("reading %q", filename)
-			}
-
-			h.apkCache.Put(ref, b)
-
-			return h.renderIndex(w, r, bytes.NewReader(b), ref)
+			return h.renderIndex(w, r, rc, ref)
 		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
 			log.Printf("rendering SBOM: %q", filename)

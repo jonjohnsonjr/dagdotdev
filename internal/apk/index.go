@@ -109,453 +109,16 @@ func (a apkindex) satisfies(depends []string) bool {
 func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
 	logs.Debug.Printf("renderIndex(%q)", ref)
 	short := r.URL.Query().Get("short") != "false"
-	full := r.URL.Query().Get("full") != "" && r.URL.Query().Get("full") != "false"
-	provides := r.URL.Query()["provide"]
-	provides = slices.DeleteFunc(provides, func(s string) bool {
-		return s == ""
-	})
-	depends := r.URL.Query()["depend"]
-	depends = slices.DeleteFunc(depends, func(s string) bool {
-		return s == ""
-	})
-	search := r.URL.Query().Get("search")
 
-	pkgs := []apkindex{}
-	ptov := map[string]string{}
-
-	isCurl := r.Header.Get("Accept") == "*/*"
-	if !isCurl {
-		if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
-			return err
-		}
-	}
-
-	header := headerData(ref, v1.Descriptor{})
-	header.ShowSearch = true
-	if search != "" {
-		header.Search = search
-	}
-	header.Full = full
-
-	// TODO: Add search into the links.
-	before, _, ok := strings.Cut(ref, "@")
-	if ok {
-		u, err := refToUrl(before)
-		if err != nil {
-			return err
-		}
-		scheme, after, ok := strings.Cut(u, "://")
-		if !ok {
-			return fmt.Errorf("no scheme in %q", u)
-		}
-		u = scheme + "://" + strings.TrimSuffix(after, "/")
-		if scheme == "file" {
-			u = strings.TrimPrefix(u, "file://")
-		}
-
-		// u := "https://" + strings.TrimSuffix(strings.TrimPrefix(before, "/https/"), "/")
-		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
-		if short {
-			// TODO: This stuff is not super robust. We could write a real awk program to do it better.
-
-			// Link to long form.
-			if scheme == "file" {
-				header.JQ = "cat" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
-			} else {
-				header.JQ = "curl -sL" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
-			}
-
-			if len(provides) == 0 && len(depends) == 0 {
-				// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
-				header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk\n", $2}'`
-
-				u := r.URL
-				q := u.Query()
-
-				firstLink := "all packages"
-
-				if full {
-					q.Set("full", "false")
-				} else {
-					firstLink = "latest packages"
-					q.Set("full", "true")
-				}
-
-				u.RawQuery = q.Encode()
-				firstHref := u.String()
-				firstMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
-
-				secondMessage := "in APKINDEX"
-				if search != "" {
-					secondMessage = fmt.Sprintf("that contain %q", search)
-				}
-
-				header.Message = fmt.Sprintf("# %s %s", firstMsg, secondMessage)
-			} else {
-				header.Expanded = true
-				if len(provides) != 0 {
-					header.Provide = provides[0]
-					// awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}' | grep "so:libc.so.6" | cut -d" " -f1
-					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "p" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
-
-					for _, dep := range provides {
-						header.JQ += ` | grep "` + dep + `"`
-					}
-
-					header.JQ += ` | cut -d" " -f1`
-					header.JQ += ` # this is approximate`
-
-					firstLink := "all packages"
-					firstHref := strings.ReplaceAll(r.URL.String(), "full=true", "full=false")
-					firstMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
-
-					if !full {
-						firstLink = "latest packages"
-						firstHref = strings.ReplaceAll(r.URL.String(), "full=false", "full=true")
-						firstMsg = fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
-					}
-
-					secondHref := strings.ReplaceAll(r.URL.String(), "provide=", "depend=")
-					secondLink := " provide " + strings.Join(provides, ", ")
-					secondMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", secondHref, secondLink)
-
-					header.Message = fmt.Sprintf("# %s that %s ", firstMsg, secondMsg)
-				} else {
-					header.Depend = depends[0]
-					header.JQ += ` | awk -F':' '$1 == "P" {printf "%s-", $2} $1 == "V" {printf "%s.apk", $2} $1 == "D" { printf " %s", substr($0, 3)} /^$/ {printf "\n"}'`
-
-					for _, dep := range depends {
-						header.JQ += ` | grep "` + dep + `"`
-					}
-
-					header.JQ += ` | cut -d" " -f1`
-					header.JQ += ` # this is approximate`
-
-					firstLink := "all packages"
-					firstHref := strings.ReplaceAll(r.URL.String(), "full=true", "full=false")
-					firstMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
-
-					if !full {
-						firstLink = "latest packages"
-						firstHref = strings.ReplaceAll(r.URL.String(), "full=false", "full=true")
-						firstMsg = fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", firstHref, firstLink)
-					}
-
-					secondHref := strings.ReplaceAll(r.URL.String(), "depend=", "provide=")
-					secondLink := " depend on " + strings.Join(depends, ", ")
-					secondMsg := fmt.Sprintf("<a class=\"mt\" href=%q>%s</a>", secondHref, secondLink)
-
-					header.Message = fmt.Sprintf("# %s that %s ", firstMsg, secondMsg)
-				}
-			}
-
-			if search != "" {
-				header.JQ += fmt.Sprintf(" | grep %q", search)
-			}
-		} else {
-			if scheme == "file" {
-				header.JQ = "cat" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
-			} else {
-				header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
-			}
-		}
-	} else if before, _, ok := strings.Cut(ref, "APKINDEX.tar.gz"); ok {
-		before = path.Join(before, "APKINDEX.tar.gz")
-
-		u, err := refToUrl(before)
-		if err != nil {
-			return err
-		}
-		scheme, after, ok := strings.Cut(u, "://")
-		if !ok {
-			return fmt.Errorf("no scheme in %q", u)
-		}
-		u = scheme + "://" + strings.TrimSuffix(after, "/")
-		if scheme == "file" {
-			u = strings.TrimPrefix(u, "file://")
-		}
-		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
-		if short {
-			// Link to long form.
-			if scheme == "file" {
-				header.JQ = "cat" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
-			} else {
-				header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
-			}
-
-			// awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'
-			header.JQ += ` | awk -F':' '/^P:/{printf "%s-", $2} /^V:/{printf "%s.apk\n", $2}'`
-		} else {
-			if scheme == "file" {
-				header.JQ = "cat" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
-			} else {
-				header.JQ = "curl -sL" + " " + u + fmt.Sprintf(` | tar -Oxz <a class="mt" href="?short=true&search=%s">APKINDEX</a>`, search)
-			}
-		}
-	}
-
-	if !isCurl {
-		if err := bodyTmpl.Execute(w, header); err != nil {
-			return err
-		}
-
-		fmt.Fprintf(w, "<pre><div>")
-	}
-
-	scanner := bufio.NewScanner(bufio.NewReaderSize(in, 1<<16))
-
-	// Allow 1MB of allocations because some lines are huge in alpine, like community/coq.provides.
-	// Default to 16KB because the default is 4KB which is too small even for wolfi.
-	buf := make([]byte, 16*1024)
-	big := 1024 * 1024
-	scanner.Buffer(buf, big)
-
-	prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
-	if !ok {
-		return fmt.Errorf("something funky with path...")
-	}
-
-	added := false
-	pkg := apkindex{}
-
-	prevLines := []string{}
-	skip := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		before, after, ok := strings.Cut(line, ":")
-		if !ok {
-			if pkg.name != "" {
-				pkgs = append(pkgs, pkg)
-				added = true
-			}
-
-			// reset pkg
-			pkg = apkindex{}
-			added = false
-
-			if !skip {
-				if !short {
-					if !isCurl {
-						fmt.Fprintf(w, "</div><div>\n")
-					} else {
-						fmt.Fprintf(w, "\n")
-					}
-				}
-			}
-
-			skip = false
-
-			continue
-		}
-
-		if skip {
-			continue
-		}
-
-		switch before {
-		case "C":
-			chk := strings.TrimPrefix(after, "Q1")
-			decoded, err := base64.StdEncoding.DecodeString(chk)
-			if err != nil {
-				return fmt.Errorf("base64 decode: %w", err)
-			}
-
-			pkg.checksum = hex.EncodeToString(decoded)
-		case "P":
-			pkg.name = after
-		case "V":
-			pkg.version = after
-		case "p":
-			items := strings.Split(after, " ")
-			pkg.provides = make(map[string]string, len(items))
-			for _, i := range items {
-				before, after, ok := strings.Cut(i, "=")
-				if ok {
-					pkg.provides[before] = after
-				} else {
-					pkg.provides[i] = ""
-				}
-			}
-		case "D":
-			pkg.depends = strings.Split(after, " ")
-		}
-
-		if short {
-			if before == "V" {
-				got, exists := ptov[pkg.name]
-
-				prerelease := strings.Contains(pkg.version, "_") &&
-					strings.Contains(pkg.version, "_alpha") ||
-					strings.Contains(pkg.version, "_beta") ||
-					strings.Contains(pkg.version, "_rc")
-
-				// Don't overwrite non-prerelease versions with prerelease versions.
-				if prerelease && exists {
-					continue
-				}
-
-				old, err := apk.ParseVersion(got)
-				if err != nil {
-					ptov[pkg.name] = pkg.version
-				} else {
-					new, err := apk.ParseVersion(pkg.version)
-					if err == nil {
-						if apk.CompareVersions(old, new) < 0 {
-							ptov[pkg.name] = pkg.version
-						}
-					}
-				}
-			}
-			if before == "p" {
-			}
-			continue
-		}
-
-		switch before {
-		case "C", "P":
-			if search != "" {
-				prevLines = append(prevLines, line)
-				skip = false
-			} else {
-				fmt.Fprintf(w, "%s\n", line)
-			}
-		case "V":
-			apk := pkg.name + "-" + pkg.version + ".apk"
-			hexsum := "sha1:" + pkg.checksum
-			href := path.Join(prefix, apk) + "@" + hexsum
-
-			// Set skip so that we don't print anything until the next "P:".
-			if search != "" {
-				if strings.HasPrefix(search, "^") {
-					if !strings.HasPrefix(apk, search[1:]) {
-						// log.Printf("!HasPrefix(%q, %q)", apk, search[1:])
-						skip = true
-					}
-				} else {
-					if !strings.Contains(apk, search) {
-						// log.Printf("!Contains(%q, %q)", apk, search)
-						skip = true
-					}
-				}
-			}
-
-			if !skip {
-				// Since we buffer the P: line, we need to print it if this matches.
-				for _, prevLine := range prevLines {
-					fmt.Fprintf(w, "%s\n", prevLine)
-				}
-
-				if !isCurl {
-					fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
-				} else {
-					fmt.Fprintf(w, "V:%s\n", pkg.version)
-				}
-			}
-			prevLines = []string{}
-
-		case "S", "I":
-			i, err := strconv.ParseInt(after, 10, 64)
-			if err != nil {
-				return fmt.Errorf("parsing %q as int: %w", after, err)
-			}
-			if !isCurl {
-				fmt.Fprintf(w, "%s:<span title=%q>%s</span>\n", before, humanize.Bytes(uint64(i)), after)
-			} else {
-				fmt.Fprintf(w, "%s:%s\n", before, after)
-			}
-		case "t":
-			sec, err := strconv.ParseInt(after, 10, 64)
-			if err != nil {
-				return fmt.Errorf("parsing %q as timestamp: %w", after, err)
-			}
-			t := time.Unix(sec, 0)
-			if !isCurl {
-				fmt.Fprintf(w, "<span title=%q>t:%s</span>\n", t.String(), after)
-			} else {
-				fmt.Fprintf(w, "%s:%s\n", before, after)
-			}
-		default:
-			fmt.Fprintf(w, "%s\n", line)
-		}
-	}
-	if short && !added {
-		if pkg.name != "" {
-			pkgs = append(pkgs, pkg)
-			added = true
-		}
-	}
-
-	// pkgs is empty if short is false
 	if short {
-		for _, pkg := range pkgs {
-			last, ok := ptov[pkg.name]
-			if !ok {
-				return fmt.Errorf("did not see %q", pkg.name)
-			}
-
-			if !pkg.needs(depends) {
-				continue
-			}
-
-			if !pkg.satisfies(provides) {
-				continue
-			}
-
-			apk := pkg.name + "-" + pkg.version + ".apk"
-			hexsum := "sha1:" + pkg.checksum
-			href := path.Join(prefix, apk) + "@" + hexsum
-
-			if search != "" {
-				if strings.HasPrefix(search, "^") {
-					if !strings.HasPrefix(apk, search[1:]) {
-						continue
-					}
-				} else {
-					if !strings.Contains(apk, search) {
-						continue
-					}
-				}
-			}
-			bold := pkg.version == last
-			if !bold {
-				if full {
-					if !isCurl {
-						fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
-					} else {
-						fmt.Fprintf(w, "%s\n", apk)
-					}
-				}
-			} else {
-				if !isCurl {
-					fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
-				} else {
-					fmt.Fprintf(w, "%s\n", apk)
-				}
-			}
-		}
+		return h.renderShort(w, r, in, ref)
 	}
 
-	if short && !full {
-		if !isCurl {
-			fmt.Fprintf(w, "\n<a title=%q href=%q>...</a>", "show old versions", "?full=true")
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("scanner: %w", err)
-	}
-
-	if !isCurl {
-		fmt.Fprintf(w, "</div></pre>\n</body>\n</html>\n")
-	}
-
-	return nil
+	return h.renderFull(w, r, in, ref)
 }
 
 func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
-	logs.Debug.Printf("renderIndex(%q)", ref)
+	logs.Debug.Printf("renderFull(%q)", ref)
 	full := r.URL.Query().Get("full") != "" && r.URL.Query().Get("full") != "false"
 	provides := r.URL.Query()["provide"]
 	provides = slices.DeleteFunc(provides, func(s string) bool {
@@ -785,8 +348,9 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reade
 	return nil
 }
 
+// TODO: Cache parsed APKINDEX and go directly here if we're short.
 func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
-	logs.Debug.Printf("renderIndex(%q)", ref)
+	logs.Debug.Printf("renderShort(%q)", ref)
 	full := r.URL.Query().Get("full") != "" && r.URL.Query().Get("full") != "false"
 	provides := r.URL.Query()["provide"]
 	provides = slices.DeleteFunc(provides, func(s string) bool {
@@ -798,8 +362,10 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 	})
 	search := r.URL.Query().Get("search")
 
-	pkgs := []apkindex{}
-	ptov := map[string]string{}
+	pkgs, ptov, err := h.parseIndex(w, r, in, ref)
+	if err != nil {
+		return err
+	}
 
 	isCurl := r.Header.Get("Accept") == "*/*"
 	if !isCurl {
@@ -964,6 +530,79 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 		fmt.Fprintf(w, "<pre><div>")
 	}
 
+	prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
+	if !ok {
+		return fmt.Errorf("something funky with path...")
+	}
+
+	for _, pkg := range pkgs {
+		last, ok := ptov[pkg.name]
+		if !ok {
+			return fmt.Errorf("did not see %q", pkg.name)
+		}
+
+		if !pkg.needs(depends) {
+			continue
+		}
+
+		if !pkg.satisfies(provides) {
+			continue
+		}
+
+		apk := pkg.name + "-" + pkg.version + ".apk"
+		hexsum := "sha1:" + pkg.checksum
+		href := path.Join(prefix, apk) + "@" + hexsum
+
+		if search != "" {
+			if strings.HasPrefix(search, "^") {
+				if !strings.HasPrefix(apk, search[1:]) {
+					continue
+				}
+			} else {
+				if !strings.Contains(apk, search) {
+					continue
+				}
+			}
+		}
+		bold := pkg.version == last
+		if !bold {
+			if full {
+				if !isCurl {
+					fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
+				} else {
+					fmt.Fprintf(w, "%s\n", apk)
+				}
+			}
+		} else {
+			if !isCurl {
+				fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
+			} else {
+				fmt.Fprintf(w, "%s\n", apk)
+			}
+		}
+	}
+
+	if !full {
+		if !isCurl {
+			fmt.Fprintf(w, "\n<a title=%q href=%q>...</a>", "show old versions", "?full=true")
+		}
+	}
+
+	if !isCurl {
+		fmt.Fprintf(w, "</div></pre>\n</body>\n</html>\n")
+	}
+
+	return nil
+}
+
+func (h *handler) parseIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) ([]apkindex, map[string]string, error) {
+	if pkgs, ptov, ok := h.apkCache.Get(ref); ok {
+		return pkgs, ptov, nil
+	}
+
+	pkgs := []apkindex{}
+	ptov := map[string]string{}
+
 	scanner := bufio.NewScanner(bufio.NewReaderSize(in, 1<<16))
 
 	// Allow 1MB of allocations because some lines are huge in alpine, like community/coq.provides.
@@ -971,11 +610,6 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 	buf := make([]byte, 16*1024)
 	big := 1024 * 1024
 	scanner.Buffer(buf, big)
-
-	prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
-	if !ok {
-		return fmt.Errorf("something funky with path...")
-	}
 
 	added := false
 	pkg := apkindex{}
@@ -1009,7 +643,7 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 			chk := strings.TrimPrefix(after, "Q1")
 			decoded, err := base64.StdEncoding.DecodeString(chk)
 			if err != nil {
-				return fmt.Errorf("base64 decode: %w", err)
+				return nil, nil, fmt.Errorf("base64 decode: %w", err)
 			}
 
 			pkg.checksum = hex.EncodeToString(decoded)
@@ -1066,68 +700,9 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 		}
 	}
 
-	for _, pkg := range pkgs {
-		last, ok := ptov[pkg.name]
-		if !ok {
-			return fmt.Errorf("did not see %q", pkg.name)
-		}
+	h.apkCache.Put(ref, pkgs, ptov)
 
-		if !pkg.needs(depends) {
-			continue
-		}
-
-		if !pkg.satisfies(provides) {
-			continue
-		}
-
-		apk := pkg.name + "-" + pkg.version + ".apk"
-		hexsum := "sha1:" + pkg.checksum
-		href := path.Join(prefix, apk) + "@" + hexsum
-
-		if search != "" {
-			if strings.HasPrefix(search, "^") {
-				if !strings.HasPrefix(apk, search[1:]) {
-					continue
-				}
-			} else {
-				if !strings.Contains(apk, search) {
-					continue
-				}
-			}
-		}
-		bold := pkg.version == last
-		if !bold {
-			if full {
-				if !isCurl {
-					fmt.Fprintf(w, "<a class=%q href=%q>%s</a>\n", "mt", href, apk)
-				} else {
-					fmt.Fprintf(w, "%s\n", apk)
-				}
-			}
-		} else {
-			if !isCurl {
-				fmt.Fprintf(w, "<a href=%q>%s</a>\n", href, apk)
-			} else {
-				fmt.Fprintf(w, "%s\n", apk)
-			}
-		}
-	}
-
-	if !full {
-		if !isCurl {
-			fmt.Fprintf(w, "\n<a title=%q href=%q>...</a>", "show old versions", "?full=true")
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("scanner: %w", err)
-	}
-
-	if !isCurl {
-		fmt.Fprintf(w, "</div></pre>\n</body>\n</html>\n")
-	}
-
-	return nil
+	return pkgs, ptov, nil
 }
 
 func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {

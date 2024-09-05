@@ -567,40 +567,53 @@ func buildIndexCache() cache {
 }
 
 func buildApkCache() *apkCache {
-	return &apkCache{make(map[string]*apkCacheEntry)}
+	return &apkCache{
+		mu: sync.Mutex{},
+		m:  make(map[string]*apkCacheEntry),
+	}
 }
 
 type apkCache struct {
-	m map[string]*apkCacheEntry
+	mu sync.Mutex
+	m  map[string]*apkCacheEntry
 }
 
 type apkCacheEntry struct {
 	etag string
-	b    []byte
-	ptov map[string]string
 	pkgs []apkindex
+	ptov map[string]string
 }
 
-func (a *apkCache) Get(ref string) ([]byte, bool) {
+func (a *apkCache) Get(ref string) ([]apkindex, map[string]string, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	before, digest, ok := strings.Cut(ref, "@")
 	if !ok {
 		log.Printf("ref: %q", ref)
-		return nil, false
+		return nil, nil, false
 	}
 
 	e, ok := a.m[before]
 	if !ok || e.etag != digest {
-		return nil, false
+		return nil, nil, false
 	}
 
-	return e.b, true
+	return e.pkgs, e.ptov, true
 }
 
-func (a *apkCache) Put(ref string, b []byte) {
+func (a *apkCache) Put(ref string, pkgs []apkindex, ptov map[string]string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	before, digest, ok := strings.Cut(ref, "@")
 	if !ok {
 		log.Printf("ref: %q", ref)
 		return
 	}
-	a.m[before] = &apkCacheEntry{digest, b}
+	a.m[before] = &apkCacheEntry{
+		etag: digest,
+		pkgs: pkgs,
+		ptov: ptov,
+	}
 }
