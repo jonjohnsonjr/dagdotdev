@@ -22,6 +22,7 @@ import (
 )
 
 type apkindex struct {
+	origin   string
 	checksum string
 	name     string
 	version  string
@@ -259,17 +260,22 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reade
 
 		before, after, ok := strings.Cut(line, ":")
 		if !ok {
-			// reset pkg
-			pkg = apkindex{}
-
 			if !skip {
+				// Since we buffer the P: line, we need to print it if this matches.
+				for _, prevLine := range prevLines {
+					fmt.Fprintf(w, "%s\n", prevLine)
+				}
+
 				if !isCurl {
 					fmt.Fprintf(w, "</div><div>\n")
 				} else {
 					fmt.Fprintf(w, "\n")
 				}
 			}
+			prevLines = []string{}
 
+			// reset pkg
+			pkg = apkindex{}
 			skip = false
 
 			continue
@@ -308,17 +314,43 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reade
 		}
 
 		switch before {
-		case "C", "P":
+		case "o":
+			pkg.origin = strings.TrimSpace(after)
 			if search != "" {
-				prevLines = append(prevLines, line)
-				skip = false
+				if strings.Contains(r.URL.Path, "packages.wolfi.dev") {
+					href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/main/%s.yaml", pkg.origin)
+					prevLines = append(prevLines, fmt.Sprintf("<a href=%q>%s:%s</a>", href, before, after))
+				} else if strings.Contains(r.URL.Path, "packages.cgr.dev") {
+					href := fmt.Sprintf("https://github.com/chainguard-dev/enterprise-packages/blob/main/%s.yaml", pkg.origin)
+					prevLines = append(prevLines, fmt.Sprintf("<a href=%q>%s:%s</a>", href, before, after))
+				} else {
+					prevLines = append(prevLines, line)
+				}
 			} else {
-				fmt.Fprintf(w, "%s\n", line)
+				prevLines = append(prevLines, line)
 			}
+		case "c":
+			commit := strings.TrimSpace(after)
+			if search != "" && pkg.origin != "" {
+				if strings.Contains(r.URL.Path, "packages.wolfi.dev") {
+					href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/%s/%s.yaml", commit, pkg.origin)
+					prevLines = append(prevLines, fmt.Sprintf("<a href=%q>%s:%s</a>", href, before, after))
+				} else if strings.Contains(r.URL.Path, "packages.cgr.dev") {
+					href := fmt.Sprintf("https://github.com/chainguard-dev/enterprise-packages/blob/%s/%s.yaml", commit, pkg.origin)
+					prevLines = append(prevLines, fmt.Sprintf("<a href=%q>%s:%s</a>", href, before, after))
+				} else if strings.Contains(r.URL.Path, "dl-cdn.alpinelinux.org/alpine/edge/main") {
+					href := fmt.Sprintf("https://gitlab.alpinelinux.org/alpine/aports/-/blob/%s/main/%s/APKBUILD", commit, pkg.origin)
+					prevLines = append(prevLines, fmt.Sprintf("<a href=%q>%s:%s</a>", href, before, after))
+				} else {
+					prevLines = append(prevLines, line)
+				}
+			} else {
+				prevLines = append(prevLines, line)
+			}
+		case "C", "P":
+			prevLines = append(prevLines, line)
 		case "V":
 			apk := pkg.name + "-" + pkg.version + ".apk"
-			hexsum := "sha1:" + pkg.checksum
-			href := path.Join(prefix, apk) + "@" + hexsum
 
 			// Set skip so that we don't print anything until the next "P:".
 			if search != "" {
@@ -335,29 +367,23 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reade
 				}
 			}
 
-			if !skip {
-				// Since we buffer the P: line, we need to print it if this matches.
-				for _, prevLine := range prevLines {
-					fmt.Fprintf(w, "%s\n", prevLine)
-				}
+			hexsum := "sha1:" + pkg.checksum
+			href := path.Join(prefix, apk) + "@" + hexsum
 
-				if !isCurl {
-					fmt.Fprintf(w, "<a id=%q href=%q>V:%s</a>\n", apk, href, pkg.version)
-				} else {
-					fmt.Fprintf(w, "V:%s\n", pkg.version)
-				}
+			if !isCurl {
+				prevLines = append(prevLines, fmt.Sprintf("<a id=%q href=%q>V:%s</a>", apk, href, pkg.version))
+			} else {
+				prevLines = append(prevLines, fmt.Sprintf("%s:%s", before, after))
 			}
-			prevLines = []string{}
-
 		case "S", "I":
 			i, err := strconv.ParseInt(after, 10, 64)
 			if err != nil {
 				return fmt.Errorf("parsing %q as int: %w", after, err)
 			}
 			if !isCurl {
-				fmt.Fprintf(w, "%s:<span title=%q>%s</span>\n", before, humanize.Bytes(uint64(i)), after)
+				prevLines = append(prevLines, fmt.Sprintf("%s:<span title=%q>%s</span>", before, humanize.Bytes(uint64(i)), after))
 			} else {
-				fmt.Fprintf(w, "%s:%s\n", before, after)
+				prevLines = append(prevLines, fmt.Sprintf("%s:%s", before, after))
 			}
 		case "t":
 			sec, err := strconv.ParseInt(after, 10, 64)
@@ -366,12 +392,12 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reade
 			}
 			t := time.Unix(sec, 0)
 			if !isCurl {
-				fmt.Fprintf(w, "<span title=%q>t:%s</span>\n", t.String(), after)
+				prevLines = append(prevLines, fmt.Sprintf("<span title=%q>t:%s</span>", t.String(), after))
 			} else {
-				fmt.Fprintf(w, "%s:%s\n", before, after)
+				prevLines = append(prevLines, fmt.Sprintf("%s:%s", before, after))
 			}
 		default:
-			fmt.Fprintf(w, "%s\n", line)
+			prevLines = append(prevLines, line)
 		}
 	}
 
@@ -419,7 +445,7 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 	}
 	header.Full = full
 
-	// TODO: Add search into the links.
+	// TODO: Add search into the kinks.
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u, err := refToUrl(before)
@@ -652,7 +678,6 @@ func (h *handler) parseIndex(w http.ResponseWriter, r *http.Request, in io.Reade
 	big := 1024 * 1024
 	scanner.Buffer(buf, big)
 
-	added := false
 	pkg := apkindex{}
 
 	skip := false
@@ -665,12 +690,10 @@ func (h *handler) parseIndex(w http.ResponseWriter, r *http.Request, in io.Reade
 			if pkg.name != "" {
 				pkg.apk = pkg.name + "-" + pkg.version + ".apk"
 				pkgs = append(pkgs, pkg)
-				added = true
 			}
 
 			// reset pkg
 			pkg = apkindex{}
-			added = false
 			skip = false
 
 			continue
@@ -735,12 +758,9 @@ func (h *handler) parseIndex(w http.ResponseWriter, r *http.Request, in io.Reade
 		}
 	}
 
-	if !added {
-		if pkg.name != "" {
-			pkg.apk = pkg.name + "-" + pkg.version + ".apk"
-			pkgs = append(pkgs, pkg)
-			added = true
-		}
+	if pkg.name != "" {
+		pkg.apk = pkg.name + "-" + pkg.version + ".apk"
+		pkgs = append(pkgs, pkg)
 	}
 
 	h.apkCache.Put(ref, pkgs, ptov)
