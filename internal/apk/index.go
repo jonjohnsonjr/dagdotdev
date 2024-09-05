@@ -534,13 +534,9 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 	if !ok {
 		return fmt.Errorf("something funky with path...")
 	}
+	prefix = strings.TrimSuffix(prefix, "/")
 
 	for _, pkg := range pkgs {
-		last, ok := ptov[pkg.name]
-		if !ok {
-			return fmt.Errorf("did not see %q", pkg.name)
-		}
-
 		if !pkg.needs(depends) {
 			continue
 		}
@@ -563,10 +559,15 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 			}
 		}
 
-		hexsum := "sha1:" + pkg.checksum
-		href := path.Join(prefix, apk) + "@" + hexsum
+		href := prefix + "/" + apk + "@" + "sha1:" + pkg.checksum
+
+		last, ok := ptov[pkg.name]
+		if !ok {
+			return fmt.Errorf("did not see %q", pkg.name)
+		}
 
 		bold := pkg.version == last
+
 		if !bold {
 			if full {
 				if !isCurl {
