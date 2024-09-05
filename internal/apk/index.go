@@ -550,8 +550,6 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 		}
 
 		apk := pkg.name + "-" + pkg.version + ".apk"
-		hexsum := "sha1:" + pkg.checksum
-		href := path.Join(prefix, apk) + "@" + hexsum
 
 		if search != "" {
 			if strings.HasPrefix(search, "^") {
@@ -564,6 +562,10 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 				}
 			}
 		}
+
+		hexsum := "sha1:" + pkg.checksum
+		href := path.Join(prefix, apk) + "@" + hexsum
+
 		bold := pkg.version == last
 		if !bold {
 			if full {
