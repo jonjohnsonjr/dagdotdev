@@ -24,6 +24,7 @@ type apkindex struct {
 	checksum string
 	name     string
 	version  string
+	apk      string
 	provides map[string]string
 	depends  []string
 }
@@ -545,7 +546,7 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 			continue
 		}
 
-		apk := pkg.name + "-" + pkg.version + ".apk"
+		apk := pkg.apk
 
 		if search != "" {
 			if strings.HasPrefix(search, "^") {
@@ -625,6 +626,7 @@ func (h *handler) parseIndex(w http.ResponseWriter, r *http.Request, in io.Reade
 		before, after, ok := strings.Cut(line, ":")
 		if !ok {
 			if pkg.name != "" {
+				pkg.apk = pkg.name + "-" + pkg.version + ".apk"
 				pkgs = append(pkgs, pkg)
 				added = true
 			}
@@ -694,10 +696,11 @@ func (h *handler) parseIndex(w http.ResponseWriter, r *http.Request, in io.Reade
 				}
 			}
 		}
-		continue
 	}
+
 	if !added {
 		if pkg.name != "" {
+			pkg.apk = pkg.name + "-" + pkg.version + ".apk"
 			pkgs = append(pkgs, pkg)
 			added = true
 		}
