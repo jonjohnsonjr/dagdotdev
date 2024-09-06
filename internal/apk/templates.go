@@ -2,8 +2,6 @@ package apk
 
 import (
 	"text/template"
-
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 var (
@@ -259,44 +257,19 @@ type Landing struct {
 	Apks    []string
 }
 
-type RepoParent struct {
-	Parent    string
-	Child     string
-	Separator string
-}
-
-type OauthData struct {
-	Error    string
-	Redirect string
-}
-
 type TitleData struct {
 	Title string
 }
-type CosignTag struct {
-	Tag   string
-	Short string
-}
 
 type HeaderData struct {
-	ShowSearch       bool
-	Expanded         bool
-	Full             bool
-	Search           string
-	Depend           string
-	Provide          string
-	Repo             string
-	CosignTags       []CosignTag
-	Message          string
-	JQ               string
-	PAXRecords       map[string]string
-	Reference        string
-	Up               *RepoParent
-	Descriptor       *v1.Descriptor
-	Handler          string
-	EscapedMediaType string
-	MediaTypeLink    string
-	SizeLink         string
-	Referrers        bool
-	Subject          string
+	ShowSearch bool
+	Expanded   bool
+	Full       bool
+	Search     string
+	Depend     string
+	Provide    string
+	Message    string
+	JQ         string
+	PAXRecords map[string]string
+	SizeLink   string // TODO: We don't use this, I think.
 }

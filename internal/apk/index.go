@@ -17,7 +17,6 @@ import (
 	"chainguard.dev/apko/pkg/apk/apk"
 	"github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/logs"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 )
 
@@ -129,13 +128,19 @@ func (h *handler) renderApkError(w http.ResponseWriter, r *http.Request, ref str
 		if err := headerTmpl.Execute(w, TitleData{title(ref)}); err != nil {
 			return err
 		}
-		desc := v1.Descriptor{}
-		if size := r.URL.Query().Get("size"); size != "" {
-			if parsed, err := strconv.ParseInt(size, 10, 64); err == nil {
-				desc.Size = parsed
+		header := headerData(ref)
+
+		before, _, ok := strings.Cut(ref, "@")
+		if ok {
+			u, err := refToUrl(before)
+			if err == nil {
+				if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+					header.JQ = "curl -sL" + printToken + " " + u
+				} else {
+					header.JQ = "curl -sL" + " " + u
+				}
 			}
 		}
-		header := headerData(ref, desc)
 
 		header.Message = msg
 
@@ -176,7 +181,7 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, open func()
 		}
 	}
 
-	header := headerData(ref, v1.Descriptor{})
+	header := headerData(ref)
 	header.ShowSearch = true
 	if search != "" {
 		header.Search = search
@@ -439,7 +444,7 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, open func(
 		}
 	}
 
-	header := headerData(ref, v1.Descriptor{})
+	header := headerData(ref)
 	header.ShowSearch = true
 	if search != "" {
 		header.Search = search
@@ -789,7 +794,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 		return err
 	}
 
-	header := headerData(ref, v1.Descriptor{})
+	header := headerData(ref)
 	before, _, ok := strings.Cut(ref, "@")
 	if ok {
 		u, err := refToUrl(before)

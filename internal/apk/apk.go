@@ -281,7 +281,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 				desc.Size = parsed
 			}
 		}
-		header := headerData(ref, desc)
+		header := headerData(ref)
 
 		before, _, ok := strings.Cut(ref, "@")
 		if ok {
@@ -783,14 +783,8 @@ func (h *handler) jq(output *jsonOutputter, b []byte, r *http.Request, header *H
 	return b, nil
 }
 
-func headerData(ref string, desc v1.Descriptor) *HeaderData {
-	return &HeaderData{
-		CosignTags:       []CosignTag{},
-		Descriptor:       &desc,
-		Handler:          handlerForMT(string(desc.MediaType)),
-		EscapedMediaType: url.QueryEscape(string(desc.MediaType)),
-		MediaTypeLink:    getLink(string(desc.MediaType)),
-	}
+func headerData(ref string) *HeaderData {
+	return &HeaderData{}
 }
 
 func refToUrl(p string) (string, error) {
@@ -821,13 +815,7 @@ func refToUrl(p string) (string, error) {
 }
 
 func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, ref string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
-	desc := v1.Descriptor{
-		Size: size,
-		// Digest:    hash,
-		MediaType: mediaType,
-	}
-
-	header := headerData(ref, desc)
+	header := headerData(ref)
 
 	search := r.URL.Query().Get("search")
 	pax := r.URL.Query().Get("pax") == "true"
@@ -1069,7 +1057,7 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 		mt:    r.URL.Query().Get("mt"),
 	}
 
-	header := headerData(ref, v1.Descriptor{})
+	header := headerData(ref)
 
 	filename := strings.TrimPrefix(r.URL.Path, ref)
 	filename = strings.TrimPrefix(filename, "/")
@@ -1261,10 +1249,7 @@ func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int
 			return err
 		}
 
-		desc := v1.Descriptor{
-			Size: size,
-		}
-		header := headerData(ref, desc)
+		header := headerData(ref)
 
 		tarflags := "tar -tv"
 		if kind == "tar+gzip" {
