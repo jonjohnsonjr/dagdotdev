@@ -478,13 +478,11 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
 			log.Printf("rendering APKINDEX: %q", filename)
 
-			rc, err := fs.Open(filename)
-			if err != nil {
-				return fmt.Errorf("open(%q): %w", filename, err)
+			open := func() (io.ReadCloser, error) {
+				return fs.Open(filename)
 			}
-			defer rc.Close()
 
-			return h.renderIndex(w, r, rc, ref)
+			return h.renderIndex(w, r, open, ref)
 		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
 			log.Printf("rendering SBOM: %q", filename)
@@ -652,13 +650,12 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
 			log.Printf("rendering APKINDEX: %q", filename)
-			rc, err := fs.Open(filename)
-			if err != nil {
-				return fmt.Errorf("open(%q): %w", filename, err)
-			}
-			defer rc.Close()
 
-			return h.renderIndex(w, r, rc, ref)
+			open := func() (io.ReadCloser, error) {
+				return fs.Open(filename)
+			}
+
+			return h.renderIndex(w, r, open, ref)
 		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
 			log.Printf("rendering SBOM: %q", filename)
@@ -1185,15 +1182,13 @@ func (h *handler) fallback(w http.ResponseWriter, r *http.Request, u string) err
 	fs := h.newLayerFS(tr, -1, ref, ref, "tar+gzip", types.MediaType("application/tar+gzip"))
 
 	if strings.HasSuffix(r.URL.Path, "APKINDEX") {
-		filename := strings.TrimPrefix(r.URL.Path, "")
-		log.Printf("opening %q", filename)
-		rc, err := fs.Open(filename)
-		if err != nil {
-			return fmt.Errorf("open(%q): %w", filename, err)
+		filename := strings.TrimPrefix(r.URL.Path, "/")
+		open := func() (io.ReadCloser, error) {
+			log.Printf("opening %q", filename)
+			return fs.Open(filename)
 		}
-		defer rc.Close()
 
-		if err := h.renderIndex(w, r, rc, ref); err != nil {
+		if err := h.renderIndex(w, r, open, ref); err != nil {
 			return fmt.Errorf("renderIndex(%q): %w", filename, err)
 		}
 	} else {

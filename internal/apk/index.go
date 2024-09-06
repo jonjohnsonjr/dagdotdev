@@ -145,18 +145,18 @@ func (h *handler) renderApkError(w http.ResponseWriter, r *http.Request, ref str
 	return nil
 }
 
-func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
+func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, open func() (io.ReadCloser, error), ref string) error {
 	logs.Debug.Printf("renderIndex(%q)", ref)
 	short := r.URL.Query().Get("short") != "false"
 
 	if short {
-		return h.renderShort(w, r, in, ref)
+		return h.renderShort(w, r, open, ref)
 	}
 
-	return h.renderFull(w, r, in, ref)
+	return h.renderFull(w, r, open, ref)
 }
 
-func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
+func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, open func() (io.ReadCloser, error), ref string) error {
 	logs.Debug.Printf("renderFull(%q)", ref)
 	full := r.URL.Query().Get("full") != "" && r.URL.Query().Get("full") != "false"
 	provides := r.URL.Query()["provide"]
@@ -236,6 +236,12 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reade
 
 		fmt.Fprintf(w, "<pre><div>")
 	}
+
+	in, err := open()
+	if err != nil {
+		return err
+	}
+	defer in.Close()
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(in, 1<<16))
 
@@ -413,7 +419,7 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, in io.Reade
 }
 
 // TODO: Cache parsed APKINDEX and go directly here if we're short.
-func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Reader, ref string) error {
+func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, open func() (io.ReadCloser, error), ref string) error {
 	logs.Debug.Printf("renderShort(%q)", ref)
 	full := r.URL.Query().Get("full") != "" && r.URL.Query().Get("full") != "false"
 	provides := r.URL.Query()["provide"]
@@ -425,11 +431,6 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 		return s == ""
 	})
 	search := r.URL.Query().Get("search")
-
-	pkgs, ptov, err := h.parseIndex(w, r, in, ref)
-	if err != nil {
-		return err
-	}
 
 	isCurl := r.Header.Get("Accept") == "*/*"
 	if !isCurl {
@@ -591,6 +592,10 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 			return err
 		}
 
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+
 		fmt.Fprintf(w, "<pre><div>")
 	}
 
@@ -599,6 +604,17 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, in io.Read
 		return fmt.Errorf("something funky with path...")
 	}
 	prefix = strings.TrimSuffix(prefix, "/")
+
+	in, err := open()
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	pkgs, ptov, err := h.parseIndex(w, r, in, ref)
+	if err != nil {
+		return err
+	}
 
 	for _, pkg := range pkgs {
 		if !pkg.needs(depends) {

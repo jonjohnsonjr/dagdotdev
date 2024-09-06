@@ -57,14 +57,12 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 	if strings.HasSuffix(r.URL.Path, "APKINDEX") {
 		// filename := strings.TrimPrefix(r.URL.Path, "/")
 		filename := r.URL.Path
-		log.Printf("opening %q", filename)
-		rc, err := fs.Open(filename)
-		if err != nil {
-			return kind, nil, nil, fmt.Errorf("open(%q): %w", filename, err)
+		open := func() (io.ReadCloser, error) {
+			log.Printf("opening %q", filename)
+			return fs.Open(filename)
 		}
-		defer rc.Close()
 
-		if err := h.renderIndex(w, r, rc, ref); err != nil {
+		if err := h.renderIndex(w, r, open, ref); err != nil {
 			return kind, nil, nil, fmt.Errorf("renderIndex(%q): %w", filename, err)
 		}
 	} else {
