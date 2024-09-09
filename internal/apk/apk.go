@@ -37,7 +37,6 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
 	"github.com/jonjohnsonjr/dagdotdev/internal/xxd"
 	"github.com/klauspost/compress/gzhttp"
-	"golang.org/x/oauth2"
 )
 
 // We should not buffer blobs greater than 2MB
@@ -60,8 +59,6 @@ type handler struct {
 
 	sync.Mutex
 	inflight map[string]*soci.Indexer
-
-	oauth *oauth2.Config
 }
 
 type Option func(h *handler)
@@ -128,15 +125,13 @@ func splitFsURL(p string) (string, string, error) {
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.oauth == nil {
-		// Cloud run already logs this stuff, don't log extra.
-		log.Printf("%v", r.URL)
+	// TODO: Avoid double logging on cloud run.
+	log.Printf("%v", r.URL)
 
-		start := time.Now()
-		defer func() {
-			log.Printf("%v (%s)", r.URL, time.Since(start))
-		}()
-	}
+	start := time.Now()
+	defer func() {
+		log.Printf("%v (%s)", r.URL, time.Since(start))
+	}()
 
 	if r.URL.Path == "/favicon.svg" || r.URL.Path == "/favicon.ico" {
 		w.Header().Set("Cache-Control", "max-age=3600")
@@ -250,8 +245,6 @@ func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, b []byte
 }
 
 func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string, kind string, blob *sizeSeeker) error {
-	log.Printf("renderFile")
-
 	// Allow this to be cached for an hour.
 	w.Header().Set("Cache-Control", "max-age=3600, immutable")
 
@@ -334,7 +327,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			provides[i] = url.QueryEscape(dep)
 		}
 		qss += "provide=" + strings.Join(provides, "&provide=")
-		log.Printf("qss = %q", qss)
 	}
 	depends, ok := qs["depend"]
 	if ok {
@@ -342,7 +334,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			depends[i] = url.QueryEscape(dep)
 		}
 		qss += "&depend=" + strings.Join(depends, "&depend=")
-		log.Printf("qss = %q", qss)
 	}
 	full := qs.Get("full")
 	if full != "" {
@@ -414,7 +405,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if redir != r.URL.Path {
-			log.Printf("%q != %q", redir, r.URL.Path)
 			if strings.Contains(before, "APKINDEX.tar.gz") {
 				http.Redirect(w, r, redir+qss, http.StatusFound)
 				return nil
@@ -437,15 +427,13 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
 	}
 	if index != nil {
-		fs, err := h.indexedFS(w, r, ref, index)
+		fs, err := h.indexedFS(r, ref, index)
 		if err != nil {
 			return err
 		}
 
 		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering APKINDEX: %q", filename)
-
 			open := func() (io.ReadCloser, error) {
 				return fs.Open(filename)
 			}
@@ -453,7 +441,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			return h.renderIndex(w, r, open, ref)
 		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering SBOM: %q", filename)
 			rc, err := fs.Open(filename)
 			if err != nil {
 				return fmt.Errorf("open(%q): %w", filename, err)
@@ -463,7 +450,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			return h.renderSBOM(w, r, rc, ref)
 		} else if strings.HasSuffix(r.URL.Path, "/.PKGINFO") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering .PKGINFO: %q", filename)
 			rc, err := fs.Open(filename)
 			if err != nil {
 				return fmt.Errorf("open(%q): %w", filename, err)
@@ -473,7 +459,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			return h.renderPkgInfo(w, r, rc, ref)
 		}
 
-		log.Printf("serving http from cache")
 		httpserve.FileServer(httpserve.FS(fs)).ServeHTTP(w, r)
 		return nil
 	}
@@ -516,7 +501,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 			provides[i] = url.QueryEscape(dep)
 		}
 		qss += "provide=" + strings.Join(provides, "&provide=")
-		log.Printf("qss = %q", qss)
 	}
 	depends, ok := qs["depend"]
 	if ok {
@@ -524,7 +508,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 			depends[i] = url.QueryEscape(dep)
 		}
 		qss += "&depend=" + strings.Join(depends, "&depend=")
-		log.Printf("qss = %q", qss)
 	}
 	full := qs.Get("full")
 	if full != "" {
@@ -547,7 +530,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	log.Printf("u: %s", u)
 	u = strings.TrimPrefix(u, "file://")
 
 	ref := ""
@@ -585,7 +567,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if redir != r.URL.Path {
-			log.Printf("%q != %q", redir, r.URL.Path)
 			if strings.Contains(before, "APKINDEX.tar.gz") {
 				http.Redirect(w, r, redir+qss, http.StatusFound)
 				return nil
@@ -608,15 +589,13 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
 	}
 	if index != nil {
-		fs, err := h.indexedFS(w, r, ref, index)
+		fs, err := h.indexedFS(r, ref, index)
 		if err != nil {
 			return err
 		}
 
 		if strings.HasSuffix(r.URL.Path, "APKINDEX") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering APKINDEX: %q", filename)
-
 			open := func() (io.ReadCloser, error) {
 				return fs.Open(filename)
 			}
@@ -624,7 +603,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 			return h.renderIndex(w, r, open, ref)
 		} else if strings.HasSuffix(r.URL.Path, ".spdx.json") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering SBOM: %q", filename)
 			rc, err := fs.Open(filename)
 			if err != nil {
 				return fmt.Errorf("open(%q): %w", filename, err)
@@ -634,7 +612,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 			return h.renderSBOM(w, r, rc, ref)
 		} else if strings.HasSuffix(r.URL.Path, "/.PKGINFO") {
 			filename := strings.TrimPrefix(r.URL.Path, "/")
-			log.Printf("rendering .PKGINFO: %q", filename)
 			rc, err := fs.Open(filename)
 			if err != nil {
 				return fmt.Errorf("open(%q): %w", filename, err)
@@ -644,7 +621,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 			return h.renderPkgInfo(w, r, rc, ref)
 		}
 
-		log.Printf("serving http from cache")
 		httpserve.FileServer(httpserve.FS(fs)).ServeHTTP(w, r)
 		return nil
 	}
@@ -692,7 +668,7 @@ func (fs *fileSeeker) Reader(ctx context.Context, off int64, end int64) (io.Read
 	return io.NopCloser(io.NewSectionReader(f, off, end-off)), nil
 }
 
-func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, index soci.Index) (*soci.SociFS, error) {
+func (h *handler) indexedFS(r *http.Request, ref string, index soci.Index) (*soci.SociFS, error) {
 	toc := index.TOC()
 	if toc == nil {
 		return nil, fmt.Errorf("this should not happen")
@@ -707,7 +683,6 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 	}
 
 	if _, p, ok := strings.Cut(cachedUrl, "file://"); ok {
-		log.Printf("cachedUrl: %s", p)
 		blob = &fileSeeker{p}
 	} else {
 		blob = LazyBlob(cachedUrl, toc.Csize, h.addAuth)
@@ -747,7 +722,7 @@ func (h *handler) jq(b []byte, r *http.Request, header *HeaderData) ([]byte, err
 	return b, nil
 }
 
-func headerData(ref string) *HeaderData {
+func headerData(_ string) *HeaderData {
 	return &HeaderData{}
 }
 
@@ -818,12 +793,6 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 	} else if kind == "tar+zstd" {
 		tarflags = "tar --zstd -Ox"
 	}
-
-	// TODO: Use hash if we have it?
-	// hash, err := v1.NewHash(ref.Identifier())
-	// if err != nil {
-	// 	return err
-	// }
 
 	filelink := filename
 
@@ -917,7 +886,6 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 	}
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
 
-	log.Printf("scheme: %q", scheme)
 	if scheme == "file" {
 		header.JQ = "cat" + " " + u + " | " + tarlink + " " + filelink
 	} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
@@ -1120,7 +1088,6 @@ func (h *handler) fallback(w http.ResponseWriter, r *http.Request, u string) err
 	if strings.HasSuffix(r.URL.Path, "APKINDEX") {
 		filename := strings.TrimPrefix(r.URL.Path, "/")
 		open := func() (io.ReadCloser, error) {
-			log.Printf("opening %q", filename)
 			return fs.Open(filename)
 		}
 
@@ -1175,7 +1142,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	fs, err := h.indexedFS(w, r, ref, index)
+	fs, err := h.indexedFS(r, ref, index)
 	if err != nil {
 		return err
 	}
