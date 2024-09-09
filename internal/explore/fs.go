@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
+	"io/fs"
+	"iter"
 	"log"
 	"net/http"
 	"os"
@@ -65,6 +67,17 @@ func (fs *layerFS) RenderHeader(w http.ResponseWriter, r *http.Request, fname st
 func (fs *layerFS) Open(original string) (httpserve.File, error) {
 	logs.Debug.Printf("Open(%q)", original)
 	name := strings.TrimPrefix(original, fs.prefix)
+
+	// Short-circuit top-level listing so we can stream results.
+	if name == "/" || name == "" {
+		logs.Debug.Printf("returning early for name=%q", name)
+		return &rootFile{
+			layerFile: layerFile{
+				name: name,
+				fs:   fs,
+			},
+		}, nil
+	}
 
 	var found httpserve.File
 	// Scan through the layer, looking for a matching tar.Header.Name.
@@ -269,3 +282,81 @@ func (b bigFifo) ModTime() time.Time { return time.Now() }
 func (b bigFifo) Mode() os.FileMode  { return 0 }
 func (b bigFifo) IsDir() bool        { return false }
 func (b bigFifo) Sys() interface{}   { return nil }
+
+// Same as layerFile but implements an iterator-based file listing mechanism.
+type rootFile struct {
+	layerFile
+}
+
+// Scan through the tarball looking for prefixes that match the rootFile's name.
+func (f *rootFile) Files() iter.Seq2[fs.FileInfo, error] {
+	logs.Debug.Printf("Files(%q)", f.name)
+
+	prefix := path.Clean("/" + f.name)
+	if f.Root() {
+		prefix = "/"
+	}
+
+	sawDirs := map[string]struct{}{}
+	return func(yield func(fs.FileInfo, error) bool) {
+		for {
+			hdr, err := f.fs.tr.Next()
+			if err == io.EOF {
+				return
+			}
+			if err != nil {
+				if !yield(nil, fmt.Errorf("Files(%q): %w", f.name, err)) {
+					return
+				}
+				continue
+			}
+
+			// Cache the headers, so we don't have to re-fetch the blob. This comes
+			// into play mostly for ReadDir() at the top level, where we already scan
+			// the entire layer to tell FileServer "/" and "index.html" don't exist.
+			f.fs.headers = append(f.fs.headers, hdr)
+			name := path.Clean("/" + hdr.Name)
+
+			if prefix != "/" && name != prefix && !strings.HasPrefix(name, prefix+"/") {
+				continue
+			}
+
+			fdir := path.Dir(strings.TrimPrefix(name, prefix))
+			if !(fdir == "/" || (fdir == "." && prefix == "/")) {
+				if fdir != "" && fdir != "." {
+					if fdir[0] == '/' {
+						fdir = fdir[1:]
+					}
+					implicit := strings.Split(fdir, "/")[0]
+					if implicit != "" {
+						if _, ok := sawDirs[implicit]; ok {
+							continue
+						}
+						sawDirs[implicit] = struct{}{}
+						if !yield(dirInfo{implicit}, nil) {
+							return
+						}
+						continue
+					}
+				}
+			}
+
+			if hdr.Typeflag == tar.TypeDir {
+				dirname := strings.TrimPrefix(name, prefix)
+				if dirname != "" && dirname != "." {
+					if dirname[0] == '/' {
+						dirname = dirname[1:]
+					}
+					if _, ok := sawDirs[dirname]; ok {
+						continue
+					}
+					sawDirs[dirname] = struct{}{}
+				}
+			}
+
+			if !yield(hdr.FileInfo(), nil) {
+				return
+			}
+		}
+	}
+}

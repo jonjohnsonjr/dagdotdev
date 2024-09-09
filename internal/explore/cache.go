@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -182,7 +183,15 @@ func (d *dirCache) Put(ctx context.Context, key string, toc *soci.TOC) error {
 }
 
 func (d *dirCache) Writer(ctx context.Context, key string) (io.WriteCloser, error) {
-	return os.OpenFile(d.file(key)+".tar.gz", os.O_RDWR|os.O_CREATE, 0755)
+	tmp, err := os.CreateTemp(d.dir, key)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dirWriter{
+		dst: d.file(key) + ".tar.gz",
+		f:   tmp,
+	}, nil
 }
 
 func (d *dirCache) Reader(ctx context.Context, key string) (io.ReadCloser, error) {
@@ -204,6 +213,25 @@ func (d *dirCache) Size(ctx context.Context, key string) (int64, error) {
 		return -1, err
 	}
 	return stat.Size(), nil
+}
+
+type dirWriter struct {
+	dst string
+	f   *os.File
+}
+
+func (d *dirWriter) Write(p []byte) (n int, err error) {
+	return d.f.Write(p)
+}
+
+func (d *dirWriter) Close() error {
+	if err := d.f.Close(); err != nil {
+		return fmt.Errorf("closing: %w", err)
+	}
+	if err := os.Rename(d.f.Name(), d.dst); err != nil {
+		return fmt.Errorf("renaming: %w", err)
+	}
+	return nil
 }
 
 type memCache struct {

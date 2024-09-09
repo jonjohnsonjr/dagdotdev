@@ -60,7 +60,8 @@ type handler struct {
 	indexCache cache
 
 	sync.Mutex
-	sawTags map[string][]string
+	sawTags  map[string][]string
+	inflight map[string]*soci.Indexer
 
 	oauth *oauth2.Config
 }
@@ -84,6 +85,7 @@ func New(opts ...Option) http.Handler {
 		manifests:  map[string]*remote.Descriptor{},
 		pings:      map[string]*transport.PingResp{},
 		sawTags:    map[string][]string{},
+		inflight:   map[string]*soci.Indexer{},
 		tocCache:   buildTocCache(),
 		indexCache: buildIndexCache(),
 		oauth:      buildOauth(),
