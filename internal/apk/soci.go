@@ -1,6 +1,8 @@
 package apk
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -35,23 +37,61 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 		key = indexKey(digest, 0)
 	}
 
-	cw, err := h.indexCache.Writer(r.Context(), key)
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("indexCache.Writer: %w", err)
-	}
-	defer cw.Close()
-
-	// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
-
 	mt := r.URL.Query().Get("mt")
-	indexer, kind, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
-	if indexer == nil {
-		logs.Debug.Printf("nil indexer")
-		return kind, pr, tpr, err
+
+	var (
+		tr      tarReader
+		indexer *soci.Indexer
+		kind    string
+	)
+
+	h.Lock()
+	idx, inflight := h.inflight[key]
+	h.Unlock()
+
+	if inflight {
+		logs.Debug.Printf("inflight[%q] exists, not indexing", key)
+		kind = idx.Type()
+		switch kind {
+		case "tar+gzip":
+			zr, err := gzip.NewReader(blob)
+			if err != nil {
+				return "", nil, nil, fmt.Errorf("gzip.NewReader: %w", err)
+			}
+			tr = tar.NewReader(zr)
+		case "tar":
+			tr = tar.NewReader(blob)
+		}
+	} else {
+		// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
+		cw, err := h.indexCache.Writer(r.Context(), key)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("indexCache.Writer: %w", err)
+		}
+		defer cw.Close()
+
+		idx, _, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
+		if idx == nil {
+			logs.Debug.Printf("nil indexer")
+			return kind, pr, tpr, err
+		}
+		indexer = idx
+		tr = idx
+		kind = idx.Type()
+
+		h.Lock()
+		h.inflight[key] = indexer
+		h.Unlock()
+
+		defer func() {
+			h.Lock()
+			delete(h.inflight, key)
+			h.Unlock()
+		}()
 	}
 
 	// Render FS the old way while generating the index.
-	fs := h.newLayerFS(indexer, blob.size, prefix, ref, indexer.Type(), types.MediaType(mt))
+	fs := h.newLayerFS(tr, blob.size, prefix, ref, kind, types.MediaType(mt))
 
 	// TODO: Dedupe this section with renderFS.
 	logs.Debug.Printf("r.URL.Path=%q", r.URL.Path)
@@ -85,27 +125,29 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 		flusher.Flush()
 	}
 
-	for {
-		// Make sure we hit the end.
-		_, err := indexer.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return "", nil, nil, fmt.Errorf("indexer.Next: %w", err)
+	if indexer != nil {
+		for {
+			// Make sure we hit the end.
+			_, err := indexer.Next()
+			if errors.Is(err, io.EOF) {
+				break
+			} else if err != nil {
+				return "", nil, nil, fmt.Errorf("indexer.Next: %w", err)
+			}
 		}
-	}
 
-	toc, err := indexer.TOC()
-	if err != nil {
-		return kind, nil, nil, err
-	}
-	if h.tocCache != nil {
-		if err := h.tocCache.Put(r.Context(), key, toc); err != nil {
-			logs.Debug.Printf("cache.Put(%q) = %v", key, err)
+		toc, err := indexer.TOC()
+		if err != nil {
+			return kind, nil, nil, err
 		}
-	}
+		if h.tocCache != nil {
+			if err := h.tocCache.Put(r.Context(), key, toc); err != nil {
+				logs.Debug.Printf("cache.Put(%q) = %v", key, err)
+			}
+		}
 
-	logs.Debug.Printf("index size: %d", indexer.Size())
+		logs.Debug.Printf("index size: %d", indexer.Size())
+	}
 
 	return kind, nil, nil, nil
 }

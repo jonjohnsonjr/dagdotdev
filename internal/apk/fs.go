@@ -382,12 +382,13 @@ func (f *rootFile) Files() iter.Seq2[fs.FileInfo, error] {
 		for {
 			hdr, err := f.fs.tr.Next()
 			if err == io.EOF {
-				break
+				return
 			}
 			if err != nil {
 				if !yield(nil, fmt.Errorf("Files(%q): %w", f.name, err)) {
 					return
 				}
+				continue
 			}
 
 			// Cache the headers, so we don't have to re-fetch the blob. This comes

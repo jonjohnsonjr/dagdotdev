@@ -32,7 +32,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/elf"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
@@ -56,18 +55,15 @@ type handler struct {
 
 	args []string
 
-	// digest -> remote.desc
+	// TODO: Cache .PKGINFO?
 	manifests map[string]*remote.Descriptor
-
-	// reg.String() -> ping resp
-	pings map[string]*transport.PingResp
 
 	tocCache   cache
 	indexCache cache
 	apkCache   *apkCache
 
 	sync.Mutex
-	sawTags map[string][]string
+	inflight map[string]*soci.Indexer
 
 	oauth *oauth2.Config
 }
@@ -95,9 +91,7 @@ func WithUserAgent(ua string) Option {
 func New(args []string, opts ...Option) http.Handler {
 	h := handler{
 		args:       args,
-		manifests:  map[string]*remote.Descriptor{},
-		pings:      map[string]*transport.PingResp{},
-		sawTags:    map[string][]string{},
+		inflight:   map[string]*soci.Indexer{},
 		tocCache:   buildTocCache(),
 		indexCache: buildIndexCache(),
 		apkCache:   buildApkCache(),
