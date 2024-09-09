@@ -1419,7 +1419,17 @@ func renderFiles(w http.ResponseWriter, r *http.Request, fname string, f File, r
 		}
 	}
 
-	fmt.Fprintf(w, `<div><template shadowrootmode="open"><p><slot name="message">Loading...</slot></p><pre><slot name="file"></slot></pre></template>`)
+	fmt.Fprintf(w, `<div><template shadowrootmode="open"><style>@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes twist-up {
+  to {
+    transform: rotateX(360deg);
+  }
+}</style><p><slot name="message">Loading... <span style="display: inline-block; animation: spin 1.0s infinite linear;">🤐</span></slot></p><pre><slot name="file"></slot></pre></template>`)
 
 	start := time.Now()
 
