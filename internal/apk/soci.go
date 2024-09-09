@@ -53,9 +53,9 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 	// Render FS the old way while generating the index.
 	fs := h.newLayerFS(indexer, blob.size, prefix, ref, indexer.Type(), types.MediaType(mt))
 
+	// TODO: Dedupe this section with renderFS.
 	logs.Debug.Printf("r.URL.Path=%q", r.URL.Path)
 	if strings.HasSuffix(r.URL.Path, "APKINDEX") {
-		// filename := strings.TrimPrefix(r.URL.Path, "/")
 		filename := r.URL.Path
 		open := func() (io.ReadCloser, error) {
 			log.Printf("opening %q", filename)
@@ -65,8 +65,24 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 		if err := h.renderIndex(w, r, open, ref); err != nil {
 			return kind, nil, nil, fmt.Errorf("renderIndex(%q): %w", filename, err)
 		}
+	} else if strings.HasSuffix(r.URL.Path, "/.PKGINFO") {
+		filename := r.URL.Path
+		log.Printf("rendering .PKGINFO: %q", filename)
+		rc, err := fs.Open(filename)
+		if err != nil {
+			return kind, nil, nil, fmt.Errorf("open(%q): %w", filename, err)
+		}
+		defer rc.Close()
+
+		if err := h.renderPkgInfo(w, r, rc, ref); err != nil {
+			return kind, nil, nil, fmt.Errorf("renderPkgInfo(%q): %w", filename, err)
+		}
 	} else {
 		httpserve.FileServer(fs).ServeHTTP(w, r)
+	}
+
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
 	}
 
 	for {

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"iter"
 	"log"
 	"mime"
 	"mime/multipart"
@@ -685,6 +686,45 @@ func tarListSize(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL,
 	return s
 }
 
+func TarList(fi fs.FileInfo, u url.URL, uprefix string) string {
+	header, ok := fi.Sys().(*tar.Header)
+	if !ok {
+		name := fi.Name()
+		ts := "????-??-?? ??:??"
+		ug := "?/?"
+		mode := "d?????????"
+		padding := 18 - len(ug)
+		s := fmt.Sprintf("%s %s %*d %s", mode, ug, padding, 0, ts)
+		s += fmt.Sprintf(" <a href=\"%s\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
+		return s
+	}
+	ts := header.ModTime.Format("2006-01-02 15:04")
+	ug := fmt.Sprintf("%d/%d", header.Uid, header.Gid)
+	mode := modeStr(header)
+	padding := 18 - len(ug)
+	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.Bytes(uint64(header.Size)), padding, header.Size, ts)
+	name := fi.Name()
+	if header.Linkname != "" {
+		if header.Linkname == "." {
+			u.Path = path.Dir(u.Path)
+		} else if containsDotDot(header.Linkname) {
+			u.Path = strings.TrimPrefix(header.Linkname, "/")
+		} else if strings.HasPrefix(header.Linkname, "/") {
+			u.Path = path.Join(uprefix, header.Linkname)
+		} else {
+			u.Path = path.Join(u.Path, "..", header.Linkname)
+		}
+		if header.Typeflag == tar.TypeLink {
+			name += " link to " + header.Linkname
+		} else {
+			name += " -> " + header.Linkname
+		}
+	}
+
+	s += fmt.Sprintf(" <a href=\"%s\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
+	return s
+}
+
 func modeStr(hdr *tar.Header) string {
 	fi := hdr.FileInfo()
 	mm := fi.Mode()
@@ -1351,13 +1391,73 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 			}
 		}
 
-		dirList(w, r, name, f, render)
+		renderFiles(w, r, name, f, render)
 		return
 	}
 
 	// serveContent will check modification time
 	sizeFunc := func() (int64, error) { return d.Size(), nil }
 	serveContent(w, r, d.Name(), d.ModTime(), sizeFunc, f, render)
+}
+
+type Files interface {
+	Files() iter.Seq2[fs.FileInfo, error]
+}
+
+func renderFiles(w http.ResponseWriter, r *http.Request, fname string, f File, render renderFunc) {
+	files, ok := f.(Files)
+	if !ok {
+		dirList(w, r, fname, f, render)
+		return
+	}
+
+	logs.Debug.Printf("rendering Files")
+
+	if render != nil {
+		if err := render(w, r, ""); err != nil {
+			logs.Debug.Printf("render(): %v", err)
+		}
+	}
+
+	fmt.Fprintf(w, `<div><template shadowrootmode="open"><p><slot name="message">Loading...</slot></p><pre><slot name="file"></slot></pre></template>`)
+
+	start := time.Now()
+
+	prefix := fname
+	fstat, err := f.Stat()
+	if err != nil {
+		logs.Debug.Printf("fstat: %v", err)
+	} else {
+		header, ok := fstat.Sys().(*tar.Header)
+		if ok {
+			prefix = strings.TrimSuffix(prefix, strings.TrimSuffix(header.Name, "/"))
+		}
+	}
+
+	for fi, err := range files.Files() {
+		if err != nil {
+			fmt.Fprintf(w, "error: %v\n", err)
+			continue
+		}
+
+		name := fi.Name()
+		if fi.IsDir() {
+			name += "/"
+		}
+		// name may contain '?' or '#', which must be escaped to remain
+		// part of the URL path, and not indicate the start of a query
+		// string or fragment.
+		url := url.URL{Path: strings.TrimPrefix(name, "/")}
+		fmt.Fprintf(w, "<span slot=%q>%s</span>", "file", TarList(fi, url, prefix))
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
+
+	// We need some kind of indication that we finished indexing, so include some interesting info.
+	fmt.Fprintf(w, `<p slot="message">Indexed in %s</p>`, time.Since(start))
+
+	fmt.Fprintf(w, "\n</div>\n</body>\n</html>")
 }
 
 // toHTTPError returns a non-specific HTTP error message and status code

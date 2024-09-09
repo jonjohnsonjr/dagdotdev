@@ -644,7 +644,7 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, open func(
 			}
 		}
 
-		href := prefix + "/" + apk + "@" + "sha1:" + pkg.checksum
+		href := prefix + "/" + apk + "@" + "sha1:" + pkg.checksum + "/"
 
 		last, ok := ptov[pkg.name]
 		if !ok {
