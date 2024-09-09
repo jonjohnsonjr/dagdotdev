@@ -158,11 +158,11 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request, open func(
 		return h.renderShort(w, r, open, ref)
 	}
 
-	return h.renderFull(w, r, open, ref)
+	return h.renderExpanded(w, r, open, ref)
 }
 
-func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, open func() (io.ReadCloser, error), ref string) error {
-	logs.Debug.Printf("renderFull(%q)", ref)
+func (h *handler) renderExpanded(w http.ResponseWriter, r *http.Request, open func() (io.ReadCloser, error), ref string) error {
+	logs.Debug.Printf("renderExpanded(%q)", ref)
 	full := r.URL.Query().Get("full") != "" && r.URL.Query().Get("full") != "false"
 	provides := r.URL.Query()["provide"]
 	provides = slices.DeleteFunc(provides, func(s string) bool {
@@ -187,6 +187,15 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, open func()
 		header.Search = search
 	}
 	header.Full = full
+
+	if len(provides) != 0 {
+		header.Expanded = true
+		header.Provide = provides[0]
+	}
+	if len(depends) != 0 {
+		header.Expanded = true
+		header.Depend = depends[0]
+	}
 
 	// TODO: Add search into the links.
 	before, _, ok := strings.Cut(ref, "@")
@@ -271,6 +280,7 @@ func (h *handler) renderFull(w http.ResponseWriter, r *http.Request, open func()
 
 		before, after, ok := strings.Cut(line, ":")
 		if !ok {
+			skip = skip || !pkg.needs(depends) || !pkg.satisfies(provides)
 			if !skip {
 				// Since we buffer the P: line, we need to print it if this matches.
 				for _, prevLine := range prevLines {
@@ -471,11 +481,24 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, open func(
 		u = fmt.Sprintf("<a class=%q, href=%q>%s</a>", "mt", path.Dir(r.URL.Path), u)
 		// TODO: This stuff is not super robust. We could write a real awk program to do it better.
 
+		qs := make(url.Values)
+		qs.Set("short", "false")
+		qs.Set("search", search)
+
+		// Kinda hacky but usually we only do one.
+		for _, p := range provides {
+			qs.Add("provide", p)
+		}
+		for _, d := range depends {
+			qs.Add("depend", d)
+		}
+		href := "?" + qs.Encode()
+
 		// Link to long form.
 		if scheme == "file" {
-			header.JQ = "cat" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
+			header.JQ = "cat" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href=%q">APKINDEX</a>`, href)
 		} else {
-			header.JQ = "curl -sL" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href="?short=false&search=%s">APKINDEX</a>`, search)
+			header.JQ = "curl -sL" + " " + u + ` | ` + fmt.Sprintf(`tar -Oxz <a class="mt" href=%q>APKINDEX</a>`, href)
 		}
 
 		if len(provides) == 0 && len(depends) == 0 {

@@ -38,7 +38,6 @@ type jsonOutputter struct {
 	jq    []string
 	key   bool
 	root  map[string]interface{}
-	isMap bool
 
 	dockerHub bool
 }
@@ -300,10 +299,6 @@ func (w *jsonOutputter) unfresh() {
 		return
 	}
 	w.fresh[len(w.fresh)-1] = false
-}
-
-func (w *jsonOutputter) refresh() {
-	w.fresh[len(w.fresh)-1] = true
 }
 
 func (w *jsonOutputter) addQuery(key, value string) url.URL {

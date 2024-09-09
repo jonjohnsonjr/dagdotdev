@@ -27,9 +27,6 @@ func debugf(s string, i ...interface{}) {
 	}
 }
 
-// More than enough for FileServer to Peek at file contents.
-const bufferLen = 2 << 16
-
 type tarReader interface {
 	io.Reader
 	Next() (*tar.Header, error)
@@ -341,27 +338,13 @@ func (f dirInfo) Sys() interface{}   { return nil }
 
 type symlink struct {
 	os.FileInfo
-	name     string
-	link     string
-	typeflag byte
+	name string
+	link string
 }
 
 func (s symlink) Name() string {
 	return s.name
 }
-
-// Implements os.FileInfo for a file that is too large.
-type bigFifo struct {
-	name    string
-	content []byte
-}
-
-func (b bigFifo) Name() string       { return b.name }
-func (b bigFifo) Size() int64        { return int64(len(b.content)) }
-func (b bigFifo) ModTime() time.Time { return time.Now() }
-func (b bigFifo) Mode() os.FileMode  { return 0 }
-func (b bigFifo) IsDir() bool        { return false }
-func (b bigFifo) Sys() interface{}   { return nil }
 
 // Same as layerFile but implements an iterator-based file listing mechanism.
 type rootFile struct {

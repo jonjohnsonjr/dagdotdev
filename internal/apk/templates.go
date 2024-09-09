@@ -8,14 +8,12 @@ var (
 	landingTmpl *template.Template
 	headerTmpl  *template.Template
 	bodyTmpl    *template.Template
-	oauthTmpl   *template.Template
 )
 
 func init() {
 	landingTmpl = template.Must(template.New("landingTemplate").Parse(landingTemplate))
 	headerTmpl = template.Must(template.New("headerTemplate").Parse(headerTemplate))
 	bodyTmpl = template.Must(template.New("bodyTemplate").Parse(bodyTemplate))
-	oauthTmpl = template.Must(template.New("oauthTemplate").Parse(oauthTemplate))
 }
 
 const (
@@ -97,59 +95,6 @@ body {
   <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/x86/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/x86</a></li>
   <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/x86_64</a></li>
 </ul>
-</p>
-</body>
-</html>
-`
-
-	oauthTemplate = `
-<html>
-<body>
-<head>
-<title>APK Explorer</title>
-<link rel="icon" href="/favicon.svg">
-<style>
-.mt:hover {
-	text-decoration: underline;
-}
-
-.mt {
-	color: inherit;
-	text-decoration: inherit;
-}
-
-.link {
-	position: relative;
-	bottom: .125em;
-}
-
-.crane {
-	height: 1em;
-	width: 1em;
-}
-
-.top {
-	color: inherit;
-	text-decoration: inherit;
-}
-
-body {
-	font-family: monospace;
-	width: fit-content;
-	overflow-wrap: anywhere;
-	padding: 12px;
-}
-</style>
-</head>
-<h1><a class="top" href="/">🐙 <span class="link">APK Explorer</span></a></h1>
-<p>
-It looks like we encountered an auth error:
-</p>
-<code>
-{{.Error}}
-</code>
-<p>
-If you trust <a class="mt" href="https://github.com/jonjohnsonjr">me</a>, click <a href="{{.Redirect}}">here</a> for oauth to use your own credentials.
 </p>
 </body>
 </html>

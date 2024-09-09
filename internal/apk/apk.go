@@ -31,7 +31,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/elf"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
@@ -54,9 +53,6 @@ type handler struct {
 	userAgent string
 
 	args []string
-
-	// TODO: Cache .PKGINFO?
-	manifests map[string]*remote.Descriptor
 
 	tocCache   cache
 	indexCache cache
@@ -209,24 +205,24 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	return landingTmpl.Execute(w, data)
 }
 
-func renderOctets(w http.ResponseWriter, r *http.Request, b []byte) error {
-	fmt.Fprintf(w, "<pre>")
+func renderOctets(w http.ResponseWriter, b []byte) error {
+	fmt.Fprint(w, "<pre>")
 	if _, err := io.Copy(xxd.NewWriter(w, int64(len(b))), bytes.NewReader(b)); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "</pre>")
+	fmt.Fprint(w, "</pre>")
 
 	return nil
 }
 
-func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref string, b []byte, output *jsonOutputter, u url.URL) error {
+func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, b []byte, output *jsonOutputter, u url.URL) error {
 	switch r.URL.Query().Get("render") {
 	case "raw":
-		fmt.Fprintf(w, "<pre>")
+		fmt.Fprint(w, "<pre>")
 		if _, err := w.Write(b); err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "</pre>")
+		fmt.Fprint(w, "</pre>")
 	case "x509":
 		return renderx509(w, b)
 	case "cert":
@@ -234,7 +230,7 @@ func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref stri
 	case "der":
 		return renderDer(w, b)
 	case "xxd":
-		return renderOctets(w, r, b)
+		return renderOctets(w, b)
 	case "timestamp":
 		ts, err := timestamp.Parse(b)
 		if err != nil {
@@ -255,7 +251,6 @@ func (h *handler) renderContent(w http.ResponseWriter, r *http.Request, ref stri
 
 func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string, kind string, blob *sizeSeeker) error {
 	log.Printf("renderFile")
-	mt := r.URL.Query().Get("mt")
 
 	// Allow this to be cached for an hour.
 	w.Header().Set("Cache-Control", "max-age=3600, immutable")
@@ -267,8 +262,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 			return err
 		}
 		desc := v1.Descriptor{
-			MediaType: types.MediaType(mt),
-			Size:      blob.Size(),
+			Size: blob.Size(),
 		}
 		if size := r.URL.Query().Get("size"); size != "" {
 			if parsed, err := strconv.ParseInt(size, 10, 64); err == nil {
@@ -323,26 +317,6 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 	})
 
 	return nil
-}
-
-func (h *handler) getEtag(u string) (string, error) {
-	etag, err := h.headUrl(u)
-	if err != nil {
-		return "", fmt.Errorf("resolving etag: %w", err)
-	}
-
-	if unquoted, err := strconv.Unquote(strings.TrimPrefix(etag, "W/")); err == nil {
-		etag = unquoted
-	}
-
-	// TODO: Consider caring about W/"..." vs "..."?
-	etagHex := hex.EncodeToString([]byte(etag))
-
-	if _, err := hex.DecodeString(etag); err == nil {
-		etagHex = etag
-	}
-
-	return etagHex, nil
 }
 
 // foo/bar/baz/APKINDEX.tar.gz => HEAD for etag, redirect.
@@ -497,8 +471,6 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			defer rc.Close()
 
 			return h.renderPkgInfo(w, r, rc, ref)
-		} else if strings.Contains(r.URL.Path, ".apk@") {
-			// Was I going to do something here???
 		}
 
 		log.Printf("serving http from cache")
@@ -670,8 +642,6 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 			defer rc.Close()
 
 			return h.renderPkgInfo(w, r, rc, ref)
-		} else if strings.Contains(r.URL.Path, ".apk@") {
-			// Was I going to do something here???
 		}
 
 		log.Printf("serving http from cache")
@@ -748,7 +718,7 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, ref string, 
 	return fs, nil
 }
 
-func (h *handler) jq(output *jsonOutputter, b []byte, r *http.Request, header *HeaderData) ([]byte, error) {
+func (h *handler) jq(b []byte, r *http.Request, header *HeaderData) ([]byte, error) {
 	jq, ok := r.URL.Query()["jq"]
 	if !ok {
 		header.JQ += " | jq ."
@@ -977,21 +947,6 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 	return bodyTmpl.Execute(w, header)
 }
 
-// server.go
-var htmlReplacer = strings.NewReplacer(
-	"&", "&amp;",
-	"<", "&lt;",
-	">", "&gt;",
-	// "&#34;" is shorter than "&quot;".
-	`"`, "&#34;",
-	// "&#39;" is shorter than "&apos;" and apos was not in HTML until HTML5.
-	"'", "&#39;",
-)
-
-func htmlEscape(s string) string {
-	return htmlReplacer.Replace(s)
-}
-
 type dumbEscaper struct {
 	buf *bufio.Writer
 }
@@ -1105,7 +1060,7 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 		if _, err := io.CopyN(dumb, in, httpserve.TooBig); err != nil {
 			return err
 		}
-		fmt.Fprintf(w, footer)
+		fmt.Fprint(w, footer)
 
 		return nil
 	}
@@ -1117,7 +1072,7 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 	}
 
 	// Mutates header for bodyTmpl.
-	b, err := h.jq(output, input, r, header)
+	b, err := h.jq(input, r, header)
 	if err != nil {
 		return fmt.Errorf("h.jq: %w", err)
 	}
@@ -1126,19 +1081,18 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 		return fmt.Errorf("bodyTmpl: %w", err)
 	}
 
-	if err := h.renderContent(w, r, ref, b, output, *r.URL); err != nil {
+	if err := h.renderContent(w, r, b, output, *r.URL); err != nil {
 		if r.URL.Query().Get("render") == "xxd" {
 			return fmt.Errorf("renderContent: %w", err)
 		}
 
-		r.URL.Query().Set("render", "xxd")
 		fmt.Fprintf(w, "NOTE: failed to render: %v\n", err)
-		if err := renderOctets(w, r, b); err != nil {
+		if err := renderOctets(w, b); err != nil {
 			return fmt.Errorf("renderContent fallback: %w", err)
 		}
 	}
 
-	fmt.Fprintf(w, footer)
+	fmt.Fprint(w, footer)
 
 	return nil
 }
