@@ -597,11 +597,13 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, open func(
 			return err
 		}
 
+		fmt.Fprintf(w, `<div><template shadowrootmode="open"><pre><slot name="contents">Loading...</slot></pre></template>`)
+
 		if flusher, ok := w.(http.Flusher); ok {
 			flusher.Flush()
 		}
 
-		fmt.Fprintf(w, "<pre><div>")
+		fmt.Fprintf(w, "<pre slot=\"contents\">\n")
 	}
 
 	prefix, _, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz")
@@ -677,7 +679,7 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, open func(
 	}
 
 	if !isCurl {
-		fmt.Fprintf(w, "</div></pre>\n</body>\n</html>\n")
+		fmt.Fprintf(w, "\n</pre>\n</div>\n</body>\n</html>\n")
 	}
 
 	return nil
