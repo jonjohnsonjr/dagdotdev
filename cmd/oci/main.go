@@ -57,9 +57,7 @@ func main() {
 		kcs = append(kcs, gcrane.Keychain)
 	}
 
-	if len(kcs) == 1 {
-		opt = append(opt, explore.WithKeychain(kcs[0]))
-	} else if len(kcs) == 2 {
+	if len(kcs) != 0 {
 		opt = append(opt, explore.WithKeychain(authn.NewMultiKeychain(kcs...)))
 	}
 

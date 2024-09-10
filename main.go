@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/apk"
@@ -60,8 +61,17 @@ func run(args []string) error {
 		log.Printf("listening on %s", port)
 
 		opt := []explore.Option{explore.WithUserAgent("dagdotdev")}
+		kcs := []authn.Keychain{}
+		if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
+			cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "https://cgr.dev")
+			kcs = append(kcs, cgauth)
+		}
 		if *auth || os.Getenv("AUTH") == "keychain" {
-			opt = append(opt, explore.WithKeychain(gcrane.Keychain))
+			kcs = append(kcs, gcrane.Keychain)
+		}
+
+		if len(kcs) != 0 {
+			opt = append(opt, explore.WithKeychain(authn.NewMultiKeychain(kcs...)))
 		}
 
 		return http.ListenAndServe(fmt.Sprintf(":%s", port), explore.New(opt...))
