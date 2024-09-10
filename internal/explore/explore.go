@@ -938,6 +938,8 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
+	// TODO: Avoid fetchBlob if we have an in-flight index we can use.
+
 	// Determine if this is actually a filesystem thing.
 	blob, ref, err := h.fetchBlob(w, r)
 	if err != nil {
@@ -1017,7 +1019,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("fetchBlob: %w", err)
 		}
 
-		index, err = h.createIndex(r.Context(), blob, blob.size, dig.String(), 0, mt)
+		index, err = h.createIndex(r.Context(), blob, dig.String(), 0, mt)
 		if err != nil {
 			return fmt.Errorf("createIndex: %w", err)
 		}
@@ -1246,7 +1248,7 @@ func (h *handler) multiFS(w http.ResponseWriter, r *http.Request, dig name.Diges
 					return err
 				}
 
-				index, err = h.createIndex(r.Context(), rc, size, digest.String(), 0, string(mediaType))
+				index, err = h.createIndex(r.Context(), rc, digest.String(), 0, string(mediaType))
 				if err != nil {
 					return fmt.Errorf("createIndex: %w", err)
 				}
@@ -1708,7 +1710,7 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 				return err
 			}
 
-			index, err = h.createIndex(r.Context(), rc, layer.Size, digest.String(), 0, string(layer.MediaType))
+			index, err = h.createIndex(r.Context(), rc, digest.String(), 0, string(layer.MediaType))
 			if err != nil {
 				return fmt.Errorf("createIndex: %w", err)
 			}

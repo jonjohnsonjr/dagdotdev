@@ -70,7 +70,7 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 		}
 		defer cw.Close()
 
-		idx, _, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
+		idx, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
 		if idx == nil {
 			logs.Debug.Printf("nil indexer")
 			return kind, pr, tpr, err
@@ -218,7 +218,7 @@ func (h *handler) getIndexN(ctx context.Context, prefix string, idx int) (index 
 		if err != nil {
 			return nil, fmt.Errorf("indexCache.Reader: %w", err)
 		}
-		sub, err = h.createIndex(ctx, rc, size, prefix, idx+1, "application/tar+gzip")
+		sub, err = h.createIndex(ctx, rc, prefix, idx+1, "application/tar+gzip")
 		if err != nil {
 			return nil, fmt.Errorf("createIndex(%q, %d): %w", prefix, idx+1, err)
 		}
@@ -230,7 +230,7 @@ func (h *handler) getIndexN(ctx context.Context, prefix string, idx int) (index 
 	return soci.NewIndex(bs, toc, sub)
 }
 
-func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64, prefix string, idx int, mediaType string) (soci.Index, error) {
+func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, prefix string, idx int, mediaType string) (soci.Index, error) {
 	key := indexKey(prefix, idx)
 	cw, err := h.indexCache.Writer(ctx, key)
 	if err != nil {
@@ -239,7 +239,7 @@ func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64,
 	defer cw.Close()
 
 	// TODO: Better?
-	indexer, _, _, _, err := soci.NewIndexer(rc, cw, spanSize, mediaType)
+	indexer, _, _, err := soci.NewIndexer(rc, cw, spanSize, mediaType)
 	if err != nil {
 		return nil, fmt.Errorf("TODO: don't return this error: %w", err)
 	}

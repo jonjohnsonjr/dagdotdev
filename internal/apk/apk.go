@@ -1132,7 +1132,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("fetchBlob: %w", err)
 		}
 
-		index, err = h.createIndex(r.Context(), blob, blob.size, ref, 0, mt)
+		index, err = h.createIndex(r.Context(), blob, ref, 0, mt)
 		if err != nil {
 			return fmt.Errorf("createIndex: %w", err)
 		}

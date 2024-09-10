@@ -7,6 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"iter"
+	"os"
+	"path"
+	"strings"
+	"sync"
 
 	"github.com/klauspost/compress/zstd"
 
@@ -16,6 +22,7 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/internal/and"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/flate"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/gzip"
+	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -32,8 +39,10 @@ type Indexer struct {
 	tw       *tar.Writer
 	zw       *ogzip.Writer
 	cw       *countWriter
-	finished bool
+	done     bool
 	written  bool
+
+	cond *sync.Cond
 }
 
 // Returns:
@@ -41,18 +50,18 @@ type Indexer struct {
 // Original stream (buffered rc to Peek)
 // Unwrapped stream (ungzip or unzstd, nil if we could not unwrap or err != nil)
 // Error (maybe nil)
-func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*Indexer, string, io.ReadCloser, io.ReadCloser, error) {
+func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*Indexer, io.ReadCloser, io.ReadCloser, error) {
 	logs.Debug.Printf("NewIndexer")
 
 	kind, pr, tpr, err := Peek(rc)
 	if err != nil {
-		return nil, kind, pr, tpr, fmt.Errorf("Peek: %w", err)
+		return nil, pr, tpr, fmt.Errorf("Peek: %w", err)
 	}
 
 	logs.Debug.Printf("Peeked: %q", kind)
 	if kind == "" {
 		// Not a wrapped tar!
-		return nil, kind, pr, tpr, nil
+		return nil, pr, tpr, nil
 	}
 
 	// TODO: Allow binding writer after detection.
@@ -65,14 +74,15 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 	}
 
 	i := &Indexer{
-		toc: toc,
-		in:  rc,
+		toc:  toc,
+		in:   rc,
+		cond: sync.NewCond(&sync.Mutex{}),
 	}
 
 	bw := bufio.NewWriterSize(w, 1<<16)
 	zw, err := ogzip.NewWriterLevel(bw, ogzip.BestSpeed)
 	if err != nil {
-		return nil, "", nil, nil, err
+		return nil, nil, nil, err
 	}
 	flushClose := func() error {
 		return errors.Join(zw.Close(), bw.Flush())
@@ -80,13 +90,16 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 
 	i.bw = bw
 	i.zw = zw
-	i.w = &and.WriteCloser{zw, flushClose}
+	i.w = &and.WriteCloser{
+		Writer:    zw,
+		CloseFunc: flushClose,
+	}
 
 	if kind == "tar+gzip" {
 		i.updates = make(chan *flate.Checkpoint, 10)
 		zr, err := gzip.NewReaderWithSpans(pr, span, i.updates)
 		if err != nil {
-			return nil, kind, pr, nil, fmt.Errorf("gzip.NewReader: %w", err)
+			return nil, pr, nil, fmt.Errorf("gzip.NewReader: %w", err)
 		}
 
 		i.zr = zr
@@ -95,7 +108,7 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 		i.zupdates = make(chan *zstd.Checkpoint, 10)
 		zr, err := zstd.NewReader(pr, zstd.WithCheckpoints(i.zupdates), zstd.WithDecoderConcurrency(1))
 		if err != nil {
-			return nil, kind, pr, nil, fmt.Errorf("zstd.NewReader: %w", err)
+			return nil, pr, nil, fmt.Errorf("zstd.NewReader: %w", err)
 		}
 		i.zr = zr
 		i.tr = tar.NewReader(zr)
@@ -104,7 +117,7 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 		i.tr = tar.NewReader(i.zr)
 	} else {
 		// Not a wrapped tar!
-		return nil, kind, pr, tpr, nil
+		return nil, pr, tpr, nil
 	}
 
 	i.toc.Type = kind
@@ -114,13 +127,13 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 
 	i.g.Go(i.processUpdates)
 
-	return i, kind, nil, nil, nil
+	return i, nil, nil, nil
 }
 
 func (i *Indexer) Next() (*tar.Header, error) {
 	header, err := i.tr.Next()
 	if errors.Is(err, io.EOF) {
-		if !i.finished {
+		if !i.finished() {
 			if _, err := io.Copy(io.Discard, i.zr); err != nil {
 				return nil, err
 			}
@@ -129,7 +142,7 @@ func (i *Indexer) Next() (*tar.Header, error) {
 			} else if i.zupdates != nil {
 				close(i.zupdates)
 			}
-			i.finished = true
+			i.finish()
 		}
 		return nil, err
 	} else if err != nil {
@@ -139,6 +152,9 @@ func (i *Indexer) Next() (*tar.Header, error) {
 	f.Offset = i.zr.UncompressedCount()
 	// logs.Debug.Printf("file: %q, read: %d", header.Name, f.Offset)
 	i.toc.Files = append(i.toc.Files, *f)
+
+	i.cond.Broadcast()
+
 	return header, err
 }
 
@@ -293,4 +309,153 @@ func (c *countWriter) Write(p []byte) (n int, err error) {
 	n, err = c.w.Write(p)
 	c.n += int64(n)
 	return
+}
+
+func (i *Indexer) finished() bool {
+	i.cond.L.Lock()
+	defer i.cond.L.Unlock()
+
+	return i.done
+}
+
+func (i *Indexer) finish() {
+	i.cond.L.Lock()
+	defer i.cond.L.Unlock()
+
+	i.done = true
+}
+
+func (i *Indexer) wait() bool {
+	i.cond.L.Lock()
+	defer i.cond.L.Unlock()
+
+	if i.done {
+		return true
+	}
+
+	i.cond.Wait()
+
+	return i.done
+}
+
+func (i *Indexer) FS(in io.ReadCloser) *indexFS {
+	return &indexFS{
+		idx: i,
+		in:  in,
+	}
+}
+
+type indexFS struct {
+	idx *Indexer
+	in  io.ReadCloser
+}
+
+func (i *indexFS) Open(name string) (httpserve.File, error) {
+	return &indexFile{
+		name: name,
+		fs:   i,
+	}, nil
+}
+
+type indexFile struct {
+	name string
+	fs   *indexFS
+}
+
+// This used to try to handle Seeking, but it was complicated, so I
+// forked net/http instead.
+func (f *indexFile) Seek(offset int64, whence int) (int64, error) {
+	return 0, fmt.Errorf("not implemented")
+}
+
+func (f *indexFile) Read(p []byte) (int, error) {
+	// TODO: Can we support this?
+	return 0, fmt.Errorf("not implemented")
+}
+
+func (f *indexFile) Readdir(count int) ([]os.FileInfo, error) {
+	// TODO: Can we support this?
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (f *indexFile) Stat() (os.FileInfo, error) {
+	return dirInfo{f.name}, nil
+}
+
+func (f *indexFile) Close() error {
+	return nil
+}
+
+func (f *indexFile) Root() bool {
+	return f.name == "" || f.name == "/" || f.name == "/index.html"
+}
+
+func (f *indexFile) Files() iter.Seq2[fs.FileInfo, error] {
+	logs.Debug.Printf("Files(%q)", f.name)
+
+	prefix := path.Clean("/" + f.name)
+	if f.Root() {
+		prefix = "/"
+	}
+
+	sawDirs := map[string]struct{}{}
+	return func(yield func(fs.FileInfo, error) bool) {
+		i := 0
+		for {
+			if i >= len(f.fs.idx.toc.Files) {
+				// TODO: Check if we're finished, otherwise cond wait.
+				if f.fs.idx.wait() {
+					return
+				}
+
+				continue
+			}
+
+			hdr := TarHeader(&f.fs.idx.toc.Files[i])
+			i++
+
+			name := path.Clean("/" + hdr.Name)
+
+			if prefix != "/" && name != prefix && !strings.HasPrefix(name, prefix+"/") {
+				continue
+			}
+
+			fdir := path.Dir(strings.TrimPrefix(name, prefix))
+			if !(fdir == "/" || (fdir == "." && prefix == "/")) {
+				if fdir != "" && fdir != "." {
+					if fdir[0] == '/' {
+						fdir = fdir[1:]
+					}
+					implicit := strings.Split(fdir, "/")[0]
+					if implicit != "" {
+						if _, ok := sawDirs[implicit]; ok {
+							continue
+						}
+						sawDirs[implicit] = struct{}{}
+						if !yield(dirInfo{implicit}, nil) {
+							return
+						}
+						continue
+					}
+				}
+			}
+
+			if hdr.Typeflag == tar.TypeDir {
+				dirname := strings.TrimPrefix(name, prefix)
+				if dirname != "" && dirname != "." {
+					if dirname[0] == '/' {
+						dirname = dirname[1:]
+					}
+					if _, ok := sawDirs[dirname]; ok {
+						continue
+					}
+					sawDirs[dirname] = struct{}{}
+				}
+			}
+
+			if !yield(hdr.FileInfo(), nil) {
+				return
+			}
+		}
+	}
 }

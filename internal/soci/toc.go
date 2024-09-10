@@ -22,6 +22,7 @@ type TOC struct {
 	// TODO: Checkpoints as jsonlines in separate file.
 	Checkpoints []*flate.Checkpoint `json:"checkpoints,omitempty"`
 
+	// TODO: This should probably be a pointer!!!
 	// TODO: Files as jsonlines in separate file.
 	Files []TOCFile `json:"files,omitempty"`
 }
