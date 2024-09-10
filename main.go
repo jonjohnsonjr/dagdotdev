@@ -48,7 +48,7 @@ func run(args []string) error {
 			opt = append(opt, apk.WithKeychain(gcrane.Keychain))
 		}
 		if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
-			cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "https://apk.cgr.dev")
+			cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "apk.cgr.dev")
 			opt = append(opt, apk.WithAuth(cgauth))
 		}
 
@@ -64,7 +64,7 @@ func run(args []string) error {
 		kcs := []authn.Keychain{}
 		if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
 			log.Printf("saw CHAINGUARD_IDENTITY=%q", cgid)
-			cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "https://cgr.dev")
+			cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "cgr.dev")
 			kcs = append(kcs, cgauth)
 		}
 		if *auth || os.Getenv("AUTH") == "keychain" {

@@ -52,7 +52,7 @@ func main() {
 		opt = append(opt, apk.WithKeychain(gcrane.Keychain))
 	}
 	if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
-		cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "https://apk.cgr.dev")
+		cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "apk.cgr.dev")
 		opt = append(opt, apk.WithAuth(cgauth))
 	}
 

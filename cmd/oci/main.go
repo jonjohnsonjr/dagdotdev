@@ -50,7 +50,7 @@ func main() {
 	opt := []explore.Option{explore.WithUserAgent(userAgent)}
 	kcs := []authn.Keychain{}
 	if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
-		cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "https://cgr.dev")
+		cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "cgr.dev")
 		kcs = append(kcs, cgauth)
 	}
 	if *auth || os.Getenv("AUTH") == "keychain" {
