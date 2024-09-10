@@ -63,6 +63,7 @@ func run(args []string) error {
 		opt := []explore.Option{explore.WithUserAgent("dagdotdev")}
 		kcs := []authn.Keychain{}
 		if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
+			log.Printf("saw CHAINGUARD_IDENTITY=%q", cgid)
 			cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "https://cgr.dev")
 			kcs = append(kcs, cgauth)
 		}

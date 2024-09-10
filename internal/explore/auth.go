@@ -3,6 +3,7 @@ package explore
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"chainguard.dev/sdk/sts"
@@ -12,6 +13,7 @@ import (
 )
 
 func NewChainguardIdentityAuth(identity, issuer, audience string) authn.Keychain {
+	log.Printf("NewChainguardIdentityAuth(%q, %q, %q)", identity, issuer, audience)
 	return &keychain{
 		id:        identity,
 		iss:       issuer,
@@ -33,15 +35,21 @@ func (k *keychain) Resolve(res authn.Resource) (authn.Authenticator, error) {
 }
 
 func (k *keychain) ResolveContext(ctx context.Context, res authn.Resource) (authn.Authenticator, error) {
+	log.Printf("chainguard.Keychain.Resolve(%q)", res.String())
+
 	if k.id == "" {
+		log.Printf("k.id is empty")
 		return authn.Anonymous, nil
 	}
 
 	if res.RegistryStr() != "cgr.dev" {
+		log.Printf("%q != %q", res.RegistryStr(), "cgr.dev")
 		return authn.Anonymous, nil
 	}
 
 	k.sometimes.Do(func() {
+		log.Printf("chainguard.Keychain.sometimes.Do()")
+
 		k.cgerr = nil
 		ts, err := idtoken.NewTokenSource(ctx, k.iss)
 		if err != nil {
@@ -61,9 +69,11 @@ func (k *keychain) ResolveContext(ctx context.Context, res authn.Resource) (auth
 	})
 
 	if k.cgerr != nil {
+		log.Printf("chainguard.Keychain.Resolve = %v", k.cgerr)
 		return nil, k.cgerr
 	}
 
+	log.Printf("chainguard.Keychain.Resolve | len: %d", len(k.cgtok))
 	return &authn.Basic{
 		Username: "_token",
 		Password: k.cgtok,
