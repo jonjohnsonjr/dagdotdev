@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/explore"
@@ -47,8 +48,19 @@ func main() {
 	log.Printf("listening on %s", port)
 
 	opt := []explore.Option{explore.WithUserAgent(userAgent)}
+	kcs := []authn.Keychain{}
+	if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
+		cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "https://cgr.dev")
+		kcs = append(kcs, cgauth)
+	}
 	if *auth || os.Getenv("AUTH") == "keychain" {
-		opt = append(opt, explore.WithKeychain(gcrane.Keychain))
+		kcs = append(kcs, gcrane.Keychain)
+	}
+
+	if len(kcs) == 1 {
+		opt = append(opt, explore.WithKeychain(kcs[0]))
+	} else if len(kcs) == 2 {
+		opt = append(opt, explore.WithKeychain(authn.NewMultiKeychain(kcs...)))
 	}
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), explore.New(opt...)))
