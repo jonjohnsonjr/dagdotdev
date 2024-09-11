@@ -491,7 +491,7 @@ func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix
 	ug := fmt.Sprintf("%d/%d", header.Uid, header.Gid)
 	mode := modeStr(header)
 	padding := 18 - len(ug)
-	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.Bytes(uint64(header.Size)), padding, header.Size, ts)
+	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.IBytes(uint64(header.Size)), padding, header.Size, ts)
 
 	name := dirs.name(i)
 	if header.Linkname != "" {
@@ -548,7 +548,7 @@ func tarList(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL, upr
 	ug := fmt.Sprintf("%d/%d", header.Uid, header.Gid)
 	mode := modeStr(header)
 	padding := 18 - len(ug)
-	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.Bytes(uint64(header.Size)), padding, header.Size, ts)
+	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.IBytes(uint64(header.Size)), padding, header.Size, ts)
 	if showlayer {
 		if _, after, ok := strings.Cut(layer, "@"); ok {
 			if _, after, ok := strings.Cut(after, ":"); ok {
@@ -628,7 +628,7 @@ func tarListSize(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL,
 	ug := fmt.Sprintf("%d/%d", header.Uid, header.Gid)
 	mode := modeStr(header)
 	padding := 18 - len(ug)
-	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.Bytes(uint64(header.Size)), padding, header.Size, ts)
+	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.IBytes(uint64(header.Size)), padding, header.Size, ts)
 	if showlayer {
 		if _, after, ok := strings.Cut(layer, "@"); ok {
 			if _, after, ok := strings.Cut(after, ":"); ok {
@@ -702,7 +702,7 @@ func TarList(fi fs.FileInfo, u url.URL, uprefix string) string {
 	ug := fmt.Sprintf("%d/%d", header.Uid, header.Gid)
 	mode := modeStr(header)
 	padding := 18 - len(ug)
-	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.Bytes(uint64(header.Size)), padding, header.Size, ts)
+	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.IBytes(uint64(header.Size)), padding, header.Size, ts)
 	name := fi.Name()
 	if header.Linkname != "" {
 		if header.Linkname == "." {

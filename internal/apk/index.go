@@ -402,7 +402,7 @@ func (h *handler) renderExpanded(w http.ResponseWriter, r *http.Request, open fu
 				return fmt.Errorf("parsing %q as int: %w", after, err)
 			}
 			if !isCurl {
-				prevLines = append(prevLines, fmt.Sprintf("%s:<span title=%q>%s</span>", before, humanize.Bytes(uint64(i)), after))
+				prevLines = append(prevLines, fmt.Sprintf("%s:<span title=%q>%s</span>", before, humanize.IBytes(uint64(i)), after))
 			} else {
 				prevLines = append(prevLines, fmt.Sprintf("%s:%s", before, after))
 			}
@@ -928,7 +928,7 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 			if err != nil {
 				return fmt.Errorf("parsing %q as int: %w", after, err)
 			}
-			fmt.Fprintf(w, "%s = <a title=%q href=%q>%s</a>\n", before, humanize.Bytes(uint64(i)), sizeHref, after)
+			fmt.Fprintf(w, "%s = <a title=%q href=%q>%s</a>\n", before, humanize.IBytes(uint64(i)), sizeHref, after)
 		case "builddate":
 			sec, err := strconv.ParseInt(after, 10, 64)
 			if err != nil {
