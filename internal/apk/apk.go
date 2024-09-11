@@ -19,6 +19,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +46,24 @@ const respTooBig = 1 << 25
 
 const printToken = ` -H "Authorization: Bearer $(gcloud auth print-access-token)"`
 
+var defaultExamples = []string{
+	"packages.wolfi.dev/os/aarch64",
+	"packages.wolfi.dev/os/x86_64",
+	"packages.cgr.dev/os/aarch64",
+	"packages.cgr.dev/os/x86_64",
+	"packages.cgr.dev/extras/aarch64",
+	"packages.cgr.dev/extras/x86_64",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/aarch64",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/armhf",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/armv7",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/mips64",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/ppc64le",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/riscv64",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/s390x",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/x86",
+	"dl-cdn.alpinelinux.org/alpine/edge/main/x86_64",
+}
+
 type handler struct {
 	mux       http.Handler
 	keychain  authn.Keychain
@@ -52,6 +71,8 @@ type handler struct {
 	userAgent string
 
 	args []string
+
+	examples []string
 
 	tocCache   cache
 	indexCache cache
@@ -81,6 +102,14 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
+func WithExamples(examples []string) Option {
+	return func(h *handler) {
+		// Presumably if we're pasing examples in, they're more interesting than the defaults,
+		// so we will put them first.
+		h.examples = slices.Concat(examples, h.examples)
+	}
+}
+
 func New(args []string, opts ...Option) http.Handler {
 	h := handler{
 		args:       args,
@@ -88,6 +117,7 @@ func New(args []string, opts ...Option) http.Handler {
 		tocCache:   buildTocCache(),
 		indexCache: buildIndexCache(),
 		apkCache:   buildApkCache(),
+		examples:   defaultExamples,
 	}
 
 	for _, opt := range opts {
@@ -176,7 +206,9 @@ func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	data := Landing{}
+	data := Landing{
+		Examples: h.examples,
+	}
 	if args := h.args; len(args) != 0 {
 		indices := []string{}
 		apks := []string{}

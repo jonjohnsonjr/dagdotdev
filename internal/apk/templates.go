@@ -69,31 +69,19 @@ body {
 <p>
 {{ range .Indices }}<li><a href="/file/{{.}}/APKINDEX">{{.}}</a></li>{{end}}
 </p>
-{{ end}}
+{{ end }}
 {{ if .Apks }}
 <h4>Local APKs</h4>
 <p>
 {{ range .Apks }}<li><a href="/file/{{.}}">{{.}}</a></li>{{end}}
 </p>
-{{ end}}
+{{ end }}
 <p>
 <h4>Interesting examples</h4>
 <ul>
-  <li><a href="/https/packages.wolfi.dev/os/aarch64/APKINDEX.tar.gz/APKINDEX">packages.wolfi.dev/os/aarch64</a></li>
-  <li><a href="/https/packages.wolfi.dev/os/x86_64/APKINDEX.tar.gz/APKINDEX">packages.wolfi.dev/os/x86_64</a></li>
-  <li><a href="/https/packages.cgr.dev/os/aarch64/APKINDEX.tar.gz/APKINDEX">packages.cgr.dev/os/aarch64</a></li>
-  <li><a href="/https/packages.cgr.dev/os/x86_64/APKINDEX.tar.gz/APKINDEX">packages.cgr.dev/os/x86_64</a></li>
-  <li><a href="/https/packages.cgr.dev/extras/aarch64/APKINDEX.tar.gz/APKINDEX">packages.cgr.dev/extras/aarch64</a></li>
-  <li><a href="/https/packages.cgr.dev/extras/x86_64/APKINDEX.tar.gz/APKINDEX">packages.cgr.dev/extras/x86_64</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/aarch64/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/aarch64</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/armhf/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/armhf</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/armv7/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/armv7</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/mips64/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/mips64</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/ppc64le/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/ppc64le</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/riscv64/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/riscv64</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/s390x/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/s390x</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/x86/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/x86</a></li>
-  <li><a href="/https/dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/APKINDEX.tar.gz/APKINDEX">dl-cdn.alpinelinux.org/alpine/edge/main/x86_64</a></li>
+{{ range .Examples }}
+  <li><a href="/https/{{.}}/APKINDEX.tar.gz/APKINDEX">{{.}}</a></li>
+{{ end }}
 </ul>
 </p>
 </body>
@@ -198,8 +186,9 @@ th {
 )
 
 type Landing struct {
-	Indices []string
-	Apks    []string
+	Examples []string
+	Indices  []string
+	Apks     []string
 }
 
 type TitleData struct {

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/gcrane"
@@ -50,6 +51,9 @@ func run(args []string) error {
 		if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
 			cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "apk.cgr.dev")
 			opt = append(opt, apk.WithAuth(cgauth))
+		}
+		if eg := os.Getenv("EXAMPLES"); eg != "" {
+			opt = append(opt, apk.WithExamples(strings.Split(eg, ",")))
 		}
 
 		return http.ListenAndServe(fmt.Sprintf(":%s", port), apk.New(args[1:], opt...))
