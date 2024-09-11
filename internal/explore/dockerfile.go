@@ -81,7 +81,7 @@ func renderDockerfileSchema1(w io.Writer, b []byte, repo name.Repository) error 
 		fmt.Fprintf(w, "<tr>\n")
 		fmt.Fprintf(w, "<td class=\"noselect\"><p><a href=%q><em>%s</em></a></p></td>\n", href, digest)
 		if size != 0 {
-			human := humanize.Bytes(uint64(size))
+			human := humanize.IBytes(uint64(size))
 			fmt.Fprintf(w, "<td class=\"noselect\"><p title=\"%d bytes\">%s</p></td>\n", size, human)
 		} else {
 			fmt.Fprintf(w, "<td></td>\n")
@@ -132,7 +132,7 @@ func renderDockerfile(w io.Writer, b []byte, m *v1.Manifest, repo name.Repositor
 		fmt.Fprintf(w, "<tr>\n")
 		fmt.Fprintf(w, "<td class=\"noselect\"><p><a href=%q><em>%s</em></a></p></td>\n", href, digest)
 		if size != 0 {
-			human := humanize.Bytes(uint64(size))
+			human := humanize.IBytes(uint64(size))
 			fmt.Fprintf(w, "<td class=\"noselect\"><p title=\"%d bytes\">%s</p></td>\n", size, human)
 		} else {
 			fmt.Fprintf(w, "<td></td>\n")

@@ -1232,7 +1232,7 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 						if err == nil {
 							// TODO: dedupe with Value
 							w.tabf()
-							w.Print(fmt.Sprintf(`"<span title="%s">%s</span>"`, humanize.Bytes(uint64(bs)), s))
+							w.Print(fmt.Sprintf(`"<span title="%s">%s</span>"`, humanize.IBytes(uint64(bs)), s))
 							w.unfresh()
 							w.key = false
 							// Don't fall through to renderRaw.
@@ -1252,7 +1252,7 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 								if ms, ok := m.(string); ok {
 									if shouldSize(ms) {
 										w.tabf()
-										w.Print(fmt.Sprintf(`<a href="/size/%s@%s?mt=%s&size=%d"><span title="%s">%d</span></a>`, w.repo, ds, ms, int64(bs), humanize.Bytes(n), n))
+										w.Print(fmt.Sprintf(`<a href="/size/%s@%s?mt=%s&size=%d"><span title="%s">%d</span></a>`, w.repo, ds, ms, int64(bs), humanize.IBytes(n), n))
 										w.unfresh()
 										w.key = false
 										// Don't fall through to renderRaw.
@@ -1264,7 +1264,7 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 					}
 
 					w.tabf()
-					w.Print(fmt.Sprintf(`<span title="%s">%d</span>`, humanize.Bytes(n), n))
+					w.Print(fmt.Sprintf(`<span title="%s">%d</span>`, humanize.IBytes(n), n))
 					w.unfresh()
 					w.key = false
 					// Don't fall through to renderRaw.
