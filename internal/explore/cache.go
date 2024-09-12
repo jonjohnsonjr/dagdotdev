@@ -562,7 +562,7 @@ func buildGcsCache(bucket string) (cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	bkt := client.Bucket(bucket)
+	bkt := client.Bucket(strings.TrimPrefix(bucket, "gs://"))
 
 	return &gcsCache{client, bkt}, nil
 }
