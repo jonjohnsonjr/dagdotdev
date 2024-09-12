@@ -22,6 +22,8 @@ type BlobSeeker struct {
 	Url string
 
 	cachedUrl string
+
+	redirect bool
 }
 
 func LazyBlob(cachedUrl string, size int64, keychain func(*http.Request) error) *BlobSeeker {
@@ -108,8 +110,10 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 	if err != nil {
 		return nil, err
 	}
-	if err := b.keychain(req); err != nil {
-		return nil, err
+	if !b.redirect {
+		if err := b.keychain(req); err != nil {
+			return nil, err
+		}
 	}
 	rangeVal := fmt.Sprintf("bytes=%d-%d", off, end-1)
 	req.Header.Set("Range", rangeVal)
@@ -152,6 +156,7 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 		}
 		b.Url = req.URL.ResolveReference(u).String()
 		b.cachedUrl = b.Url
+		b.redirect = true
 		return b.Reader(ctx, off, end)
 	}
 
