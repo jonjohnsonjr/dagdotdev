@@ -2,7 +2,6 @@ package apk
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -159,12 +158,12 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 	if res.Body == nil {
 		return nil, fmt.Errorf("range read of %s: %v", b.Url, res.Status)
 	}
-	truncated, errr := io.ReadAll(io.LimitReader(res.Body, 1024))
-	if errr != nil {
-		return nil, errors.Join(err, errr)
+	truncated, err := io.ReadAll(io.LimitReader(res.Body, 1024))
+	if err != nil {
+		return nil, fmt.Errorf("reading body of %s: %v: %v", b.Url, res.Status, err)
 	}
 
-	return nil, errors.New(fmt.Sprintf("%s\n%s", err, truncated))
+	return nil, fmt.Errorf("range read of %s: %v\n%s", b.Url, res.Status, truncated)
 }
 
 type blobReader struct {
