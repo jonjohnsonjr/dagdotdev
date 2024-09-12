@@ -2,6 +2,7 @@ package apk
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -119,6 +120,7 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 		logs.Debug.Printf("range read of %s: %v", b.Url, err)
 		return nil, err
 	}
+
 	if res.StatusCode == 200 {
 		logs.Debug.Printf("Didn't support range requests")
 		logs.Debug.Printf("Discarding %d bytes", off)
@@ -131,26 +133,38 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 			body: res.Body,
 		}, nil
 	}
-	if res.StatusCode != http.StatusPartialContent {
-		logs.Debug.Printf("range read of %s: %v", b.Url, res.Status)
-		if redir := res.Header.Get("Location"); redir != "" && res.StatusCode/100 == 3 {
-			res.Body.Close()
 
-			u, err := url.Parse(redir)
-			if err != nil {
-				return nil, err
-			}
-			b.Url = req.URL.ResolveReference(u).String()
-			b.cachedUrl = b.Url
-			return b.Reader(ctx, off, end)
-		}
-		return nil, err
+	if res.StatusCode == http.StatusPartialContent {
+		return &blobReader{
+			bs:   b,
+			body: res.Body,
+		}, nil
 	}
 
-	return &blobReader{
-		bs:   b,
-		body: res.Body,
-	}, nil
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+
+	logs.Debug.Printf("range read of %s: %v", b.Url, res.Status)
+	if redir := res.Header.Get("Location"); redir != "" && res.StatusCode/100 == 3 {
+		u, err := url.Parse(redir)
+		if err != nil {
+			return nil, err
+		}
+		b.Url = req.URL.ResolveReference(u).String()
+		b.cachedUrl = b.Url
+		return b.Reader(ctx, off, end)
+	}
+
+	if res.Body == nil {
+		return nil, fmt.Errorf("range read of %s: %v", b.Url, res.Status)
+	}
+	truncated, errr := io.ReadAll(io.LimitReader(res.Body, 1024))
+	if errr != nil {
+		return nil, errors.Join(err, errr)
+	}
+
+	return nil, errors.New(fmt.Sprintf("%s\n%s", err, truncated))
 }
 
 type blobReader struct {
