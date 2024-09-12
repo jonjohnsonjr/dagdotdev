@@ -158,6 +158,10 @@ func ExtractFile(ctx context.Context, t Index, bs BlobSeeker, tf *TOCFile) (io.R
 		return nil, fmt.Errorf("Reader(): %w", err)
 	}
 
+	if rc == nil {
+		return nil, fmt.Errorf("opening %q returned nil (this is probably a bug, please tell jon)", tf.Name)
+	}
+
 	from := cp.Checkpoint
 	from.SetHistory(dict)
 
