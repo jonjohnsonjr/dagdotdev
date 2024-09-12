@@ -375,7 +375,7 @@ func (b *BlobSeeker) Reader(ctx context.Context, off int64, end int64) (io.ReadC
 			b.cachedUrl = b.Url
 			return b.Reader(ctx, off, end)
 		}
-		return nil, err
+		return nil, fmt.Errorf("GET %s: unexpected status: %s", b.Url, res.Status)
 	}
 
 	return &blobReader{
