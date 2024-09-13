@@ -944,7 +944,48 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 	}
 	// header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
-	return bodyTmpl.Execute(w, header)
+	if err := bodyTmpl.Execute(w, header); err != nil {
+		return err
+	}
+
+	if _, ok := f.(httpserve.Files); ok {
+		fmt.Fprintf(w, `<div><template shadowrootmode="open"><style>
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes twist-up {
+  to {
+    transform: rotateX(360deg);
+  }
+}</style><p><slot name="message"><span style="display: inline-block; animation: spin 1.0s infinite linear;">🤐</span> Loading<span><slot name="progress"></slot></span></slot></p><pre><slot name="file"></slot></pre></template>`)
+	}
+
+	return nil
+}
+
+func loadingBarSize(ref string) int {
+	u, err := refToUrl(ref)
+	if err != nil {
+		return 0
+	}
+	scheme, _, ok := strings.Cut(u, "://")
+	if !ok {
+		return 0
+	}
+
+	loading := "Loading"
+	tarflags := "tar -tvz"
+
+	if scheme == "file" {
+		return len("cat"+" "+u+" | "+tarflags) - len(loading)
+	} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+		return len("curl -sL"+printToken+" "+u+" | "+tarflags) - len(loading)
+	} else {
+		return len("curl -sL"+" "+u+" | "+tarflags) - len(loading)
+	}
 }
 
 type dumbEscaper struct {

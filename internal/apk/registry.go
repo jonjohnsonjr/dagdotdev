@@ -48,7 +48,10 @@ func (h *handler) fetchArg(w http.ResponseWriter, r *http.Request, arg string) (
 		return nil, "", err
 	}
 
-	blob := &sizeBlob{rc, info.Size()}
+	blob := &sizeBlob{
+		rc:   rc,
+		size: info.Size(),
+	}
 
 	return blob, root + ref, err
 }
@@ -111,7 +114,10 @@ func (h *handler) fetchUrl(u string) (*sizeBlob, error) {
 	}
 
 	size := resp.ContentLength
-	sb := &sizeBlob{resp.Body, size}
+	sb := &sizeBlob{
+		rc:   resp.Body,
+		size: size,
+	}
 
 	return sb, nil
 }

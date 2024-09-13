@@ -118,6 +118,10 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, prefix, re
 			return kind, nil, nil, fmt.Errorf("renderPkgInfo(%q): %w", filename, err)
 		}
 	} else {
+		blob.h = h
+		blob.w = w
+		blob.total = loadingBarSize(ref)
+
 		httpserve.FileServer(fs).ServeHTTP(w, r)
 	}
 

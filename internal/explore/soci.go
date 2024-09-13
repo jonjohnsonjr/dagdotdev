@@ -93,6 +93,11 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 
 	// Render FS the old way while generating the index.
 	fs := h.newLayerFS(tr, blob.size, ref, dig.String(), kind, types.MediaType(mt))
+
+	blob.h = h
+	blob.w = w
+	blob.total = loadingBarSize(dig.String())
+
 	httpserve.FileServer(fs).ServeHTTP(w, r)
 
 	if flusher, ok := w.(http.Flusher); ok {

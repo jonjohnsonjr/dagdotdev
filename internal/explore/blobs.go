@@ -6,6 +6,7 @@ import (
 	ogzip "compress/gzip"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/jonjohnsonjr/dagdotdev/internal/gzip"
 	"github.com/jonjohnsonjr/dagdotdev/internal/zstd"
@@ -31,12 +32,40 @@ func (s *sizeSeeker) Size() int64 {
 }
 
 type sizeBlob struct {
-	io.ReadCloser
+	rc   io.ReadCloser
 	size int64
+
+	n int64
+
+	w http.ResponseWriter
+	h *handler
+
+	progress int
+	total    int
+}
+
+func (s *sizeBlob) Read(p []byte) (int, error) {
+	n, err := s.rc.Read(p)
+	s.n += int64(n)
+
+	if s.h != nil && s.w != nil {
+		if next := int(float64(s.total) * (float64(s.n) / float64(s.size))); next > s.progress {
+			fmt.Fprintf(s.w, "<span slot=\"progress\">.</span>\n")
+			s.progress = next
+			if flusher, ok := s.w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		}
+	}
+	return n, err
 }
 
 func (s *sizeBlob) Size() int64 {
 	return s.size
+}
+
+func (s *sizeBlob) Close() error {
+	return s.rc.Close()
 }
 
 const (

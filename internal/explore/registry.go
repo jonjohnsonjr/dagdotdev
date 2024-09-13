@@ -259,7 +259,7 @@ func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, 
 			return nil, "", err
 		}
 	}
-	sb := &sizeBlob{rc, size}
+	sb := &sizeBlob{rc: rc, size: size}
 	return sb, root + ref, err
 }
 
@@ -351,7 +351,7 @@ func (h *handler) fetchUrl(root, ref, digest string, chunks []string, expectedSi
 		} else {
 			size = resp.ContentLength
 		}
-		sb := &sizeBlob{checked, size}
+		sb := &sizeBlob{rc: checked, size: size}
 		return sb, root + ref, nil
 	}
 	resp.Body.Close()

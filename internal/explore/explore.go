@@ -1552,7 +1552,35 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 	}
 	header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
-	return bodyTmpl.Execute(w, header)
+	if err := bodyTmpl.Execute(w, header); err != nil {
+		return err
+	}
+
+	if _, ok := f.(httpserve.Files); ok {
+		fmt.Fprintf(w, `<div><template shadowrootmode="open"><style>
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes twist-up {
+  to {
+    transform: rotateX(360deg);
+  }
+}</style><p><slot name="message"><span style="display: inline-block; animation: spin 1.0s infinite linear;">🤐</span> Loading<span><slot name="progress"></slot></span></slot></p><pre><slot name="file"></slot></pre></template>`)
+	}
+
+	return nil
+}
+
+func loadingBarSize(ref string) int {
+	loading := "Loading"
+	tarflags := "tar -tvz"
+
+	s := "crane blob " + ref + " | " + tarflags
+	log.Printf("s: %q", s)
+	return len(s) - len(loading)
 }
 
 func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, refs string, f httpserve.File, ctype string) error {
