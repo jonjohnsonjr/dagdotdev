@@ -174,7 +174,7 @@ th {
 </form>
 <p>{{ end }}
 {{ if .Message }}<p>{{.Message}}</p>{{ end }}
-{{ if .JQ }}<h4><span class="noselect">$</span>{{.JQ}}</h4>{{ end }}
+{{ if .JQ }}<h4><span style="padding:0;" class="noselect">$</span>{{.JQ}}</h4>{{ end }}
 {{ if .PAXRecords }}<div><table><tr><th>PAXRecords</th><th></th></tr>
 {{ range $k, $v := .PAXRecords }}<tr><td>{{$k}}</td><td>{{$v}}</td></tr>{{ end }}
 </table></div>{{ end }}`

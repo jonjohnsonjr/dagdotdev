@@ -319,7 +319,7 @@ Content-Length: {{if .SizeLink}}<a class="mt" href="{{.SizeLink}}">{{.Descriptor
 {{end}}
 </div>
 {{ if .JQ }}
-<h4><span class="noselect">$</span>{{.JQ}}</h4>
+<h4><span style="padding:0;" class="noselect">$ </span>{{.JQ}}</h4>
 
 {{ end }}
 `
