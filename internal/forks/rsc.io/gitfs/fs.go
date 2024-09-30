@@ -12,7 +12,6 @@ import (
 	hashpkg "hash"
 	"io"
 	"io/fs"
-	"log"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -249,14 +248,14 @@ func (t *treeFS) Open(name string) (f fs.File, err error) {
 		}
 	}()
 
-	prefix := t.s.repo.root + "@" + t.commit.String()
-	log.Printf("name=%q, prefix=%q", name, prefix)
-	name = strings.TrimPrefix(name, prefix)
-	name = strings.TrimPrefix(name, "/")
-	if name == "" {
-		name = "."
+	if t.s.repo != nil {
+		prefix := t.s.repo.root + "@" + t.commit.String()
+		name = strings.TrimPrefix(name, prefix)
+		name = strings.TrimPrefix(name, "/")
+		if name == "" {
+			name = "."
+		}
 	}
-	log.Printf("cleaned=%q", name)
 
 	// Process each element in the slash-separated path, producing hash identified by name.
 	h := t.tree

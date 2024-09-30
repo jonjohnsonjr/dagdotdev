@@ -19,7 +19,7 @@ func TestGerrit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, fsys, err := r.Clone("HEAD")
+	_, fsys, err := r.Clone(context.Background(), "HEAD")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestGitHub(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, fsys, err := r.Clone("HEAD")
+	_, fsys, err := r.Clone(context.Background(), "HEAD")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestPack(t *testing.T) {
 	}
 
 	h := Hash{0xf6, 0xf7, 0x39, 0x2a, 0x99, 0x9b, 0x3d, 0x75, 0xe2, 0x1c, 0xae, 0xe3, 0x3a, 0xeb, 0x6d, 0x01, 0x92, 0xe8, 0xdc, 0x6b}
-	tfs, err := s.Commit(h)
+	tfs, _, err := s.Commit(h)
 	if err != nil {
 		t.Fatal(err)
 	}
