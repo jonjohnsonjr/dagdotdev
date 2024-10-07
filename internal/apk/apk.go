@@ -49,8 +49,6 @@ const printToken = ` -H "Authorization: Bearer $(gcloud auth print-access-token)
 var defaultExamples = []string{
 	"packages.wolfi.dev/os/aarch64",
 	"packages.wolfi.dev/os/x86_64",
-	"packages.cgr.dev/os/aarch64",
-	"packages.cgr.dev/os/x86_64",
 	"packages.cgr.dev/extras/aarch64",
 	"packages.cgr.dev/extras/x86_64",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/aarch64",
