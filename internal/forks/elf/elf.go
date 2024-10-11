@@ -94,6 +94,7 @@ func Peek(r io.Reader) (*bufio.Reader, [16]uint8, bool, error) {
 }
 
 func thirdPass(w io.Writer, size int64, r io.Reader, key string, f *File) error {
+	log.Printf("thirdPass")
 	// rw := w
 	w = &dumbEscaper{buf: bufio.NewWriter(w)}
 	order := ""
@@ -253,100 +254,101 @@ func thirdPass(w io.Writer, size int64, r io.Reader, key string, f *File) error 
 }
 
 func secondPass(w io.Writer, size int64, r io.Reader, key string, f *File) error {
+	log.Printf("secondPass")
 	if f.shstr != nil {
 		return thirdPass(w, size, r, key, f)
 	}
 
 	// Load section header string table.
-	if f.shstrndx == 0 {
+	if f.shstrndx != 0 {
+		log.Printf("no section name string table")
 		// If the file has no section name string table,
 		// shstrndx holds the value SHN_UNDEF (0).
-		return nil
-	}
-	shstr := f.Sections[f.shstrndx]
-	if shstr.Type != SHT_STRTAB {
-		return &FormatError{f.shoff + int64(f.shstrndx*f.shentsize), "invalid ELF section name string table type", shstr.Type}
-	}
-
-	sr := &seekForward{
-		r:    r,
-		size: size,
-		cap:  24,
-	}
-
-	sections := []*Section{shstr}
-
-	for _, typ := range []SectionType{SHT_DYNAMIC, SHT_DYNSYM, SHT_SYMTAB, SHT_GNU_VERDEF, SHT_GNU_VERNEED, SHT_GNU_VERSYM} {
-		s := f.SectionByType(typ)
-		if s == nil {
-			continue
+		shstr := f.Sections[f.shstrndx]
+		if shstr.Type != SHT_STRTAB {
+			return &FormatError{f.shoff + int64(f.shstrndx*f.shentsize), "invalid ELF section name string table type", shstr.Type}
 		}
 
-		sections = append(sections, s)
-	}
-
-	for _, s := range sections {
-		if s.Link != 0 {
-			sections = append(sections, f.Sections[s.Link])
+		sr := &seekForward{
+			r:    r,
+			size: size,
+			cap:  24,
 		}
-	}
 
-	slices.SortFunc(sections, func(a, b *Section) int {
-		return cmp.Compare(a.Offset, b.Offset)
-	})
+		sections := []*Section{shstr}
 
-	for _, s := range sections {
-		if err := s.init(sr); err != nil {
-			return fmt.Errorf("section.init(): %w", err)
+		for _, typ := range []SectionType{SHT_DYNAMIC, SHT_DYNSYM, SHT_SYMTAB, SHT_GNU_VERDEF, SHT_GNU_VERNEED, SHT_GNU_VERSYM} {
+			s := f.SectionByType(typ)
+			if s == nil {
+				continue
+			}
+
+			sections = append(sections, s)
 		}
-	}
 
-	// We need these sections.
-	// SHT_DYNAMIC
-	// SHT_SYMTAB
-	// SHT_STRTAB
-	//
-	// We need the string tables from their Link fields.
-	// And we need to access those all in order.
+		for _, s := range sections {
+			if s.Link != 0 {
+				sections = append(sections, f.Sections[s.Link])
+			}
+		}
 
-	log.Printf("DynamicSection")
-	ds, err := f.DynamicSection(sr)
-	if err != nil {
-		return err
-	}
-	f.dynamicSection = ds
+		slices.SortFunc(sections, func(a, b *Section) int {
+			return cmp.Compare(a.Offset, b.Offset)
+		})
 
-	log.Printf("DynamicSymbols")
-	if _, err := f.DynamicSymbols(sr); err != nil {
-		if !errors.Is(err, ErrNoSymbols) {
+		for _, s := range sections {
+			if err := s.init(sr); err != nil {
+				return fmt.Errorf("section.init(): %w", err)
+			}
+		}
+
+		// We need these sections.
+		// SHT_DYNAMIC
+		// SHT_SYMTAB
+		// SHT_STRTAB
+		//
+		// We need the string tables from their Link fields.
+		// And we need to access those all in order.
+
+		log.Printf("DynamicSection")
+		ds, err := f.DynamicSection(sr)
+		if err != nil {
 			return err
 		}
-	}
+		f.dynamicSection = ds
 
-	log.Printf("Symbols")
-	symbols, err := f.Symbols(sr)
-	if err != nil {
-		if !errors.Is(err, ErrNoSymbols) {
-			return err
+		log.Printf("DynamicSymbols")
+		if _, err := f.DynamicSymbols(sr); err != nil {
+			if !errors.Is(err, ErrNoSymbols) {
+				return err
+			}
 		}
-	}
-	f.symbols = symbols
 
-	log.Printf("shstr.Data()")
-	shstrtab, err := shstr.Data(sr)
-	if err != nil {
-		return fmt.Errorf("shstr.Data(): %w", err)
-	}
-	f.shstr = shstrtab
-	for i, s := range f.Sections {
-		var ok bool
-		s.Name, ok = getString(shstrtab, int(f.names[i]))
-		if !ok {
-			return &FormatError{f.shoff + int64(i*f.shentsize), "bad section name index", f.names[i]}
+		log.Printf("Symbols")
+		symbols, err := f.Symbols(sr)
+		if err != nil {
+			if !errors.Is(err, ErrNoSymbols) {
+				return err
+			}
 		}
-	}
+		f.symbols = symbols
 
-	cached.Store(key, f)
+		log.Printf("shstr.Data()")
+		shstrtab, err := shstr.Data(sr)
+		if err != nil {
+			return fmt.Errorf("shstr.Data(): %w", err)
+		}
+		f.shstr = shstrtab
+		for i, s := range f.Sections {
+			var ok bool
+			s.Name, ok = getString(shstrtab, int(f.names[i]))
+			if !ok {
+				return &FormatError{f.shoff + int64(i*f.shentsize), "bad section name index", f.names[i]}
+			}
+		}
+
+		cached.Store(key, f)
+	}
 
 	return thirdPass(w, size, r, key, f)
 }
