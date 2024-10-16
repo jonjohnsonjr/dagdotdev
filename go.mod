@@ -1,10 +1,9 @@
 module github.com/jonjohnsonjr/dagdotdev
 
 go 1.23.1
-
 require (
 	chainguard.dev/apko v0.19.2
-	chainguard.dev/sdk v0.1.26
+	chainguard.dev/sdk v0.1.27
 	cloud.google.com/go/storage v1.44.0
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7
 	github.com/dustin/go-humanize v1.0.1
@@ -106,9 +105,9 @@ require (
 	google.golang.org/genproto v0.0.0-20240924160255-9d4c2d233b61 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240924160255-9d4c2d233b61 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240924160255-9d4c2d233b61 // indirect
-	google.golang.org/grpc v1.67.0 // indirect
+	google.golang.org/grpc v1.67.1 // indirect
 	google.golang.org/grpc/stats/opentelemetry v0.0.0-20240907200651-3ffb98b2c93a // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
+	google.golang.org/protobuf v1.35.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 
