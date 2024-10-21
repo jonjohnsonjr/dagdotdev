@@ -4,7 +4,7 @@ go 1.23.1
 require (
 	chainguard.dev/apko v0.19.2
 	chainguard.dev/sdk v0.1.27
-	cloud.google.com/go/storage v1.44.0
+	cloud.google.com/go/storage v1.45.0
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fxamacker/cbor/v2 v2.7.0
