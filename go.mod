@@ -1,6 +1,7 @@
 module github.com/jonjohnsonjr/dagdotdev
 
-go 1.23.1
+go 1.23.2
+
 require (
 	chainguard.dev/apko v0.19.2
 	chainguard.dev/sdk v0.1.27
