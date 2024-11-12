@@ -134,7 +134,7 @@ func (h *handler) renderApkError(w http.ResponseWriter, r *http.Request, ref str
 		if ok {
 			u, err := refToUrl(before)
 			if err == nil {
-				if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+				if strings.Contains(ref, "apk.cgr.dev/chainguard-private") {
 					header.JQ = "curl -sL" + printToken + " " + u
 				} else {
 					header.JQ = "curl -sL" + " " + u
@@ -890,9 +890,12 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 			if strings.Contains(r.URL.Path, "packages.wolfi.dev") {
 				href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/main/%s.yaml", pkg.origin)
 				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
-			} else if strings.Contains(r.URL.Path, "packages.cgr.dev") {
-				// TODO
-				fmt.Fprintf(w, "%s\n", line)
+			} else if strings.Contains(r.URL.Path, "apk.cgr.dev/extra-packages") {
+				href := fmt.Sprintf("https://github.com/chainguard-dev/extra-packages/blob/main/%s.yaml", pkg.origin)
+				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
+			} else if strings.Contains(r.URL.Path, "apk.cgr.dev/chainguard-private") {
+				href := fmt.Sprintf("https://github.com/chainguard-dev/enterprise-packages/blob/main/%s.yaml", pkg.origin)
+				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
 			} else {
 				fmt.Fprintf(w, "%s\n", line)
 			}
@@ -900,9 +903,12 @@ func (h *handler) renderPkgInfo(w http.ResponseWriter, r *http.Request, in io.Re
 			if strings.Contains(r.URL.Path, "packages.wolfi.dev") {
 				href := fmt.Sprintf("https://github.com/wolfi-dev/os/blob/%s/%s.yaml", pkg.commit, pkg.origin)
 				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
-			} else if strings.Contains(r.URL.Path, "packages.cgr.dev") {
-				// TODO
-				fmt.Fprintf(w, "%s\n", line)
+			} else if strings.Contains(r.URL.Path, "apk.cgr.dev/extra-packages") {
+				href := fmt.Sprintf("https://github.com/chainguard-dev/extra-packages/blob/%s/%s.yaml", pkg.commit, pkg.origin)
+				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
+			} else if strings.Contains(r.URL.Path, "apk.cgr.dev/chainguard-private") {
+				href := fmt.Sprintf("https://github.com/chainguard-dev/enterprise-packages/blob/%s/%s.yaml", pkg.commit, pkg.origin)
+				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)
 			} else if strings.Contains(r.URL.Path, "dl-cdn.alpinelinux.org/alpine/edge/main") {
 				href := fmt.Sprintf("https://gitlab.alpinelinux.org/alpine/aports/-/blob/%s/main/%s/APKBUILD", pkg.commit, pkg.origin)
 				fmt.Fprintf(w, "%s = <a href=%q>%s</a>\n", before, href, after)

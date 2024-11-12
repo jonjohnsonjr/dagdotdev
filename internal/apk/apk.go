@@ -44,7 +44,7 @@ import (
 const tooBig = 1 << 24
 const respTooBig = 1 << 25
 
-const printToken = ` -H "Authorization: Bearer $(gcloud auth print-access-token)"`
+const printToken = ` -u "user:$(chainctl auth token --audience apk.cgr.dev)"`
 
 var defaultExamples = []string{
 	"packages.wolfi.dev/os/aarch64",
@@ -310,7 +310,7 @@ func (h *handler) renderFile(w http.ResponseWriter, r *http.Request, ref string,
 
 			if scheme == "file" {
 				header.JQ = "cat" + " " + u
-			} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+			} else if strings.Contains(ref, "apk.cgr.dev/chainguard-private") {
 				header.JQ = "curl -sL" + printToken + " " + u
 			} else {
 				header.JQ = "curl -sL" + " " + u
@@ -918,7 +918,7 @@ func (h *handler) renderHeader(w http.ResponseWriter, r *http.Request, fname str
 
 	if scheme == "file" {
 		header.JQ = "cat" + " " + u + " | " + tarlink + " " + filelink
-	} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+	} else if strings.Contains(ref, "apk.cgr.dev/chainguard-private") {
 		header.JQ = "curl -sL" + printToken + " " + u + " | " + tarlink + " " + filelink
 	} else {
 		header.JQ = "curl -sL" + " " + u + " | " + tarlink + " " + filelink
@@ -979,7 +979,7 @@ func loadingBarSize(ref string) int {
 
 	if scheme == "file" {
 		return len("cat"+" "+u+" | "+tarflags) - len(loading)
-	} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+	} else if strings.Contains(ref, "apk.cgr.dev/chainguard-private") {
 		return len("curl -sL"+printToken+" "+u+" | "+tarflags) - len(loading)
 	} else {
 		return len("curl -sL"+" "+u+" | "+tarflags) - len(loading)
@@ -1083,7 +1083,7 @@ func (h *handler) renderSBOM(w http.ResponseWriter, r *http.Request, in fs.File,
 		u = href
 		if scheme == "file" {
 			header.JQ = "cat" + " " + u + " | tar -Oxz " + filelink
-		} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+		} else if strings.Contains(ref, "apk.cgr.dev/chainguard-private") {
 			header.JQ = "curl -sL" + printToken + " " + u + " | tar -Oxz " + filelink
 		} else {
 			header.JQ = "curl -sL " + " " + u + " | tar -Oxz " + filelink
@@ -1279,7 +1279,7 @@ func (h *handler) renderDirSize(w http.ResponseWriter, r *http.Request, size int
 
 		if scheme == "file" {
 			header.JQ = "cat" + " " + u + " | " + tarflags
-		} else if strings.Contains(ref, "packages.cgr.dev/os") && !strings.Contains(ref, "APKINDEX") {
+		} else if strings.Contains(ref, "apk.cgr.dev/chainguard-private") {
 			header.JQ = "curl -sL" + printToken + " " + u + " | " + tarflags
 		} else {
 			header.JQ = "curl -sL" + " " + u + " | " + tarflags
