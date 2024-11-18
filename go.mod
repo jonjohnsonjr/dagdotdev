@@ -5,7 +5,7 @@ go 1.23.2
 require (
 	chainguard.dev/apko v0.19.2
 	chainguard.dev/sdk v0.1.28
-	cloud.google.com/go/storage v1.46.0
+	cloud.google.com/go/storage v1.47.0
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fxamacker/cbor/v2 v2.7.0
@@ -26,7 +26,7 @@ require (
 	cel.dev/expr v0.16.1 // indirect
 	chainguard.dev/go-grpc-kit v0.17.6 // indirect
 	cloud.google.com/go v0.116.0 // indirect
-	cloud.google.com/go/auth v0.10.1 // indirect
+	cloud.google.com/go/auth v0.10.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.5 // indirect
 	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/iam v1.2.1 // indirect
