@@ -56,6 +56,7 @@ func (h *handler) transportFromCookie(w http.ResponseWriter, r *http.Request, re
 
 	t := remote.DefaultTransport
 	t = transport.NewRetry(t)
+	t = transport.NewUserAgent(t, h.userAgent)
 	if r.URL.Query().Get("trace") != "" {
 		t = transport.NewTracer(t)
 	}
