@@ -545,27 +545,34 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 				}
 			}
 		case "digest":
-			if mt, ok := o["mediaType"]; ok {
-				if s, ok := mt.(string); ok {
-					h := v1.Hash{}
-					if err := json.Unmarshal(v, &h); err != nil {
-						log.Printf("Unmarshal digest %q: %v", string(v), err)
-					} else {
-						size := int64(0)
-						if sz, ok := o["size"]; ok {
-							if i64, ok := sz.(int64); ok {
-								size = i64
-							} else if f64, ok := sz.(float64); ok {
-								size = int64(f64)
-							}
-						}
-
-						w.Linkify(s, h, size)
-
-						// Don't fall through to renderRaw.
-						continue
+			h := v1.Hash{}
+			if err := json.Unmarshal(v, &h); err != nil {
+				log.Printf("Unmarshal digest %q: %v", string(v), err)
+			} else {
+				size := int64(0)
+				if sz, ok := o["size"]; ok {
+					if i64, ok := sz.(int64); ok {
+						size = i64
+					} else if f64, ok := sz.(float64); ok {
+						size = int64(f64)
 					}
 				}
+
+				mediaType := w.u.Query().Get("mt")
+				if mt, ok := o["mediaType"]; ok {
+					if s, ok := mt.(string); ok {
+						mediaType = s
+					}
+				}
+
+				if mediaType == "" && w.u.Query().Get("history") != "" {
+					mediaType = string(types.OCIImageIndex)
+				}
+
+				w.Linkify(mediaType, h, size)
+
+				// Don't fall through to renderRaw.
+				continue
 			}
 			if name, ok := o["name"]; ok {
 				// Set this for DSSE digest.name

@@ -178,6 +178,9 @@ func (h *handler) errHandler(hfe HandleFuncE) http.HandlerFunc {
 func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
 	qs := r.URL.Query()
 
+	if image := qs.Get("history"); image != "" {
+		return h.renderHistory(w, r, strings.TrimPrefix(strings.TrimSpace(image), "https://"))
+	}
 	if image := qs.Get("image"); image != "" {
 		return h.renderManifest(w, r, strings.TrimPrefix(strings.TrimSpace(image), "https://"))
 	}
@@ -564,6 +567,105 @@ func (h *handler) renderManifest(w http.ResponseWriter, r *http.Request, image s
 	}
 
 	if err := h.renderContent(w, r, ref, b, output, u); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, footer)
+
+	return nil
+}
+
+func (h *handler) tagHistory(w http.ResponseWriter, r *http.Request, ref name.Reference, u string) ([]byte, error) {
+	repo := ref.Context().String()
+
+	auth := authn.Anonymous
+	if h.keychain != nil {
+		ref, err := name.NewRepository(repo)
+		if err == nil {
+			maybeAuth, err := h.keychain.Resolve(ref)
+			if err == nil {
+				auth = maybeAuth
+			} else {
+				logs.Debug.Printf("Resolve(%q) = %v", repo, err)
+			}
+		} else {
+			logs.Debug.Printf("NewRepository(%q) = %v", repo, err)
+		}
+	}
+	tr, err := h.transportFromCookie(w, r, repo, auth)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", h.userAgent)
+
+	resp, err := tr.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+// Render CGR history.
+func (h *handler) renderHistory(w http.ResponseWriter, r *http.Request, image string) error {
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		return err
+	}
+
+	if ref.Context().RegistryStr() != "cgr.dev" {
+		return fmt.Errorf("not a cgr.dev image: %s", image)
+	}
+
+	u := fmt.Sprintf("https://%s/v2/%s/_chainguard/history/%s", ref.Context().Registry, ref.Context().RepositoryStr(), ref.Identifier())
+
+	// TODO: Do we need to cache this?
+	th, err := h.tagHistory(w, r, ref, u)
+	if err != nil {
+		return err
+	}
+
+	header := HeaderData{
+		Repo:      ref.Context().String(),
+		Reference: ref.String(),
+		JQ:        `curl -H "$(crane auth token -H ` + ref.Context().String() + `)" ` + u,
+	}
+
+	if err := headerTmpl.Execute(w, TitleData{image}); err != nil {
+		return fmt.Errorf("headerTmpl: %w", err)
+	}
+
+	copied := *r.URL
+	output := &jsonOutputter{
+		w:     w,
+		u:     &copied,
+		fresh: []bool{},
+		repo:  ref.Context().String(),
+		mt:    r.URL.Query().Get("mt"),
+	}
+
+	// Mutates header for bodyTmpl.
+	b, err := h.jq(output, th, r, &header)
+	if err != nil {
+		return fmt.Errorf("h.jq: %w", err)
+	}
+
+	if err := bodyTmpl.Execute(w, header); err != nil {
+		return fmt.Errorf("bodyTmpl: %w", err)
+	}
+
+	if err := h.renderContent(w, r, ref, b, output, copied); err != nil {
 		return err
 	}
 
@@ -1443,6 +1545,12 @@ func headerData(ref name.Reference, desc v1.Descriptor) *HeaderData {
 	sep := "?"
 	if strings.Contains(handler, "?") {
 		sep = "&"
+	}
+
+	if _, ok := ref.(name.Tag); ok {
+		if ref.Context().RegistryStr() == "cgr.dev" {
+			handler = "?history="
+		}
 	}
 	return &HeaderData{
 		Repo:             ref.Context().String(),
