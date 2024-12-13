@@ -14,7 +14,7 @@ require (
 	github.com/klauspost/compress v1.17.10
 	github.com/minio/sha256-simd v1.0.1
 	github.com/spf13/cobra v1.8.1
-	golang.org/x/crypto v0.30.0
+	golang.org/x/crypto v0.31.0
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sync v0.10.0
