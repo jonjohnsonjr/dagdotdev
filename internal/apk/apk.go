@@ -421,6 +421,8 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 			redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
 			if before, rest, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz"); ok {
 				redir = fmt.Sprintf("%sAPKINDEX.tar.gz@etag:%s%s", before, etagHex, rest)
+			} else if p := r.URL.Query().Get("path"); p != "" {
+				redir = fmt.Sprintf("%s@etag:%s/%s", before, etagHex, p)
 			}
 			http.Redirect(w, r, redir+qss, http.StatusFound)
 			return nil
@@ -583,6 +585,8 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 			redir := fmt.Sprintf("%s@etag:%s", r.URL.Path, etagHex)
 			if before, rest, ok := strings.Cut(r.URL.Path, "APKINDEX.tar.gz"); ok {
 				redir = fmt.Sprintf("%sAPKINDEX.tar.gz@etag:%s%s", before, etagHex, rest)
+			} else if p := r.URL.Query().Get("path"); p != "" {
+				redir = fmt.Sprintf("%s@etag:%s/%s", before, etagHex, p)
 			}
 			http.Redirect(w, r, redir+qss, http.StatusFound)
 			return nil
