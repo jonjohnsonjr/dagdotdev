@@ -1,6 +1,7 @@
 module github.com/jonjohnsonjr/dagdotdev
 
-go 1.23.2
+go 1.23.3
+
 toolchain go1.23.4
 
 require (
