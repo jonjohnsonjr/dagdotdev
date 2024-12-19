@@ -51,6 +51,8 @@ var defaultExamples = []string{
 	"packages.wolfi.dev/os/x86_64",
 	"packages.cgr.dev/extras/aarch64",
 	"packages.cgr.dev/extras/x86_64",
+	"apk.cgr.dev/chainguard/aarch64",
+	"apk.cgr.dev/chainguard/x86_64",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/aarch64",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/armhf",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/armv7",
@@ -60,6 +62,8 @@ var defaultExamples = []string{
 	"dl-cdn.alpinelinux.org/alpine/edge/main/s390x",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/x86",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/x86_64",
+	"dl-cdn.alpinelinux.org/alpine/edge/community/aarch64",
+	"dl-cdn.alpinelinux.org/alpine/edge/community/x86_64",
 }
 
 type handler struct {
