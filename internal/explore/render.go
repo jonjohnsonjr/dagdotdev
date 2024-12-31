@@ -910,7 +910,7 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 					if err := json.Unmarshal(js, &index); err != nil {
 						log.Printf("json.Unmarshal[logIndex]: %v", err)
 					} else if index != 0 {
-						w.BlueDocNumber(fmt.Sprintf("https://rekor.tlog.dev/?logIndex=%d", index), strconv.FormatInt(int64(index), 10))
+						w.BlueDocNumber(fmt.Sprintf("https://search.sigstore.dev/?logIndex=%d", index), strconv.FormatInt(int64(index), 10))
 
 						// Don't fall through to renderRaw.
 						continue
