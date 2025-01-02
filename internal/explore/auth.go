@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"chainguard.dev/sdk/sts"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/jonjohnsonjr/dagdotdev/internal/chainguard"
 	"golang.org/x/time/rate"
 	"google.golang.org/api/idtoken"
 )
@@ -20,6 +22,32 @@ func NewChainguardIdentityAuth(identity, issuer, audience string) authn.Keychain
 		aud:       audience,
 		sometimes: rate.Sometimes{Interval: 30 * time.Minute},
 	}
+}
+
+// NewChainguardIdentityAuthFromURL parses a URL of the form uidp@cgr.dev?iss=issuer.enforce.dev
+func NewChainguardIdentityAuthFromURL(raw string) (authn.Keychain, error) {
+	id, err := chainguard.ParseIdentity(raw)
+	if err != nil {
+		return nil, err
+	}
+	return NewChainguardIdentityAuth(id.ID, id.Issuer, id.Audience), nil
+}
+
+func NewChainguardMultiKeychain(raw string, defaultIssuer string, defaultAudience string) (authn.Keychain, error) {
+	var ks []authn.Keychain
+	for _, s := range strings.Split(raw, ",") {
+		if strings.HasPrefix(s, "chainguard://") {
+			k, err := NewChainguardIdentityAuthFromURL(s)
+			if err != nil {
+				return nil, fmt.Errorf("parsing %q: %w", s, err)
+			}
+			ks = append(ks, k)
+		} else {
+			// Not URL format, fallback to basic identity format.
+			ks = append(ks, NewChainguardIdentityAuth(s, defaultIssuer, defaultAudience))
+		}
+	}
+	return authn.NewMultiKeychain(ks...), nil
 }
 
 type keychain struct {
@@ -42,8 +70,8 @@ func (k *keychain) ResolveContext(ctx context.Context, res authn.Resource) (auth
 		return authn.Anonymous, nil
 	}
 
-	if res.RegistryStr() != "cgr.dev" {
-		log.Printf("%q != %q", res.RegistryStr(), "cgr.dev")
+	if res.RegistryStr() != k.aud {
+		log.Printf("%q != %q", res.RegistryStr(), k.aud)
 		return authn.Anonymous, nil
 	}
 

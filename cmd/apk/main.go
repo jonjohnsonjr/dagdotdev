@@ -47,13 +47,15 @@ func main() {
 	}
 	log.Printf("listening on %s", port)
 
-	// TODO: Auth.
 	opt := []apk.Option{apk.WithUserAgent(userAgent)}
 	if *auth || os.Getenv("AUTH") == "keychain" {
 		opt = append(opt, apk.WithKeychain(gcrane.Keychain))
 	}
 	if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
-		cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "apk.cgr.dev")
+		cgauth, err := apk.NewChainguardMultiKeychain(cgid, "https://issuer.enforce.dev", "apk.cgr.dev")
+		if err != nil {
+			log.Fatalf("error creating apk auth keychain: %v", err)
+		}
 		opt = append(opt, apk.WithAuth(cgauth))
 	}
 	if eg := os.Getenv("EXAMPLES"); eg != "" {
