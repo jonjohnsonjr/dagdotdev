@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -170,9 +171,39 @@ func (h *handler) errHandler(hfe HandleFuncE) http.HandlerFunc {
 			if err := h.maybeOauthErr(w, r, err); err != nil {
 				log.Printf("%s: %v", r.URL.Path, err)
 				fmt.Fprintf(w, "failed: %s", html.EscapeString(err.Error()))
+
+				var serr *ErrorSuggestion
+				if errors.As(err, &serr) {
+					fmt.Fprintf(w, "<p><i>suggestion: %s</i></p>", serr.Suggestion())
+				}
 			}
 		}
 	}
+}
+
+// ErrorSuggestion wraps an upstream error with a server-provided suggestion for the user.
+type ErrorSuggestion struct {
+	err     error
+	suggest string
+}
+
+func NewErrorSuggestion(err error, suggest string) *ErrorSuggestion {
+	return &ErrorSuggestion{
+		err:     err,
+		suggest: suggest,
+	}
+}
+
+func (e *ErrorSuggestion) Error() string {
+	return e.err.Error()
+}
+
+func (e *ErrorSuggestion) Unwrap() error {
+	return e.err
+}
+
+func (e *ErrorSuggestion) Suggestion() string {
+	return e.suggest
 }
 
 func (h *handler) renderResponse(w http.ResponseWriter, r *http.Request) error {
@@ -206,10 +237,6 @@ func (h *handler) renderRepo(w http.ResponseWriter, r *http.Request, repo string
 	ref, err := name.NewRepository(repo)
 	if err != nil {
 		return err
-	}
-
-	if repo == "cgr.dev/chainguard" {
-		return h.renderChainguardRepo(w, r, repo)
 	}
 
 	reg := ref.RegistryStr()
@@ -263,7 +290,7 @@ func (h *handler) renderRepo(w http.ResponseWriter, r *http.Request, repo string
 	tags, err := h.listTags(w, r, ref, repo)
 	if err != nil {
 		if tags == nil {
-			return err
+			return NewErrorSuggestion(err, fmt.Sprintf(`try <a href="/?repo=%s">catalog</a>?`, ref.RegistryStr()))
 		}
 
 		// Sometimes we time out (or other issues), render whatever we got.
@@ -273,51 +300,6 @@ func (h *handler) renderRepo(w http.ResponseWriter, r *http.Request, repo string
 	b, err := json.Marshal(tags)
 	if err != nil {
 		return err
-	}
-	if err := renderJSON(output, b); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(w, footer)
-	return nil
-}
-
-func (h *handler) renderChainguardRepo(w http.ResponseWriter, r *http.Request, repo string) error {
-	// ls ../../chainguard-images/images/images | jq -Rn '{"child": [inputs] }' > cmd/oci/kodata/chainguard.json
-	fn := filepath.Join(os.Getenv("KO_DATA_PATH"), "chainguard.json")
-	b, err := os.ReadFile(fn)
-	if err != nil {
-		return err
-	}
-
-	if err := headerTmpl.Execute(w, TitleData{repo}); err != nil {
-		return err
-	}
-	header := HeaderData{
-		Repo:      repo,
-		Reference: repo,
-		JQ:        "chainctl img repo ls | jq . # kind of...",
-	}
-	if strings.Contains(repo, "/") {
-		base := path.Base(repo)
-		dir := path.Dir(strings.TrimRight(repo, "/"))
-		if base != "." && dir != "." {
-			header.Up = &RepoParent{
-				Parent:    dir,
-				Child:     base,
-				Separator: "/",
-			}
-		}
-	}
-	if err := bodyTmpl.Execute(w, header); err != nil {
-		return err
-	}
-
-	output := &jsonOutputter{
-		w:     w,
-		u:     r.URL,
-		fresh: []bool{},
-		repo:  repo,
 	}
 	if err := renderJSON(output, b); err != nil {
 		return err
