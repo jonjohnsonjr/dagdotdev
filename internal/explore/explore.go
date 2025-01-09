@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/digitorus/timestamp"
+	"github.com/dustin/go-humanize"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/logs"
@@ -1543,7 +1544,15 @@ func headerData(ref name.Reference, desc v1.Descriptor) *HeaderData {
 		QuerySep:         sep,
 		EscapedMediaType: url.QueryEscape(string(desc.MediaType)),
 		MediaTypeLink:    getLink(string(desc.MediaType)),
+		HumanSize:        humanizeSize(desc.Size),
 	}
+}
+
+func humanizeSize(size int64) string {
+	if size == 0 {
+		return "" // Default to not present.
+	}
+	return humanize.IBytes(uint64(size))
 }
 
 func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, refs string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
