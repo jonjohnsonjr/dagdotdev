@@ -2,6 +2,7 @@ package apk
 
 import (
 	"bufio"
+	"cmp"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -21,13 +22,14 @@ import (
 )
 
 type apkindex struct {
-	origin   string
-	checksum string
-	name     string
-	version  string
-	apk      string
-	provides map[string]string
-	depends  []string
+	origin    string
+	checksum  string
+	name      string
+	version   string
+	apk       string
+	provides  map[string]string
+	depends   []string
+	builddate int64
 }
 
 type pkginfo struct {
@@ -646,6 +648,12 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, open func(
 		return err
 	}
 
+	if r.URL.Query().Get("sort") == "t" {
+		slices.SortFunc(pkgs, func(a, b apkindex) int {
+			return cmp.Compare(a.builddate, b.builddate)
+		})
+	}
+
 	for _, pkg := range pkgs {
 		if !pkg.needs(depends) {
 			continue
@@ -779,6 +787,12 @@ func (h *handler) parseIndex(w http.ResponseWriter, r *http.Request, in io.Reade
 			}
 		case "D":
 			pkg.depends = strings.Split(after, " ")
+		case "t":
+			i, err := strconv.ParseInt(after, 10, 64)
+			if err != nil {
+				return nil, nil, fmt.Errorf("cannot parse build time %s: %w", before, err)
+			}
+			pkg.builddate = i
 		}
 
 		if before == "V" {
