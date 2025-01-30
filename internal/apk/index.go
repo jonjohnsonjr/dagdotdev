@@ -697,7 +697,11 @@ func (h *handler) renderShort(w http.ResponseWriter, r *http.Request, open func(
 
 	if !full {
 		if !isCurl {
-			fmt.Fprintf(w, "\n<a title=%q href=%q>...</a>", "show old versions", "?full=true")
+			u := r.URL
+			q := u.Query()
+			q.Set("full", "true")
+			u.RawQuery = q.Encode()
+			fmt.Fprintf(w, "\n<a title=%q href=%q>...</a>", "show old versions", u.String())
 		}
 	}
 
