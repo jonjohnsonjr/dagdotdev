@@ -1530,22 +1530,26 @@ func headerData(ref name.Reference, desc v1.Descriptor) *HeaderData {
 		sep = "&"
 	}
 
-	if _, ok := ref.(name.Tag); ok {
-		if ref.Context().RegistryStr() == "cgr.dev" {
-			handler = "?history="
-		}
-	}
-	return &HeaderData{
+	hdr := &HeaderData{
 		Repo:             ref.Context().String(),
 		Reference:        ref.String(),
 		CosignTags:       []CosignTag{},
 		Descriptor:       &desc,
+		RefHandler:       handler,
 		Handler:          handler,
 		QuerySep:         sep,
 		EscapedMediaType: url.QueryEscape(string(desc.MediaType)),
 		MediaTypeLink:    getLink(string(desc.MediaType)),
 		HumanSize:        humanizeSize(desc.Size),
 	}
+
+	if _, ok := ref.(name.Tag); ok {
+		if ref.Context().RegistryStr() == "cgr.dev" {
+			hdr.RefHandler = "?history="
+		}
+	}
+
+	return hdr
 }
 
 func humanizeSize(size int64) string {
