@@ -1,9 +1,6 @@
 package explore
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -12,13 +9,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
-
-type CookieValue struct {
-	Reg           string
-	PingResp      *transport.PingResp
-	Repo          string
-	TokenResponse *transport.TokenResponse
-}
 
 type RedirectCookie struct {
 	Digest string
@@ -33,27 +23,6 @@ func (h *handler) transportFromCookie(w http.ResponseWriter, r *http.Request, re
 	scopes := []string{parsed.Scope(transport.PullScope)}
 	reg := parsed.Registry
 
-	var (
-		pr  *transport.PingResp
-		tok *transport.TokenResponse
-	)
-	if regCookie, err := r.Cookie("registry_token"); err == nil {
-		b, err := base64.URLEncoding.DecodeString(regCookie.Value)
-		if err != nil {
-			return nil, err
-		}
-		var v CookieValue
-		if err := json.Unmarshal(b, &v); err != nil {
-			return nil, err
-		}
-		if v.Reg == reg.String() {
-			pr = v.PingResp
-			if v.Repo == repo {
-				tok = v.TokenResponse
-			}
-		}
-	}
-
 	t := remote.DefaultTransport
 	t = transport.NewRetry(t)
 	t = transport.NewUserAgent(t, h.userAgent)
@@ -61,74 +30,53 @@ func (h *handler) transportFromCookie(w http.ResponseWriter, r *http.Request, re
 		t = transport.NewTracer(t)
 	}
 
-	if pr == nil {
-		if cpr, ok := h.pings[reg.String()]; ok {
-			if debug {
-				log.Printf("cached ping: %v", cpr)
-			}
-			pr = cpr
-		} else {
-			if debug {
-				log.Printf("pinging %s", reg.String())
-			}
-			pr, err = transport.Ping(r.Context(), reg, t)
-			if err != nil {
-				return nil, err
-			}
-			h.pings[reg.String()] = pr
+	h.Lock()
+	pr, ok := h.pings[reg.String()]
+	h.Unlock()
+	if !ok {
+		pr, err = transport.Ping(r.Context(), reg, t)
+		if err != nil {
+			return nil, err
 		}
+		h.Lock()
+		h.pings[reg.String()] = pr
+		h.Unlock()
 	}
 
-	if tok == nil {
-		if debug {
-			log.Printf("getting token %s", reg.String())
-		}
-		t, tok, err = transport.NewBearer(r.Context(), pr, reg, auth, t, scopes)
-		if err != nil {
-			return nil, err
-		}
-
-		// Probably no auth needed.
-		if tok == nil {
-			return t, nil
-		}
-
-		// Clear this to make cookies smaller.
-		tok.AccessToken = ""
-
-		v := &CookieValue{
-			Reg:           reg.String(),
-			PingResp:      pr,
-			Repo:          repo,
-			TokenResponse: tok,
-		}
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil, err
-		}
-		cv := base64.URLEncoding.EncodeToString(b)
-		cookie := &http.Cookie{
-			Name:     "registry_token",
-			Value:    cv,
-			Secure:   true,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-		}
-		if tok.ExpiresIn == 0 {
-			tok.ExpiresIn = 60
-		}
-		exp := time.Now().Add(time.Second * time.Duration(tok.ExpiresIn))
-		cookie.Expires = exp
-		http.SetCookie(w, cookie)
-	} else {
-		if debug {
-			log.Printf("restoring bearer %s", reg.String())
-		}
-		t, err = transport.OldBearer(pr, tok, reg, auth, t, scopes)
-		if err != nil {
-			return nil, err
-		}
+	h.Lock()
+	tok, ok := h.tokens[parsed.String()]
+	h.Unlock()
+	if ok && !tok.Expires.Before(time.Now().Add(30*time.Second)) {
+		// If this won't expire within 30 seconds, reuse it.
+		return transport.OldBearer(pr, tok.TokenResponse, reg, auth, t, scopes)
 	}
 
-	return t, nil
+	// We don't have a cached token or it's expired (or about to), so get a new one.
+	rt, tr, err := transport.NewBearer(r.Context(), pr, reg, auth, t, scopes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Probably no auth needed.
+	if tr == nil {
+		return rt, nil
+	}
+
+	// Clear this to make cache smaller (sometimes this duplicates Token).
+	tr.AccessToken = ""
+
+	if tr.ExpiresIn == 0 {
+		tr.ExpiresIn = 60
+	}
+	exp := time.Now().Add(time.Second * time.Duration(tr.ExpiresIn))
+	tok = token{
+		TokenResponse: tr,
+		Expires:       exp,
+	}
+
+	h.Lock()
+	h.tokens[parsed.String()] = tok
+	h.Unlock()
+
+	return rt, nil
 }

@@ -47,6 +47,11 @@ import (
 const tooBig = 1 << 22
 const respTooBig = 1 << 25
 
+type token struct {
+	Expires       time.Time
+	TokenResponse *transport.TokenResponse
+}
+
 type handler struct {
 	mux       http.Handler
 	keychain  authn.Keychain
@@ -57,6 +62,12 @@ type handler struct {
 
 	// reg.String() -> ping resp
 	pings map[string]*transport.PingResp
+
+	// repo.String() -> token
+	tokens map[string]token
+
+	// blob.Digest() -> url
+	redirects map[string]string
 
 	tocCache   cache
 	indexCache cache
@@ -86,6 +97,8 @@ func New(opts ...Option) http.Handler {
 	h := handler{
 		manifests:  map[string]*remote.Descriptor{},
 		pings:      map[string]*transport.PingResp{},
+		tokens:     map[string]token{},
+		redirects:  map[string]string{},
 		sawTags:    map[string][]string{},
 		inflight:   map[string]*soci.Indexer{},
 		tocCache:   buildTocCache(),
