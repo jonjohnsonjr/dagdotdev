@@ -7,10 +7,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/jonjohnsonjr/dagdotdev/internal/explore"
 
 	sha256simd "github.com/minio/sha256-simd"
@@ -57,9 +59,45 @@ func main() {
 		kcs = append(kcs, gcrane.Keychain)
 	}
 
+	if dh := os.Getenv("DOCKERHUB_AUTH"); dh != "" {
+		kc, err := newHubKeychain(dh)
+		if err != nil {
+			log.Fatal(err)
+		}
+		kcs = append(kcs, kc)
+	}
+
 	if len(kcs) != 0 {
 		opt = append(opt, explore.WithKeychain(authn.NewMultiKeychain(kcs...)))
 	}
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), explore.New(opt...)))
+}
+
+func newHubKeychain(env string) (*keychain, error) {
+	user, pass, ok := strings.Cut(env, ":")
+	if !ok {
+		return nil, fmt.Errorf("invalid DOCKERHUB_AUTH, expected user:pass")
+	}
+
+	return &keychain{
+		user: user,
+		pass: pass,
+	}, nil
+}
+
+type keychain struct {
+	user string
+	pass string
+}
+
+func (k *keychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
+	if r.RegistryStr() != name.DefaultRegistry {
+		return authn.Anonymous, nil
+	}
+
+	return authn.FromConfig(authn.AuthConfig{
+		Username: k.user,
+		Password: k.pass,
+	}), nil
 }

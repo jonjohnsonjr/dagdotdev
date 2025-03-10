@@ -121,10 +121,14 @@ Enter a <strong>public</strong> repository, e.g. <tt>"ubuntu"</tt>:
 <p>
 This service lives on <a href="https://cloud.run">Cloud Run</a> and uses <a href="https://github.com/google/go-containerregistry">google/go-containerregistry</a> for registry interactions.
 </p>
+<h4>Isn't this expensive to run?</h4>
+<p>Not really! Ingress is cheap, Cloud Run is cheap, and GCS is cheap.</p>
+<p>To avoid paying for egress, I limit the amount of data that I'll serve directly and instead give you a command you can run on your own machine.</p>
+<p>The most expensive part of this is actually the domain name.</p>
 <h4>Isn't this expensive for the registry?</h4>
-<p>
-Not really! The first time a layer is accessed, I download and index it. Browsing the filesystem just uses that index, and opening a file uses Range requests to load small chunks of the layer as needed.
-</p>
+<p>Not really! The first time a layer is accessed, I download and index it. Browsing the filesystem just uses that index, and opening a file uses Range requests to load small chunks of the layer as needed.</p>
+<p>Since I only have to download the whole layer once, this actually reduces traffic to the registry in a lot of cases, e.g. if you share a link with someone rather than having them pull the whole image on their machine.</p>
+<p>In fact, Docker has graciously sponsored this service by providing me an account with unlimited public Docker Hub access. Thanks, Docker!</p>
 <h4>That can't be true, gzip doesn't support random access!</h4>
 <p>
 That's not a question.
