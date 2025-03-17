@@ -571,7 +571,7 @@ func (h *handler) renderManifest(w http.ResponseWriter, r *http.Request, image s
 	return nil
 }
 
-func (h *handler) tagHistory(w http.ResponseWriter, r *http.Request, ref name.Reference, u string) ([]byte, error) {
+func (h *handler) tagHistory(w http.ResponseWriter, r *http.Request, ref name.Reference, u string) ([]byte, string, error) {
 	repo := ref.Context().String()
 
 	auth := authn.Anonymous
@@ -590,27 +590,91 @@ func (h *handler) tagHistory(w http.ResponseWriter, r *http.Request, ref name.Re
 	}
 	tr, err := h.transportFromCookie(w, r, repo, auth)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	req.Header.Set("User-Agent", h.userAgent)
 
 	resp, err := tr.RoundTrip(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+		return nil, "", fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	link := resp.Header.Get("Link")
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return b, link, nil
+}
+
+func (h *handler) renderLinks(w http.ResponseWriter, r *http.Request, links, u string) error {
+	if links == "" {
+		return nil
+	}
+
+	uri, err := url.Parse(u)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, "<p>Link: ")
+	for i, link := range strings.Split(links, ",") {
+		clean := strings.TrimSpace(link)
+		if !strings.HasPrefix(clean, "<") {
+			continue
+		}
+		clean = strings.TrimPrefix(clean, "<")
+		before, _, ok := strings.Cut(clean, ">")
+		if !ok {
+			return fmt.Errorf("weird link: %q", clean)
+		}
+		clean = before
+		clean = strings.TrimSpace(clean)
+
+		log.Printf("clean: %q", clean)
+
+		relative, err := uri.Parse(clean)
+		if err != nil {
+			return err
+		}
+
+		newUrl := *r.URL
+
+		q := r.URL.Query()
+		if start := relative.Query().Get("start"); start != "" {
+			q.Set("start", start)
+		}
+		if end := relative.Query().Get("end"); end != "" {
+			q.Set("end", end)
+		}
+		newUrl.RawQuery = q.Encode()
+
+		log.Printf("newUrl: %q", newUrl)
+
+		href := fmt.Sprintf("<a href=%q>%s</a>", newUrl.String(), html.EscapeString(clean))
+		withHref := strings.Replace(link, clean, href, 1)
+
+		if i > 0 {
+			fmt.Fprintf(w, ", ")
+		}
+		fmt.Fprintf(w, "%s", withHref)
+	}
+	fmt.Fprintf(w, "</p>")
+
+	return nil
 }
 
 // Render CGR history.
@@ -624,10 +688,11 @@ func (h *handler) renderHistory(w http.ResponseWriter, r *http.Request, image st
 		return fmt.Errorf("not a cgr.dev image: %s", image)
 	}
 
-	u := fmt.Sprintf("https://%s/v2/%s/_chainguard/history/%s", ref.Context().Registry, ref.Context().RepositoryStr(), ref.Identifier())
+	// Make sure we are descending until I've been dead for a while.
+	u := fmt.Sprintf("https://%s/v2/%s/_chainguard/history/%s?end=3000-01-01T00:00:00.000Z", ref.Context().Registry, ref.Context().RepositoryStr(), ref.Identifier())
 
 	// TODO: Do we need to cache this?
-	th, err := h.tagHistory(w, r, ref, u)
+	th, link, err := h.tagHistory(w, r, ref, u)
 	if err != nil {
 		return err
 	}
@@ -659,6 +724,10 @@ func (h *handler) renderHistory(w http.ResponseWriter, r *http.Request, image st
 
 	if err := bodyTmpl.Execute(w, header); err != nil {
 		return fmt.Errorf("bodyTmpl: %w", err)
+	}
+
+	if err := h.renderLinks(w, r, link, u); err != nil {
+		return fmt.Errorf("renderLinks: %w", err)
 	}
 
 	if err := h.renderContent(w, r, ref, b, output, copied); err != nil {
