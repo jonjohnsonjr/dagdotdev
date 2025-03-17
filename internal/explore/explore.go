@@ -620,14 +620,9 @@ func (h *handler) tagHistory(w http.ResponseWriter, r *http.Request, ref name.Re
 	return b, link, nil
 }
 
-func (h *handler) renderLinks(w http.ResponseWriter, r *http.Request, links, u string) error {
+func (h *handler) renderLinks(w http.ResponseWriter, r *http.Request, links string, u url.URL) error {
 	if links == "" {
 		return nil
-	}
-
-	uri, err := url.Parse(u)
-	if err != nil {
-		return err
 	}
 
 	fmt.Fprintf(w, "<p>Link: ")
@@ -646,7 +641,7 @@ func (h *handler) renderLinks(w http.ResponseWriter, r *http.Request, links, u s
 
 		log.Printf("clean: %q", clean)
 
-		relative, err := uri.Parse(clean)
+		relative, err := u.Parse(clean)
 		if err != nil {
 			return err
 		}
@@ -688,11 +683,28 @@ func (h *handler) renderHistory(w http.ResponseWriter, r *http.Request, image st
 		return fmt.Errorf("not a cgr.dev image: %s", image)
 	}
 
-	// Make sure we are descending until I've been dead for a while.
-	u := fmt.Sprintf("https://%s/v2/%s/_chainguard/history/%s?end=3000-01-01T00:00:00.000Z", ref.Context().Registry, ref.Context().RepositoryStr(), ref.Identifier())
+	raw := url.Values{
+		"end": []string{"3000-01-01T00:00:00.000Z"}, // Make sure we are descending until I've been dead for a while.
+	}
+
+	u := url.URL{
+		Scheme: "https",
+		Host:   ref.Context().Registry.String(),
+		Path:   fmt.Sprintf("/v2/%s/_chainguard/history/%s", ref.Context().RepositoryStr(), ref.Identifier()),
+	}
+
+	if start := r.URL.Query().Get("start"); start != "" {
+		raw.Set("start", start)
+	}
+
+	if end := r.URL.Query().Get("end"); end != "" {
+		raw.Set("end", end)
+	}
+
+	u.RawQuery = raw.Encode()
 
 	// TODO: Do we need to cache this?
-	th, link, err := h.tagHistory(w, r, ref, u)
+	th, link, err := h.tagHistory(w, r, ref, u.String())
 	if err != nil {
 		return err
 	}
@@ -700,7 +712,7 @@ func (h *handler) renderHistory(w http.ResponseWriter, r *http.Request, image st
 	header := HeaderData{
 		Repo:      ref.Context().String(),
 		Reference: ref.String(),
-		JQ:        `curl -H "$(crane auth token -H ` + ref.Context().String() + `)" ` + u,
+		JQ:        `curl -H "$(crane auth token -H ` + ref.Context().String() + `)" ` + u.String(),
 	}
 
 	if err := headerTmpl.Execute(w, TitleData{image}); err != nil {
