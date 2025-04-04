@@ -15,7 +15,7 @@ require (
 	github.com/google/go-containerregistry v0.20.2
 	github.com/klauspost/compress v1.17.11
 	github.com/minio/sha256-simd v1.0.1
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	golang.org/x/crypto v0.36.0
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
 	golang.org/x/oauth2 v0.28.0
@@ -78,7 +78,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/psanford/memfs v0.0.0-20240922203233-02fb08c0f8db // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/vbatts/tar-split v0.11.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.lsp.dev/uri v0.3.0 // indirect
