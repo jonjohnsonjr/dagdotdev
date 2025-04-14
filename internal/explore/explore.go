@@ -1124,7 +1124,7 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 	}
 	defer blob.Close()
 
-	if mt == "application/vnd.ollama.image.model" {
+	if mt == "application/vnd.ollama.image.model" || mt == "application/vnd.docker.ai.gguf.v3" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := headerTmpl.Execute(w, TitleData{dig.String()}); err != nil {
 			return err
