@@ -225,24 +225,26 @@ func DirList(w http.ResponseWriter, r *http.Request, fsys FileSystem, prefix str
 				case "R":
 					fullName := path.Join(dir, v)
 					apks[fullName] = owner
-					got, err := fsys.Open(fullName)
-					if err != nil {
-						log.Printf("apk open: %v", err)
-						continue
-					}
-					fi, err := got.Stat()
-					if err != nil {
-						log.Printf("apk stat: %v", err)
-						continue
-					}
-					header, ok := fi.Sys().(*tar.Header)
-					if !ok {
-						continue
-					}
-					if header.Name != fullName {
-						log.Printf("apk name: %q != %q", header.Name, fullName)
-						apks[header.Name] = owner
-					}
+					// This is annoyingly slow, for large images,
+					// so sometimes symlinks might not work as expected.
+					// got, err := fsys.Open(fullName)
+					// if err != nil {
+					// 	log.Printf("apk open: %v", err)
+					// 	continue
+					// }
+					// fi, err := got.Stat()
+					// if err != nil {
+					// 	log.Printf("apk stat: %v", err)
+					// 	continue
+					// }
+					// header, ok := fi.Sys().(*tar.Header)
+					// if !ok {
+					// 	continue
+					// }
+					// if header.Name != fullName {
+					// 	log.Printf("apk name: %q != %q", header.Name, fullName)
+					// 	apks[header.Name] = owner
+					// }
 
 				case "F":
 					dir = v
