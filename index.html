@@ -1,0 +1,110 @@
+<html>
+<head>
+<title>dag.dev</title>
+<style>
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+</style>
+</head>
+<body>
+<h1>dag.dev</h1>
+<h2>dag</h2>
+<p>
+I've split each dag exploration tool into a separate subdomain:
+</p>
+<p>
+<ul>
+    <li><a href="https://oci.dag.dev">oci.dag.dev</a></li>
+    <li><a href="https://git.dag.dev">git.dag.dev</a></li>
+    <li><a href="https://apk.dag.dev">apk.dag.dev</a></li>
+</ul>
+</p>
+<p>
+I'm not sure what I will do if there's ever a dag worth exploring that doesn't fit neatly into a three-letter acronym (tla).
+</p>
+<h2>dev</h2>
+<p>
+You can find the source <a href="https://github.com/jonjohnsonjr/dagdotdev">on GitHub</a>.
+</p>
+<h2>wat</h2>
+<p>
+I built an interactive registry exploring tool hosted at <a href="https://explore.ggcr.dev">explore.ggcr.dev</a> a while back.
+We used "ggcr" as shorthand for <a href="https://github.com/google/go-containerregistry">google/go-containerregistry</a>, so I snagged the "ggcr.dev" domain when the ".dev" gTLD was new.
+Since the website is essentially an interactive version of crane (and was initially developed on a branch of the ggcr repo), it made sense to host it under ggcr.dev.
+Eventually, I decided that I wanted a more aesthetically pleasing and generic domain, so I moved everything to "oci.dag.dev".
+That domain name is by far the most expensive part of running this site.
+<p>
+Shortly after joining Chainguard, I learned that alpine packages are also "just" gzipped tarballs embedded in a <a href="https://en.wikipedia.org/wiki/Ralph_Merkle">merkle</a> dag, so I forked most of the logic to work work with APKs and spun up apk.dag.dev.
+</p>
+<p>
+More recently, Russ Cox published <a href="https://rsc.io/gitfs">rsc.io/gitfs</a>, and I realized I could do the same (more or less) with git at git.dag.dev.
+</p>
+</p>
+<p>
+If there are other interesting dags I could help you explore, please reach out on blue sky.
+</p>
+<h2>who</h2>
+<p>
+This site was built with love by the human hands of <a href="https://jon.dag.dev">@jon.dag.dev</a>.
+I hope you find it useful.
+</p>
+<h2>why</h2>
+<p>
+I've spent my entire career interacting with container registries in one way or another.
+For my own use, I built (with others) <a href="https://github.com/google/go-containerregistry/tree/main/cmd/crane">crane</a> as a sharp debugging tool.
+Since I was on the registry team at Google at the time, people often came to me with registry problems, and solutions to those problems often ended up in crane.
+Likely due to poor documentation, people continued to come to me with their problems even if they were already aware of crane, because they weren't sure where to start.
+Part of the motivation for explore.ggcr.dev was to scale myself by making common debugging paths more approachable and interactive.
+This (sometimes) allowed people to debug their problems without needing to talk to me at all, which removed me as a bottleneck for them and gave me back a bunch of time to focus on my own work.
+</p>
+<h2>how</h2>
+<p>
+A long time ago I wrote up <a href="https://github.com/jonjohnsonjr/dagdotdev/blob/main/internal/explore/README.md">a short explanation of how it all works</a>, but I've been meaning to write a more in-depth (and interactive) explanation.
+I've yapped about this in more detail on the <a href="https://changelog.com/shipit/105">Ship It podcast</a> if this is at all interesting.
+There's also <a href="https://github.com/jonjohnsonjr/targz">my targz repo</a> which I extracted from the site into a standalone implementation.
+It is mostly a thought experiment but it serves as a decent model of how the oci and apk sites work.
+The git site is just a thin wrapper around a fork of rsc.io/gitfs and is less polished.
+</p>
+<h2>hmm</h2>
+<p>
+I'm still trying to come up with a good name for this style of interface.
+It's not completely novel but I don't see people do it that often.
+For me, the important features are:
+</p>
+<p>
+<ul>
+    <li>The underlying data is rendered directly, not obscured.</li>
+    <li>An equivalent one-liner accompanies the data so users can reproduce it themselves.</li>
+    <li>Foundational relationships within the dag's data model become links that can be followed.</li>
+    <li>There is a sufficiently large corpus of publicly accessible data to explore.</li>
+    <li>Latency must be low enough to feel interactive.</li>
+    <li>The protocol is primarily text or has a canonical text representation.</li>
+</ul>
+</p>
+<p>
+If all these things are true for a given dag, I think this style of site is very useful.
+The user can build up a model of the relationships between objects in the dag themselves using their own real data rather than trying to follow contrived examples with manually drawn boxes and arrows.
+The web is a very successful graph that everyone is familiar with, even if they don't think of it in terms of graphs.
+Projecting an opaque onto a hypermedia graph I can just load up in my browser makes it super comfy to use and really easy to share.
+Rather than giving you a long command you have to run (and potentially install additional software), I can just send you a dag.dev link and we can look at things together.
+</p>
+<h2>thx</h2>
+<p>
+I am pretty sure this style of site was heavily inspired by my experience using tools like <a href="https://www.phpmyadmin.net/">phpMyAdmin</a> and <a href="https://developers.google.com/code-search/user/getting-started">code search</a>.
+</p>
+<p>
+I was cursed with the knowledge of gzip magic by <a href="https://github.com/aidansteele">Aidan Steele</a>.
+</p>
+<p>
+Big thanks to Docker as well for lifting Docker Hub rate limits on my account for oci.dag.dev.
+</p>
+</body>
+</html>
