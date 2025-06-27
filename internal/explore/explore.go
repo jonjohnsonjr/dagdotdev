@@ -1416,7 +1416,7 @@ func (h *handler) multiFS(w http.ResponseWriter, r *http.Request, dig name.Diges
 				return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
 			}
 			if index == nil {
-				l, err := remote.Layer(layerRef)
+				l, err := remote.Layer(layerRef, opts...)
 				if err != nil {
 					return err
 				}
@@ -1924,7 +1924,7 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 		}
 		if index == nil {
 			layerRef := dig.Context().Digest(layer.Digest.String())
-			l, err := remote.Layer(layerRef)
+			l, err := remote.Layer(layerRef, opts...)
 			if err != nil {
 				return err
 			}

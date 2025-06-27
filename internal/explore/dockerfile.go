@@ -71,6 +71,7 @@ func renderDockerfileSchema1(w io.Writer, b []byte, repo name.Repository) error 
 			}
 
 			if fsl.BlobSum != "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" {
+				// TODO: Plumb opts.
 				l, err := remote.Layer(repo.Digest(fsl.BlobSum))
 				if err == nil {
 					size, _ = l.Size()
