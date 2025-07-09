@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"chainguard.dev/sdk/sts"
+	"github.com/jonjohnsonjr/dagdotdev/internal/chainguard"
 	"golang.org/x/time/rate"
 	"google.golang.org/api/idtoken"
 )
@@ -31,6 +32,33 @@ func NewChainguardIdentityAuth(identity, issuer, audience string) Authenticator 
 		aud:       audience,
 		sometimes: rate.Sometimes{Interval: 30 * time.Minute},
 	}
+}
+
+// NewChainguardIdentityAuthFromURL parses a URL of the form uidp@cgr.dev?iss=issuer.enforce.dev
+func NewChainguardIdentityAuthFromURL(raw string) (Authenticator, error) {
+	id, err := chainguard.ParseIdentity(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewChainguardIdentityAuth(id.ID, id.Issuer, id.Audience), nil
+}
+
+func NewChainguardMultiKeychain(raw string, defaultIssuer string, defaultAudience string) (Authenticator, error) {
+	var ks []Authenticator
+	for _, s := range strings.Split(raw, ",") {
+		if strings.HasPrefix(s, "chainguard://") {
+			k, err := NewChainguardIdentityAuthFromURL(s)
+			if err != nil {
+				return nil, fmt.Errorf("parsing %q: %w", s, err)
+			}
+			ks = append(ks, k)
+		} else {
+			// Not URL format, fallback to basic identity format.
+			ks = append(ks, NewChainguardIdentityAuth(s, defaultIssuer, defaultAudience))
+		}
+	}
+	return NewMultiAuthenticator(ks...), nil
 }
 
 type cgAuth struct {
@@ -71,5 +99,26 @@ func (a *cgAuth) AddAuth(ctx context.Context, req *http.Request) error {
 		return a.cgerr
 	}
 	req.SetBasicAuth("user", a.cgtok)
+	return nil
+}
+
+type multiAuthenticator struct {
+	auths []Authenticator
+}
+
+func NewMultiAuthenticator(auth ...Authenticator) Authenticator {
+	return &multiAuthenticator{auths: auth}
+}
+
+func (a *multiAuthenticator) AddAuth(ctx context.Context, req *http.Request) error {
+	for _, auth := range a.auths {
+		if err := auth.AddAuth(ctx, req); err != nil {
+			return err
+		}
+		if req.Header.Get("Authorization") != "" {
+			// Auth was set, we're done.
+			return nil
+		}
+	}
 	return nil
 }
