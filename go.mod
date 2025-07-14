@@ -16,10 +16,10 @@ require (
 	github.com/klauspost/compress v1.17.11
 	github.com/minio/sha256-simd v1.0.1
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/crypto v0.36.0
+	golang.org/x/crypto v0.40.0
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
 	golang.org/x/oauth2 v0.28.0
-	golang.org/x/sync v0.13.0
+	golang.org/x/sync v0.16.0
 	golang.org/x/time v0.11.0
 	google.golang.org/api v0.214.0
 )
@@ -92,9 +92,9 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	go.step.sm/crypto v0.54.2 // indirect
-	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/net v0.41.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241118233622-e639e219e697 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576 // indirect
