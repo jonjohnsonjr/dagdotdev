@@ -1,6 +1,6 @@
 module github.com/jonjohnsonjr/dagdotdev
 
-go 1.23.3
+go 1.24.0
 
 toolchain go1.24.1
 
@@ -18,7 +18,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/crypto v0.36.0
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
-	golang.org/x/oauth2 v0.28.0
+	golang.org/x/oauth2 v0.31.0
 	golang.org/x/sync v0.13.0
 	golang.org/x/time v0.11.0
 	google.golang.org/api v0.214.0
