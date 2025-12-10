@@ -24,10 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
 // Option is a functional option for List and Walk.
@@ -97,7 +97,7 @@ func (l *lister) list(repo name.Repository) (*Tags, error) {
 		Host:   repo.Registry.RegistryStr(),
 		Path:   path,
 		// ECR returns an error if n > 1000:
-		// https://github.com/google/go-containerregistry/issues/681
+		// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/681
 		RawQuery: "n=1000",
 	}
 

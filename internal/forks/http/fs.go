@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/elf"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/safefilepath"
 	"github.com/jonjohnsonjr/dagdotdev/internal/xxd"

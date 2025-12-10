@@ -25,8 +25,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
 )
 
 var (
@@ -158,7 +158,7 @@ func TestTransportSelectionBearer(t *testing.T) {
 					t.Errorf("FormValue(scope); got %v, want %v", got, want)
 				}
 				// Check that the service isn't set (we didn't specify it above)
-				// https://github.com/google/go-containerregistry/issues/1359
+				// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/1359
 				if got, want := r.FormValue("service"), ""; got != want {
 					t.Errorf("FormValue(service); got %q, want %q", got, want)
 				}

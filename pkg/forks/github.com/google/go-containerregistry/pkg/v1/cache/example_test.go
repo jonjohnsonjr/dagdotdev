@@ -19,8 +19,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/google/go-containerregistry/pkg/v1/cache"
-	"github.com/google/go-containerregistry/pkg/v1/random"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/cache"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/random"
 )
 
 func ExampleImage() {

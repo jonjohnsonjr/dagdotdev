@@ -22,7 +22,7 @@ import (
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
-	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
 	"github.com/mitchellh/go-homedir"
 )
 
@@ -125,7 +125,7 @@ func (dk *defaultKeychain) Resolve(target Resource) (Authenticator, error) {
 		}
 		// cf.GetAuthConfig automatically sets the ServerAddress attribute. Since
 		// we don't make use of it, clear the value for a proper "is-empty" test.
-		// See: https://github.com/google/go-containerregistry/issues/1510
+		// See: https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/1510
 		cfg.ServerAddress = ""
 		if cfg != empty {
 			break

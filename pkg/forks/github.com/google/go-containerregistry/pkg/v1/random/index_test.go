@@ -17,8 +17,8 @@ package random
 import (
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/google/go-containerregistry/pkg/v1/validate"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/validate"
 )
 
 func TestRandomIndex(t *testing.T) {

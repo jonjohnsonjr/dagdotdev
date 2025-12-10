@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"chainguard.dev/sdk/sts"
-	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
 	"golang.org/x/time/rate"
 	"google.golang.org/api/idtoken"
 )

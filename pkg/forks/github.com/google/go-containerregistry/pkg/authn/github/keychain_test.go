@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
 )
 
 // TestKeychain checks that the keychain resolves when $GITHUB_TOKEN is set and

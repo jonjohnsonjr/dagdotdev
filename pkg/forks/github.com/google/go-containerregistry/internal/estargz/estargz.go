@@ -20,7 +20,7 @@ import (
 	"io"
 
 	"github.com/containerd/stargz-snapshotter/estargz"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
 )
 
 // Assert that what we're returning is an io.ReadCloser

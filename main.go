@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/gcrane"
-	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/gcrane"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/apk"
 	"github.com/jonjohnsonjr/dagdotdev/internal/explore"
 	"github.com/jonjohnsonjr/dagdotdev/internal/git"

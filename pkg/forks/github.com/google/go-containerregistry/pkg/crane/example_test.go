@@ -17,7 +17,7 @@ package crane_test
 import (
 	"fmt"
 
-	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/crane"
 )
 
 func Example() {

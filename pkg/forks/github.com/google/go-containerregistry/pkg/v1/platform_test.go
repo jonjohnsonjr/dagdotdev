@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
 )
 
 func TestPlatformString(t *testing.T) {

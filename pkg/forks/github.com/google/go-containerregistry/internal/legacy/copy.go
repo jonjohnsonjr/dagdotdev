@@ -19,8 +19,8 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 // CopySchema1 allows `[g]crane cp` to work with old images without adding

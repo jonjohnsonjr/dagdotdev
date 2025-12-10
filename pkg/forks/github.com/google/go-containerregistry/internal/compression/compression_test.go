@@ -19,9 +19,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/google/go-containerregistry/internal/and"
-	"github.com/google/go-containerregistry/internal/gzip"
-	"github.com/google/go-containerregistry/internal/zstd"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/and"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/gzip"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/zstd"
 )
 
 type Compressor = func(rc io.ReadCloser) io.ReadCloser

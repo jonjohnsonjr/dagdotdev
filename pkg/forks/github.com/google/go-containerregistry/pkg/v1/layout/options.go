@@ -14,7 +14,7 @@
 
 package layout
 
-import v1 "github.com/google/go-containerregistry/pkg/v1"
+import v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
 
 // Option is a functional option for Layout.
 type Option func(*options)

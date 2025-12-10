@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/go-containerregistry/internal/redact"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/redact"
 )
 
 // Error implements error to support the following error specification:

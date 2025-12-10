@@ -24,8 +24,8 @@ import (
 	"hash"
 	"io"
 
-	"github.com/google/go-containerregistry/internal/and"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/and"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
 )
 
 // SizeUnknown is a sentinel value to indicate that the expected size is not known.

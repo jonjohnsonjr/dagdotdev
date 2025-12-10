@@ -119,7 +119,7 @@ func NewRegistry(name string, opts ...Option) (Registry, error) {
 		name = opt.defaultRegistry
 	}
 	// Rewrite "docker.io" to "index.docker.io".
-	// See: https://github.com/google/go-containerregistry/issues/68
+	// See: https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/68
 	if name == defaultRegistryAlias {
 		name = DefaultRegistry
 	}

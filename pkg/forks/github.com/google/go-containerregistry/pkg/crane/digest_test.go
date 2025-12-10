@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 func TestDigest_MissingDigest(t *testing.T) {

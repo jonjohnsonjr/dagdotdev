@@ -17,7 +17,7 @@ import (
 
 	"chainguard.dev/apko/pkg/apk/apk"
 	"github.com/dustin/go-humanize"
-	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 )
 

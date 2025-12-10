@@ -17,7 +17,7 @@ package v1
 import (
 	"io"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 // Layer is an interface for accessing the properties of a particular layer of a v1.Image

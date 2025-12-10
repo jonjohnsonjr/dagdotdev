@@ -17,7 +17,7 @@ package transport
 import (
 	"net/http"
 
-	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
 )
 
 type schemeTransport struct {

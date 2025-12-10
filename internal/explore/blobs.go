@@ -85,7 +85,7 @@ func tarPeek(r io.Reader) (bool, gzip.PeekReader, error) {
 
 	block, err := pr.Peek(512)
 	if err != nil {
-		// https://github.com/google/go-containerregistry/issues/367
+		// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/367
 		if err == io.EOF {
 			return false, pr, nil
 		}
@@ -164,7 +164,7 @@ func zstdPeek(r io.Reader) (bool, gzip.PeekReader, error) {
 func checkHeader(pr gzip.PeekReader, expectedHeader []byte) (bool, gzip.PeekReader, error) {
 	header, err := pr.Peek(len(expectedHeader))
 	if err != nil {
-		// https://github.com/google/go-containerregistry/issues/367
+		// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/367
 		if err == io.EOF {
 			return false, pr, nil
 		}

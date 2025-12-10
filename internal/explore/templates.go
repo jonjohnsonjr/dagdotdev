@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"text/template"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
 )
 
 var (
@@ -20,9 +20,9 @@ func init() {
 }
 
 const (
-	gcrane     = `<a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/gcrane/README.md">gcrane</a>`
-	craneLink  = `<a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a>`
-	subLinkFmt = `<a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_%s.md">%s</a>`
+	gcrane     = `<a class="mt" href="https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/blob/main/cmd/gcrane/README.md">gcrane</a>`
+	craneLink  = `<a class="mt" href="https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a>`
+	subLinkFmt = `<a class="mt" href="https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_%s.md">%s</a>`
 )
 
 func crane(sub string) string {
@@ -119,7 +119,7 @@ Enter a <strong>public</strong> repository, e.g. <tt>"ubuntu"</tt>:
 <h3>FAQ</h3>
 <h4>How does this work?</h4>
 <p>
-This service lives on <a href="https://cloud.run">Cloud Run</a> and uses <a href="https://github.com/google/go-containerregistry">google/go-containerregistry</a> for registry interactions.
+This service lives on <a href="https://cloud.run">Cloud Run</a> and uses <a href="https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry">google/go-containerregistry</a> for registry interactions.
 </p>
 <h4>Isn't this expensive to run?</h4>
 <p>Not really! Ingress is cheap, Cloud Run is cheap, and GCS is cheap.</p>

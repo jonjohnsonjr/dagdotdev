@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 )
 

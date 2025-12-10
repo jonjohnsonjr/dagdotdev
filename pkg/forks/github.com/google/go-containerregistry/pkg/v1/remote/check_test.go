@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
 )
 
 func TestCheckPushPermission(t *testing.T) {

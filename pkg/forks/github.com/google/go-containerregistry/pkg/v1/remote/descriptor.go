@@ -24,20 +24,20 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/google/go-containerregistry/internal/redact"
-	"github.com/google/go-containerregistry/internal/verify"
-	"github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/partial"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/redact"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/verify"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 // ErrSchema1 indicates that we received a schema1 manifest from the registry.
 // This library doesn't have plans to support this legacy image format:
-// https://github.com/google/go-containerregistry/issues/377
+// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/377
 type ErrSchema1 struct {
 	schema string
 }
@@ -51,7 +51,7 @@ func newErrSchema1(schema types.MediaType) error {
 
 // Error implements error.
 func (e *ErrSchema1) Error() string {
-	return fmt.Sprintf("unsupported MediaType: %q, see https://github.com/google/go-containerregistry/issues/377", e.schema)
+	return fmt.Sprintf("unsupported MediaType: %q, see https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/377", e.schema)
 }
 
 // Descriptor provides access to metadata about remote artifact and accessors
@@ -148,7 +148,7 @@ func (d *Descriptor) Image() (v1.Image, error) {
 	switch d.MediaType {
 	case types.DockerManifestSchema1, types.DockerManifestSchema1Signed:
 		// We don't care to support schema 1 images:
-		// https://github.com/google/go-containerregistry/issues/377
+		// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/377
 		return nil, newErrSchema1(d.MediaType)
 	case types.OCIImageIndex, types.DockerManifestList:
 		// We want an image but the registry has an index, resolve it to an image.
@@ -178,7 +178,7 @@ func (d *Descriptor) ImageIndex() (v1.ImageIndex, error) {
 	switch d.MediaType {
 	case types.DockerManifestSchema1, types.DockerManifestSchema1Signed:
 		// We don't care to support schema 1 images:
-		// https://github.com/google/go-containerregistry/issues/377
+		// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/377
 		return nil, newErrSchema1(d.MediaType)
 	case types.OCIManifestSchema1, types.DockerManifestSchema2:
 		// We want an index but the registry has an image, nothing we can do.

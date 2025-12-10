@@ -25,9 +25,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/partial"
 )
 
 // WriteToFile writes in the compressed format to a tarball, on disk.
@@ -345,10 +345,10 @@ func dedupRefToImage(refToImage map[name.Reference]v1.Image) map[v1.Image][]stri
 				imageToTags[img] = []string{}
 			}
 			// Docker cannot load tarballs without an explicit tag:
-			// https://github.com/google/go-containerregistry/issues/890
+			// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/890
 			//
 			// We can't use the fully qualified tag.Name() because of rules_docker:
-			// https://github.com/google/go-containerregistry/issues/527
+			// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/527
 			//
 			// If the tag is "latest", but tag.String() doesn't end in ":latest",
 			// just append it. Kind of gross, but should work for now.

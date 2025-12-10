@@ -15,7 +15,7 @@
 package legacy
 
 import (
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
 )
 
 // LayerConfigFile is the configuration file that holds the metadata describing

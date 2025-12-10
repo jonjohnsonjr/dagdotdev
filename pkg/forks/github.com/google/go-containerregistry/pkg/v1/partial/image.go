@@ -15,7 +15,7 @@
 package partial
 
 import (
-	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 // ImageCore is the core set of properties without which we cannot build a v1.Image

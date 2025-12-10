@@ -138,7 +138,7 @@ func Peek(r io.Reader) (bool, PeekReader, error) {
 	}
 	header, err := pr.Peek(2)
 	if err != nil {
-		// https://github.com/google/go-containerregistry/issues/367
+		// https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/issues/367
 		if err == io.EOF {
 			return false, pr, nil
 		}

@@ -25,7 +25,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
 )
 
 var (

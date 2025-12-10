@@ -8,18 +8,25 @@ require (
 	chainguard.dev/apko v0.20.1
 	chainguard.dev/sdk v0.1.29
 	cloud.google.com/go/storage v1.50.0
+	github.com/containerd/stargz-snapshotter/estargz v0.15.1
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7
+	github.com/docker/cli v27.3.1+incompatible
+	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/google/go-cmp v0.7.0
-	github.com/google/go-containerregistry v0.20.2
+	github.com/klauspost/compress v1.17.11
 	github.com/minio/sha256-simd v1.0.1
+	github.com/mitchellh/go-homedir v1.1.0
+	github.com/opencontainers/go-digest v1.0.0
+	github.com/opencontainers/image-spec v1.1.0
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/crypto v0.36.0
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
 	golang.org/x/oauth2 v0.28.0
 	golang.org/x/sync v0.13.0
 	golang.org/x/time v0.11.0
+	golang.org/x/tools v0.27.0
 	google.golang.org/api v0.214.0
 )
 
@@ -41,10 +48,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chainguard-dev/clog v1.5.1 // indirect
 	github.com/cncf/xds/go v0.0.0-20240905190251-b4127c9b8d78 // indirect
-	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 // indirect
-	github.com/docker/cli v27.3.1+incompatible // indirect
-	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
 	github.com/envoyproxy/go-control-plane v0.13.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
@@ -64,12 +68,8 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
-	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
@@ -92,6 +92,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	go.step.sm/crypto v0.54.2 // indirect
+	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
@@ -103,5 +104,3 @@ require (
 	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
-
-replace github.com/google/go-containerregistry => ./pkg/forks/github.com/google/go-containerregistry

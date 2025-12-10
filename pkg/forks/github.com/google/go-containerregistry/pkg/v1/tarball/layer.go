@@ -23,15 +23,15 @@ import (
 	"sync"
 
 	"github.com/containerd/stargz-snapshotter/estargz"
-	"github.com/google/go-containerregistry/internal/and"
-	comp "github.com/google/go-containerregistry/internal/compression"
-	gestargz "github.com/google/go-containerregistry/internal/estargz"
-	ggzip "github.com/google/go-containerregistry/internal/gzip"
-	"github.com/google/go-containerregistry/internal/zstd"
-	"github.com/google/go-containerregistry/pkg/compression"
-	"github.com/google/go-containerregistry/pkg/logs"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/and"
+	comp "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/compression"
+	gestargz "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/estargz"
+	ggzip "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/gzip"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/internal/zstd"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/compression"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 type layer struct {

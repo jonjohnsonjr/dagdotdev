@@ -17,8 +17,8 @@ package partial
 import (
 	"fmt"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/match"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/match"
 )
 
 // FindManifests given a v1.ImageIndex, find the manifests that fit the matcher.

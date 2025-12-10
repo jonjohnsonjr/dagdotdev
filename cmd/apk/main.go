@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/go-containerregistry/pkg/gcrane"
-	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/gcrane"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/apk"
 
 	sha256simd "github.com/minio/sha256-simd"
