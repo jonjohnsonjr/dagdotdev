@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/klauspost/compress/internal/fuzz"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/internal/fuzz"
 )
 
 // Fuzzing tweaks:

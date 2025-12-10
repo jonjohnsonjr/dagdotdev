@@ -19,7 +19,7 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/rsc.io/gitfs"
 	"golang.org/x/exp/maps"
 
-	"github.com/klauspost/compress/gzhttp"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp"
 )
 
 // We should not buffer blobs greater than 2MB

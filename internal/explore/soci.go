@@ -16,7 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
-	"github.com/klauspost/compress/zstd"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
 )
 
 // 5 MB.

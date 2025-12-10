@@ -1,4 +1,4 @@
-// package gzkp provides gzip compression through github.com/klauspost/compress/gzip.
+// package gzkp provides gzip compression through github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzip.
 
 package gzkp
 
@@ -6,8 +6,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/klauspost/compress/gzhttp/writer"
-	"github.com/klauspost/compress/gzip"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp/writer"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzip"
 )
 
 // gzipWriterPools stores a sync.Pool for each compression level for reuse of

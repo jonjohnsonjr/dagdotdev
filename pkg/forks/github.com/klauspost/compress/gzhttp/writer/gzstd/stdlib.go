@@ -7,7 +7,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/klauspost/compress/gzhttp/writer"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp/writer"
 )
 
 // gzipWriterPools stores a sync.Pool for each compression level for reuse of

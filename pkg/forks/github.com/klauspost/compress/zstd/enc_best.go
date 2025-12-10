@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/klauspost/compress"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress"
 )
 
 const (

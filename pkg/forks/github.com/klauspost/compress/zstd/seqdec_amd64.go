@@ -6,7 +6,7 @@ package zstd
 import (
 	"fmt"
 
-	"github.com/klauspost/compress/internal/cpuinfo"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/internal/cpuinfo"
 )
 
 type decodeSyncAsmContext struct {

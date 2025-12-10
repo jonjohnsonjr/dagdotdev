@@ -38,7 +38,7 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/internal/gguf"
 	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
 	"github.com/jonjohnsonjr/dagdotdev/internal/xxd"
-	"github.com/klauspost/compress/gzhttp"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 )

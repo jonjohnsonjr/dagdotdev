@@ -9,7 +9,7 @@ import (
 
 	ogzip "compress/gzip"
 
-	kzstd "github.com/klauspost/compress/zstd"
+	kzstd "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
 
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/and"

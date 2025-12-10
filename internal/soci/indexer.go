@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/klauspost/compress/zstd"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
 
 	ogzip "compress/gzip"
 

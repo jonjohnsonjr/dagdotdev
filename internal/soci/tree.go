@@ -16,7 +16,7 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/internal/and"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/flate"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/gzip"
-	"github.com/klauspost/compress/zstd"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
 )
 
 type Index interface {

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/klauspost/compress/zstd"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
 	"golang.org/x/exp/slices"
 )
 

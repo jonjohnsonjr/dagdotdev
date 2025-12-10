@@ -14,7 +14,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/klauspost/compress/flate"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/flate"
 )
 
 const (

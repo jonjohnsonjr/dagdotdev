@@ -11,7 +11,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/klauspost/compress/zstd/internal/xxhash"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd/internal/xxhash"
 )
 
 // Decoder provides decoding of zstandard streams.

@@ -1,6 +1,6 @@
 // Package zstd provides decompression of zstandard files.
 //
-// For advanced usage and examples, go to the README: https://github.com/klauspost/compress/tree/master/zstd#zstd
+// For advanced usage and examples, go to the README: https://github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/tree/master/zstd#zstd
 package zstd
 
 import (

@@ -13,7 +13,6 @@ require (
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.20.2
-	github.com/klauspost/compress v1.17.11
 	github.com/minio/sha256-simd v1.0.1
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/crypto v0.36.0
@@ -65,6 +64,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
+	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
@@ -104,7 +104,4 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 
-replace (
-	github.com/google/go-containerregistry => ./pkg/forks/github.com/google/go-containerregistry
-	github.com/klauspost/compress => ./pkg/forks/github.com/klauspost/compress
-)
+replace github.com/google/go-containerregistry => ./pkg/forks/github.com/google/go-containerregistry

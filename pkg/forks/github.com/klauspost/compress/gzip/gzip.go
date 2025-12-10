@@ -10,7 +10,7 @@ import (
 	"hash/crc32"
 	"io"
 
-	"github.com/klauspost/compress/flate"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/flate"
 )
 
 // These constants are copied from the flate package, so that code that imports
