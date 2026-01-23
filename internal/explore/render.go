@@ -25,6 +25,7 @@ const (
 	cosignPointee   = `application/vnd.dev.ggcr.magic/cosign-thing+json`
 	emptyDigest     = "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
 	hcsshim         = `https://github.com/microsoft/hcsshim/blob/main/osversion/windowsbuilds.go`
+	indent          = "\u00a0\u00a0" // non-breaking spaces for copyable indentation
 )
 
 type jsonOutputter struct {
@@ -168,7 +169,7 @@ func (w *jsonOutputter) EndMap() {
 	}
 	w.pop()
 	w.newline()
-	w.Print(w.tabs() + "}")
+	w.Printf("<span class=\"cp\">%s</span>}", w.tabs())
 	w.key = false
 	w.name = ""
 	w.unfresh()
@@ -188,7 +189,7 @@ func (w *jsonOutputter) EndArray() {
 	}
 	w.pop()
 	w.newline()
-	w.Print(w.tabs() + "]")
+	w.Printf("<span class=\"cp\">%s</span>]", w.tabs())
 	w.key = false
 	w.unfresh()
 }
@@ -223,14 +224,13 @@ func (w *jsonOutputter) Fresh() bool {
 }
 
 func (w *jsonOutputter) push() {
-	w.Print(w.tabs() + `<div class="indent">` + "\n")
+	w.Print(`<div class="indent">` + "\n")
 	w.fresh = append(w.fresh, true)
 }
 
 func (w *jsonOutputter) pop() {
 	w.fresh = w.fresh[:len(w.fresh)-1]
 	w.newline()
-	w.Print(w.tabs())
 	w.undiv()
 }
 
@@ -280,7 +280,7 @@ func (w *jsonOutputter) maybeMap(k string) string {
 }
 
 func (w *jsonOutputter) tabs() string {
-	return strings.Repeat("  ", len(w.fresh))
+	return strings.Repeat(indent, len(w.fresh))
 }
 
 func (w *jsonOutputter) newline() {
@@ -288,7 +288,7 @@ func (w *jsonOutputter) newline() {
 }
 
 func (w *jsonOutputter) div() {
-	w.Print(w.tabs() + "<div>")
+	w.Print("<div><span class=\"cp\">" + w.tabs() + "</span>")
 }
 
 func (w *jsonOutputter) undiv() {
