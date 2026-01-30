@@ -249,6 +249,10 @@ pre {
 	margin-left: 2em;
 }
 
+.cp {
+	font-size: 0;
+}
+
 .noselect {
 	user-select: none;
 	-webkit-user-select: none;
