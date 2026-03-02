@@ -54,8 +54,8 @@ func TestPack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var s store
-	err = unpack(&s, data)
+	var s Store
+	err = Unpack(&s, data)
 	if err != nil {
 		t.Fatal(err)
 	}

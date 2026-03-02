@@ -13,11 +13,11 @@ import (
 	"io"
 )
 
-// unpack parses data, which is a Git pack-formatted archive,
-// writing every object it contains to the store s.
+// Unpack parses data, which is a Git pack-formatted archive,
+// writing every object it contains to the Store s.
 //
 // See https://git-scm.com/docs/pack-format for format documentation.
-func unpack(s *store, data []byte) error {
+func Unpack(s *Store, data []byte) error {
 	// If the store is empty, pre-allocate the length of data.
 	// This should be about the right order of magnitude for the eventual data,
 	// avoiding many growing steps during append.
@@ -50,7 +50,7 @@ func unpack(s *store, data []byte) error {
 	objs := data[12 : len(data)-20]
 	off := 0
 	for i := 0; i < int(nobj); i++ {
-		_, _, _, encSize, err := unpackObject(s, objs, off)
+		_, _, _, encSize, err := UnpackObject(s, objs, off)
 		if err != nil {
 			return fmt.Errorf("unpack: malformed git pack: %v", err)
 		}
@@ -62,10 +62,10 @@ func unpack(s *store, data []byte) error {
 	return nil
 }
 
-// unpackObject unpacks the object at objs[off:] and writes it to the store s.
+// UnpackObject unpacks the object at objs[off:] and writes it to the Store s.
 // It returns the type, hash, and content of the object, as well as the encoded size,
 // meaning the number of bytes at the start of objs[off:] that this record occupies.
-func unpackObject(s *store, objs []byte, off int) (typ ObjType, h Hash, content []byte, encSize int, err error) {
+func UnpackObject(s *Store, objs []byte, off int) (typ ObjType, h Hash, content []byte, encSize int, err error) {
 	fail := func(err error) (ObjType, Hash, []byte, int, error) {
 		return 0, Hash{}, nil, 0, err
 	}
@@ -92,7 +92,7 @@ func unpackObject(s *store, objs []byte, off int) (typ ObjType, h Hash, content 
 	var deltaTyp ObjType
 	var deltaBase []byte
 	switch typ {
-	case objRefDelta:
+	case ObjRefDelta:
 		if len(objs)-(off+size) < 20 {
 			return fail(fmt.Errorf("invalid object: bad delta ref"))
 		}
@@ -105,7 +105,7 @@ func unpackObject(s *store, objs []byte, off int) (typ ObjType, h Hash, content 
 			return fail(fmt.Errorf("invalid object: unknown delta ref %v", h))
 		}
 
-	case objOfsDelta:
+	case ObjOfsDelta:
 		i := off + size
 		if len(objs)-i < 20 {
 			return fail(fmt.Errorf("invalid object: too short"))
@@ -130,7 +130,7 @@ func unpackObject(s *store, objs []byte, off int) (typ ObjType, h Hash, content 
 			return fail(fmt.Errorf("invalid object: bad delta offset"))
 		}
 		var err error
-		deltaTyp, _, deltaBase, _, err = unpackObject(s, objs, off-int(d))
+		deltaTyp, _, deltaBase, _, err = UnpackObject(s, objs, off-int(d))
 		if err != nil {
 			return fail(fmt.Errorf("invalid object: bad delta offset"))
 		}
@@ -156,9 +156,9 @@ func unpackObject(s *store, objs []byte, off int) (typ ObjType, h Hash, content 
 	switch typ {
 	default:
 		return fail(fmt.Errorf("invalid object: unknown object type"))
-	case objCommit, objTree, objBlob, objTag:
+	case ObjCommit, ObjTree, ObjBlob, ObjTag:
 		// ok
-	case objRefDelta, objOfsDelta:
+	case ObjRefDelta, ObjOfsDelta:
 		// Actual object type is the type of the base object.
 		typ = deltaTyp
 
@@ -179,7 +179,7 @@ func unpackObject(s *store, objs []byte, off int) (typ ObjType, h Hash, content 
 		data = targ
 	}
 
-	h, data = s.add(typ, data)
+	h, data = s.Add(typ, data)
 	return typ, h, data, encSize, nil
 }
 
