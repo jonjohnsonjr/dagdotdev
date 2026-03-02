@@ -39,21 +39,21 @@ func ParseHash(text string) (Hash, error) {
 type ObjType int
 
 const (
-	objNone   ObjType = 0
-	objCommit ObjType = 1
-	objTree   ObjType = 2
-	objBlob   ObjType = 3
-	objTag    ObjType = 4
+	ObjNone   ObjType = 0
+	ObjCommit ObjType = 1
+	ObjTree   ObjType = 2
+	ObjBlob   ObjType = 3
+	ObjTag    ObjType = 4
 	// 5 undefined
-	objOfsDelta ObjType = 6
-	objRefDelta ObjType = 7
+	ObjOfsDelta ObjType = 6
+	ObjRefDelta ObjType = 7
 )
 
 var objTypes = [...]string{
-	objCommit: "commit",
-	objTree:   "tree",
-	objBlob:   "blob",
-	objTag:    "tag",
+	ObjCommit: "commit",
+	ObjTree:   "tree",
+	ObjBlob:   "blob",
+	ObjTag:    "tag",
 }
 
 func (t ObjType) String() string {
@@ -70,10 +70,10 @@ type DirEntry struct {
 	Hash Hash
 }
 
-// parseDirEntry parses the next directory entry from data,
+// ParseDirEntry parses the next directory entry from data,
 // returning the entry and the number of bytes it occupied.
-// If data is malformed, parseDirEntry returns dirEntry{}, 0.
-func parseDirEntry(data []byte) (DirEntry, int) {
+// If data is malformed, ParseDirEntry returns DirEntry{}, 0.
+func ParseDirEntry(data []byte) (DirEntry, int) {
 	// Unclear where or if this format is documented by Git.
 	// Each directory entry is an octal mode, then a space,
 	// then a file name, then a NUL byte, then a 20-byte binary hash.
@@ -111,7 +111,7 @@ func treeLookup(data []byte, name string) (mode int, h Hash, ok bool) {
 	// but the directory entry data is not self-synchronizing,
 	// so it's not possible to be clever and use a binary search here.
 	for len(data) > 0 {
-		e, size := parseDirEntry(data)
+		e, size := ParseDirEntry(data)
 		if size == 0 {
 			break
 		}
@@ -153,8 +153,8 @@ func commitKeyValue(data []byte, key string) ([]byte, bool) {
 	return nil, false
 }
 
-// A store is a collection of Git objects, indexed for lookup by hash.
-type store struct {
+// A Store is a collection of Git objects, indexed for lookup by hash.
+type Store struct {
 	repo  *Repo
 	sha1  hashpkg.Hash    // reused hash state
 	index map[Hash]stored // lookup index
@@ -164,13 +164,13 @@ type store struct {
 // A stored describes a single stored object.
 type stored struct {
 	typ ObjType // object type
-	off int     // object data is store.data[off:off+len]
+	off int     // object data is Store.data[off:off+len]
 	len int
 }
 
-// add adds an object with the given type and content to s, returning its Hash.
-// If the object is already stored in s, add succeeds but doesn't store a second copy.
-func (s *store) add(typ ObjType, data []byte) (Hash, []byte) {
+// Add adds an object with the given type and content to s, returning its Hash.
+// If the object is already stored in s, Add succeeds but doesn't store a second copy.
+func (s *Store) Add(typ ObjType, data []byte) (Hash, []byte) {
 	if s.sha1 == nil {
 		s.sha1 = sha1.New()
 	}
@@ -196,7 +196,7 @@ func (s *store) add(typ ObjType, data []byte) (Hash, []byte) {
 
 // Object returns the type and data for the Object with hash h.
 // If there is no Object with hash h, Object returns 0, nil.
-func (s *store) Object(h Hash) (typ ObjType, data []byte) {
+func (s *Store) Object(h Hash) (typ ObjType, data []byte) {
 	d, ok := s.index[h]
 	if !ok {
 		return 0, nil
@@ -205,16 +205,16 @@ func (s *store) Object(h Hash) (typ ObjType, data []byte) {
 }
 
 // Commit returns a treeFS for the file system tree associated with the given Commit hash.
-func (s *store) Commit(c Hash) (*treeFS, []byte, error) {
+func (s *Store) Commit(c Hash) (*treeFS, []byte, error) {
 	// The commit object data starts with key-value pairs
 	typ, data := s.Object(c)
-	if typ == objNone {
+	if typ == ObjNone {
 		return nil, nil, fmt.Errorf("commit %s: no such hash", c)
 	}
 	// fmt.Fprintf(os.Stderr, "typ=%d\n", typ)
 	// fmt.Fprintf(os.Stderr, "%s", data)
 	// os.Stderr.Write([]byte("\n"))
-	if typ != objCommit {
+	if typ != ObjCommit {
 		return nil, nil, fmt.Errorf("commit %s: unexpected type %s", c, typ)
 	}
 	treeHash, ok := commitKeyValue(data, "tree")
@@ -230,7 +230,7 @@ func (s *store) Commit(c Hash) (*treeFS, []byte, error) {
 
 // A treeFS is an fs.FS serving a Git file system tree rooted at a given tree object hash.
 type treeFS struct {
-	s      *store
+	s      *Store
 	tree   Hash // root tree
 	commit Hash
 }
@@ -265,7 +265,7 @@ func (t *treeFS) Open(name string) (f fs.File, err error) {
 			if i == len(name) || name[i] == '/' {
 				// Look up name in current tree object h.
 				typ, data := t.s.Object(h)
-				if typ != objTree {
+				if typ != ObjTree {
 					return nil, &fs.PathError{Path: name, Op: "open", Err: fs.ErrNotExist}
 				}
 				_, th, ok := treeLookup(data, name[start:i])
@@ -283,7 +283,7 @@ func (t *treeFS) Open(name string) (f fs.File, err error) {
 	// The hash h is the hash for name. Load its object.
 	typ, data := t.s.Object(h)
 	info := fileInfo{name, name[start:], 0, 0, nil}
-	if typ == objBlob {
+	if typ == ObjBlob {
 		// Regular file.
 		info.mode = 0444
 		info.size = int64(len(data))
@@ -294,7 +294,7 @@ func (t *treeFS) Open(name string) (f fs.File, err error) {
 		}
 		return &blobFile{info, bytes.NewReader(data)}, nil
 	}
-	if typ == objTree {
+	if typ == ObjTree {
 		// Directory.
 		info.mode = fs.ModeDir | 0555
 		info.sys = &DirEntry{
@@ -341,7 +341,7 @@ func (f *blobFile) Stat() (fs.FileInfo, error) { return &f.info, nil }
 
 // A dirFile implements fs.File for a directory.
 type dirFile struct {
-	s    *store
+	s    *Store
 	info fileInfo
 	data []byte
 	off  int
@@ -369,18 +369,18 @@ func (f *dirFile) ReadDir(n int) (list []fs.DirEntry, err error) {
 	}()
 
 	for (n <= 0 || len(list) < n) && f.off < len(f.data) {
-		e, size := parseDirEntry(f.data[f.off:])
+		e, size := ParseDirEntry(f.data[f.off:])
 		if size == 0 {
 			break
 		}
 		f.off += size
 		typ, data := f.s.Object(e.Hash)
 		mode := fs.FileMode(0444)
-		if typ == objTree {
+		if typ == ObjTree {
 			mode = fs.ModeDir | 0555
 		}
 		infoSize := int64(0)
-		if typ == objBlob {
+		if typ == ObjBlob {
 			infoSize = int64(len(data))
 		}
 		name := string(e.Name)

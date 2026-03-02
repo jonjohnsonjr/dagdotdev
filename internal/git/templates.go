@@ -55,6 +55,19 @@ body {
 	<li><a href="/?url=https://github.com/wolfi-dev/os@HEAD">github.com/wolfi-dev/os</a></li>
 </ul>
 </p>
+<h3>Pack Explorer</h3>
+<p>Explore the raw packfile format of a git repo:</p>
+<form action="/" method="GET" autocomplete="off" spellcheck="false">
+<input size="100" type="text" name="pack" value=""/>
+<input type="submit" />
+</form>
+<p>
+<h4>Examples</h4>
+<ul>
+	<li><a href="/?pack=https://github.com/rsc/quote">github.com/rsc/quote</a></li>
+	<li><a href="/?pack=https://github.com/jonjohnsonjr/dagdotdev">github.com/jonjohnsonjr/dagdotdev</a></li>
+</ul>
+</p>
 <h3>FAQ</h3>
 <h4>How does this work?</h4>
 <p>

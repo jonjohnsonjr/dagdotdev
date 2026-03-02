@@ -196,6 +196,101 @@ func (r *Repo) CloneHash(ctx context.Context, h Hash) (fs.FS, []byte, error) {
 	return tfs, data, nil
 }
 
+// FetchPack fetches a full (non-shallow) packfile from the remote server,
+// requesting all refs. It returns the raw packfile bytes.
+func (r *Repo) FetchPack(ctx context.Context) ([]byte, error) {
+	opts, ok := r.caps["fetch"]
+	if !ok {
+		return nil, fmt.Errorf("fetch: server does not support fetch")
+	}
+	_ = opts
+
+	refs, err := r.Refs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetchpack: refs: %v", err)
+	}
+
+	// Deduplicate hashes.
+	seen := map[Hash]bool{}
+	var wants []Hash
+	for _, ref := range refs {
+		if !seen[ref.Hash] {
+			seen[ref.Hash] = true
+			wants = append(wants, ref.Hash)
+		}
+	}
+	if len(wants) == 0 {
+		return nil, fmt.Errorf("fetchpack: no refs found")
+	}
+
+	var buf bytes.Buffer
+	pw := newPktLineWriter(&buf)
+	pw.WriteString("command=fetch")
+	pw.Delim()
+	for _, h := range wants {
+		pw.WriteString("want " + h.String())
+	}
+	pw.WriteString("done")
+	pw.Close()
+
+	req, _ := http.NewRequestWithContext(ctx, "POST", r.url+"/git-upload-pack", &buf)
+	req.Header.Set("Content-Type", "application/x-git-upload-pack-request")
+	req.Header.Set("Accept", "application/x-git-upload-pack-result")
+	req.Header.Set("Git-Protocol", "version=2")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetchpack: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("fetchpack: %v\n%s", resp.Status, body)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/x-git-upload-pack-result" {
+		return nil, fmt.Errorf("fetchpack: invalid response Content-Type: %v", ct)
+	}
+
+	var data []byte
+	pr := newPktLineReader(resp.Body)
+	sawPackfile := false
+	for {
+		line, err := pr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("fetchpack: parsing response: %v", err)
+		}
+		if line == nil {
+			continue
+		}
+		if !sawPackfile {
+			if strings.TrimSuffix(string(line), "\n") == "packfile" {
+				sawPackfile = true
+			}
+			continue
+		}
+		if len(line) == 0 || line[0] == 0 || line[0] > 3 {
+			continue
+		}
+		switch line[0] {
+		case 1:
+			data = append(data, line[1:]...)
+		case 2:
+			// progress
+		case 3:
+			return nil, fmt.Errorf("fetchpack: server error: %s", line[1:])
+		}
+	}
+
+	if !bytes.HasPrefix(data, []byte("PACK")) {
+		return nil, fmt.Errorf("fetchpack: malformed response: not packfile")
+	}
+
+	return data, nil
+}
+
 // fetch returns the fs.FS for a given hash.
 func (r *Repo) fetch(ctx context.Context, h Hash) (fs.FS, []byte, error) {
 	// Fetch a shallow packfile from the remote server.
@@ -285,8 +380,8 @@ func (r *Repo) fetch(ctx context.Context, h Hash) (fs.FS, []byte, error) {
 	}
 
 	// Unpack pack file and return fs.FS for the commit we downloaded.
-	var s store
-	if err := unpack(&s, data); err != nil {
+	var s Store
+	if err := Unpack(&s, data); err != nil {
 		return nil, nil, fmt.Errorf("fetch: %v", err)
 	}
 	s.repo = r
