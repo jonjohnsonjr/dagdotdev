@@ -1738,14 +1738,26 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 	}
 
 	if stat.IsDir() {
-		tarflags = "tar -tv "
+		tarflags = "tar -tv"
 		if kind == "tar+gzip" {
-			tarflags = "tar -tvz "
+			tarflags = "tar -tvz"
 		} else if kind == "tar+zstd" {
-			tarflags = "tar --zstd -tv "
+			tarflags = "tar --zstd -tv"
 		}
 
-		header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags + " " + filelink
+		q := r.URL.Query()
+		if q.Get("all") == "true" {
+			q.Del("all")
+		} else {
+			q.Set("all", "true")
+		}
+		tarhref := r.URL.Path
+		if enc := q.Encode(); enc != "" {
+			tarhref += "?" + enc
+		}
+		tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
+
+		header.JQ = crane("blob") + " " + ref.String() + " | " + tarlink + " " + filelink
 	}
 	header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
@@ -1780,7 +1792,7 @@ func loadingBarSize(ref string) int {
 	return len(s) - len(loading)
 }
 
-func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, refs string, f httpserve.File, ctype string) error {
+func renderDir(w http.ResponseWriter, r *http.Request, fname string, prefix string, mediaType types.MediaType, size int64, refs string, f httpserve.File, ctype string) error {
 	ref, err := name.ParseReference(refs)
 	if err != nil {
 		return err
@@ -1810,7 +1822,7 @@ func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType typ
 		logs.Debug.Printf("sys: %T", sys)
 	}
 
-	tarflags := "tar -tv "
+	tarflags := "tar -tv"
 
 	hash, err := v1.NewHash(ref.Identifier())
 	if err != nil {
@@ -1830,8 +1842,20 @@ func renderDir(w http.ResponseWriter, fname string, prefix string, mediaType typ
 		Child:     ref.Identifier(),
 	}
 
+	q := r.URL.Query()
+	if q.Get("all") == "true" {
+		q.Del("all")
+	} else {
+		q.Set("all", "true")
+	}
+	tarhref := r.URL.Path
+	if enc := q.Encode(); enc != "" {
+		tarhref += "?" + enc
+	}
+	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
+
 	// TODO: Make filename clickable to go up a directory.
-	header.JQ = crane("export") + " " + ref.String() + " | " + tarflags + " " + filename
+	header.JQ = crane("export") + " " + ref.String() + " | " + tarlink + " " + filename
 
 	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 

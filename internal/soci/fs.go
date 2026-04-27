@@ -25,7 +25,7 @@ const bufferLen = 2 << 16
 
 var up *sociDirEntry = &sociDirEntry{nil, "..", nil, "", "", 0}
 
-type RenderDir func(w http.ResponseWriter, fname string, prefix string, mediaType types.MediaType, size int64, ref string, f httpserve.File, ctype string) error
+type RenderDir func(w http.ResponseWriter, r *http.Request, fname string, prefix string, mediaType types.MediaType, size int64, ref string, f httpserve.File, ctype string) error
 
 type MultiFS struct {
 	fss    []*SociFS
@@ -65,7 +65,7 @@ func (s *MultiFS) RenderHeader(w http.ResponseWriter, r *http.Request, fname str
 		return err
 	}
 	if stat.IsDir() {
-		return s.render(w, fname, s.prefix, s.mt, s.size, s.ref, f, ctype)
+		return s.render(w, r, fname, s.prefix, s.mt, s.size, s.ref, f, ctype)
 	}
 
 	if s.lastFs == nil {

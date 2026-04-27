@@ -519,7 +519,7 @@ func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix
 		}
 	}
 
-	s += fmt.Sprintf(" <a href=\"%s?all=true\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
+	s += fmt.Sprintf(" <a href=\"%s\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
 	if pax {
 		for k, v := range header.PAXRecords {
 			s += fmt.Sprintf("    %s: %s\n", htmlReplacer.Replace(k), htmlReplacer.Replace(v))
