@@ -53,6 +53,8 @@ var defaultExamples = []string{
 	"packages.cgr.dev/extras/x86_64",
 	"apk.cgr.dev/chainguard/aarch64",
 	"apk.cgr.dev/chainguard/x86_64",
+	"apk.cgr.dev/extra-packages/aarch64",
+	"apk.cgr.dev/extra-packages/x86_64",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/aarch64",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/armhf",
 	"dl-cdn.alpinelinux.org/alpine/edge/main/armv7",
