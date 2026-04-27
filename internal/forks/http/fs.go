@@ -318,7 +318,7 @@ func DirList(w http.ResponseWriter, r *http.Request, fsys FileSystem, prefix str
 		})
 	}
 
-	showlayer := strings.HasPrefix(r.URL.Path, "/sizes")
+	showlayer := strings.HasPrefix(r.URL.Path, "/sizes") || strings.HasPrefix(r.URL.Path, "/layers")
 	less := func(i, j int) bool {
 		ii, err := dirs.info(i)
 		if err != nil {
@@ -410,7 +410,7 @@ func DirList(w http.ResponseWriter, r *http.Request, fsys FileSystem, prefix str
 			if strings.HasPrefix(name, fprefix) || fprefix == "/" {
 				u.Path = strings.TrimPrefix(u.Path, fprefix)
 				u.Path = strings.TrimPrefix(u.Path, "/")
-				fmt.Fprint(w, tarListAll(i, dirs, info, u, prefix, fprefix, r.URL.Query().Get("pax") == "true"))
+				fmt.Fprint(w, tarListAll(i, dirs, showlayer, info, u, prefix, fprefix, r.URL.Query().Get("pax") == "true"))
 			}
 		} else {
 			fmt.Fprint(w, tarListSize(i, dirs, showlayer, info, u, prefix, apks, ownerLength))
@@ -519,7 +519,11 @@ func dirList(w http.ResponseWriter, r *http.Request, fname string, f File, rende
 	fmt.Fprintf(w, "</pre>\n</body>\n</html>")
 }
 
-func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix string, pax bool) string {
+func tarListAll(i int, dirs anyDirs, showlayer bool, fi fs.FileInfo, u url.URL, uprefix, fprefix string, pax bool) string {
+	layer := dirs.layer(i)
+
+	prefix := "        "
+
 	header, ok := fi.Sys().(*tar.Header)
 	if !ok {
 		name := fi.Name()
@@ -531,6 +535,9 @@ func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix
 		mode := "d?????????"
 		padding := 18 - len(ug)
 		s := fmt.Sprintf("%s %s %*d %s", mode, ug, padding, 0, ts)
+		if showlayer {
+			s = prefix + " " + s
+		}
 		s += fmt.Sprintf(" <a href=\"%s\">%s</a>\n", u.String(), htmlReplacer.Replace(name))
 		return s
 	}
@@ -539,6 +546,18 @@ func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix
 	mode := modeStr(header)
 	padding := 18 - len(ug)
 	s := fmt.Sprintf("%s %s <span title=%q>%*d</span> %s", mode, ug, humanize.IBytes(uint64(header.Size)), padding, header.Size, ts)
+	if showlayer {
+		if _, after, ok := strings.Cut(layer, "@"); ok {
+			if _, after, ok := strings.Cut(after, ":"); ok {
+				if len(after) > 8 {
+					href := after[:8]
+					lu := url.URL{Path: "/fs/" + strings.TrimPrefix(layer, "/")}
+					prefix = fmt.Sprintf("<a href=%q>%s</a>", lu.String(), href)
+				}
+			}
+		}
+		s = prefix + " " + s
+	}
 
 	name := dirs.name(i)
 	if dirs.isDir(i) {
