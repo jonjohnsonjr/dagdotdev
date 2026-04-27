@@ -158,7 +158,12 @@ func (s *MultiFS) Everything() ([]fs.DirEntry, error) {
 				}
 			}
 
-			if sde.IsDir() || fm.Size == 0 {
+			if sde.IsDir() {
+				continue
+			}
+			// Whiteout markers (.wh.X, .wh..wh..opq) drive the layer-merge
+			// logic above but shouldn't surface as visible entries.
+			if strings.HasPrefix(name, ".wh.") {
 				continue
 			}
 			have[fullname] = sfs.ref

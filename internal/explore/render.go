@@ -27,6 +27,31 @@ const (
 	hcsshim         = `https://github.com/microsoft/hcsshim/blob/main/osversion/windowsbuilds.go`
 )
 
+// layersPathHref builds a /layers/ link filtered by a colon-separated PATH-style
+// value (e.g. "/usr/local/bin:/usr/bin"). Each component becomes a repeated
+// "path" query parameter so the layers view shows files under any of those
+// directories. If envName is non-empty, an "env" query parameter is added so
+// the layers view renders the displayed shell command using a
+// $(crane config | jq ...) subshell that re-extracts the env value at runtime.
+func layersPathHref(image, pathValue, envName string) string {
+	qs := url.Values{}
+	for _, part := range strings.Split(pathValue, ":") {
+		part = strings.Trim(part, "/")
+		if part == "" {
+			continue
+		}
+		qs.Add("path", part)
+	}
+	if envName != "" {
+		qs.Set("env", envName)
+	}
+	encoded := qs.Encode()
+	if encoded == "" {
+		return "/layers/" + image + "/"
+	}
+	return "/layers/" + image + "/?" + encoded
+}
+
 type jsonOutputter struct {
 	w    io.Writer
 	u    *url.URL
@@ -1318,6 +1343,46 @@ func renderMap(w *jsonOutputter, o map[string]interface{}, raw *json.RawMessage)
 					} else if _, after, ok := strings.Cut(href, "docker-image://"); ok {
 						w.LinkImage(after, href)
 
+						continue
+					}
+				}
+			}
+		case "Env":
+			manifest := w.u.Query().Get("manifest")
+			if mv, ok := o[k]; ok && manifest != "" {
+				if ii, ok := mv.([]interface{}); ok {
+					if len(ii) == 0 {
+						w.Value([]byte("[]"))
+						continue
+					}
+					w.StartArray()
+					for _, iface := range ii {
+						if s, ok := iface.(string); ok && strings.HasPrefix(s, "PATH=") {
+							w.BlueDoc(layersPathHref(manifest, strings.TrimPrefix(s, "PATH="), "PATH"), s)
+							continue
+						}
+						b, err := json.Marshal(iface)
+						if err != nil {
+							return err
+						}
+						raw := json.RawMessage(b)
+						if err := renderRaw(w, &raw); err != nil {
+							return err
+						}
+					}
+					w.EndArray()
+
+					// Don't fall through to renderRaw.
+					continue
+				}
+			}
+		case "WorkingDir":
+			if js, ok := o[k]; ok {
+				if s, ok := js.(string); ok && s != "" {
+					if manifest := w.u.Query().Get("manifest"); manifest != "" {
+						w.BlueDoc(layersPathHref(manifest, s, ""), s)
+
+						// Don't fall through to renderRaw.
 						continue
 					}
 				}

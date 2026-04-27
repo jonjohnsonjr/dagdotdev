@@ -197,6 +197,23 @@ type sociEntry interface {
 	Index() int
 }
 
+// normalizePathPrefixes accepts a list of "path" query values, splits each on
+// ":" (so a single PATH-style value works), trims surrounding slashes, and
+// drops empty entries. The result is suitable for matching against tar header
+// names that have no leading slash.
+func normalizePathPrefixes(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		for _, part := range strings.Split(v, ":") {
+			part = strings.Trim(part, "/")
+			if part != "" {
+				out = append(out, part)
+			}
+		}
+	}
+	return out
+}
+
 func DirList(w http.ResponseWriter, r *http.Request, fsys FileSystem, prefix string, des []fs.DirEntry, render func() error) error {
 	logs.Debug.Printf("DirList: %q", prefix)
 
@@ -276,6 +293,31 @@ func DirList(w http.ResponseWriter, r *http.Request, fsys FileSystem, prefix str
 		})
 	}
 
+	pathPrefixes := normalizePathPrefixes(r.URL.Query()["path"])
+	if len(pathPrefixes) > 0 {
+		dirs = slices.DeleteFunc(dirs, func(de fs.DirEntry) bool {
+			fi, err := de.Info()
+			if err != nil {
+				return true
+			}
+
+			header, ok := fi.Sys().(*tar.Header)
+			if !ok {
+				return true
+			}
+
+			name := strings.TrimPrefix(header.Name, "./")
+			name = strings.TrimPrefix(name, "/")
+			name = strings.TrimSuffix(name, "/")
+			for _, p := range pathPrefixes {
+				if name == p || strings.HasPrefix(name, p+"/") {
+					return false
+				}
+			}
+			return true
+		})
+	}
+
 	showlayer := strings.HasPrefix(r.URL.Path, "/sizes")
 	less := func(i, j int) bool {
 		ii, err := dirs.info(i)
@@ -320,7 +362,7 @@ func DirList(w http.ResponseWriter, r *http.Request, fsys FileSystem, prefix str
 		}
 	}
 
-	showAll := r.URL.Query().Get("all") == "true" || search != ""
+	showAll := r.URL.Query().Get("all") == "true" || search != "" || len(pathPrefixes) > 0
 
 	if !showAll {
 		sort.Slice(dirs, less)
@@ -505,11 +547,14 @@ func tarListAll(i int, dirs anyDirs, fi fs.FileInfo, u url.URL, uprefix, fprefix
 	if header.Linkname != "" {
 		if header.Linkname == "." {
 			u.Path = path.Dir(u.Path)
-		} else if containsDotDot(header.Linkname) {
-			u.Path = strings.TrimPrefix(header.Linkname, "/")
 		} else if strings.HasPrefix(header.Linkname, "/") {
 			u.Path = path.Join(strings.TrimSuffix(uprefix, fprefix), header.Linkname)
 		} else {
+			// Resolve a relative symlink (with or without "..") against the
+			// symlink's own parent directory. path.Join cleans ".." segments,
+			// which is what we want — the raw linkname would be resolved by
+			// the browser against the listing page's URL, not the symlink's
+			// directory, and that breaks for flat all-mode listings.
 			u.Path = path.Join(u.Path, "..", header.Linkname)
 		}
 		if header.Typeflag == tar.TypeLink {
@@ -1392,7 +1437,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 		}
 		setLastModified(w, d.ModTime())
 
-		if r.URL.Query().Get("all") == "true" || r.URL.Query().Get("search") != "" {
+		if r.URL.Query().Get("all") == "true" || r.URL.Query().Get("search") != "" || len(r.URL.Query()["path"]) > 0 {
 			if ifs, ok := fsys.(ioFS); ok {
 				if efs, ok := ifs.fsys.(interface {
 					Everything() ([]fs.DirEntry, error)

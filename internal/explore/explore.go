@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/url"
@@ -1216,6 +1217,8 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	des = dropZeroSize(des)
+
 	f := renderDirSize(w, r, index.TOC().Csize, dig, index.TOC().Type, types.MediaType(mt), len(des))
 	return httpserve.DirList(w, r, httpserve.FS(fs), ref, des, f)
 }
@@ -1241,8 +1244,26 @@ func (h *handler) renderFats(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	des = dropZeroSize(des)
+
 	f := renderDirSize(w, r, desc.Size, dig, "tar", desc.MediaType, len(des))
 	return httpserve.DirList(w, r, httpserve.FS(mfs), ref, des, f)
+}
+
+// dropZeroSize removes zero-byte entries from a directory listing. Used by
+// the size-sorted views (/size/, /sizes/) where empty files, symlinks,
+// hardlinks, and directories would just cluster at the bottom of the list
+// without contributing useful information.
+func dropZeroSize(des []fs.DirEntry) []fs.DirEntry {
+	out := des[:0]
+	for _, de := range des {
+		fi, err := de.Info()
+		if err == nil && fi.Size() == 0 {
+			continue
+		}
+		out = append(out, de)
+	}
+	return out
 }
 
 func (h *handler) renderImage(w http.ResponseWriter, r *http.Request, ref name.Digest, mt string) error {
@@ -1757,7 +1778,12 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 		}
 		tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
 
-		header.JQ = crane("blob") + " " + ref.String() + " | " + tarlink + " " + filelink
+		tarSuffix := filelink
+		if filter := tarFilterArgs(r, ref.String()); filter != "" {
+			tarSuffix = filter
+		}
+
+		header.JQ = crane("blob") + " " + ref.String() + " | " + tarlink + " " + tarSuffix
 	}
 	header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
@@ -1781,6 +1807,48 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 	}
 
 	return nil
+}
+
+// tarFilterArgs returns the suffix to append after `tar -tv` so the displayed
+// shell command actually filters to what the page is showing. Two flavors:
+//
+//  - ?env=PATH (or another env name) returns a $(crane config ... | jq ...)
+//    subshell that extracts the first matching env var, splits on ":", strips
+//    leading slashes, and joins with spaces — matching the manual incantation
+//    in https://github.com/jonjohnsonjr/dagdotdev/issues/112.
+//  - ?path=... returns the literal paths space-joined.
+//
+// Returns "" when no filter is in play.
+func tarFilterArgs(r *http.Request, ref string) string {
+	if env := r.URL.Query().Get("env"); env != "" && isEnvName(env) {
+		return fmt.Sprintf(`$(crane config %s | jq -r 'first(.config.Env[] | select(startswith("%s=")) | ltrimstr("%s=") | split(":") | map(ltrimstr("/")) | join(" "))')`, ref, env, env)
+	}
+	var parts []string
+	for _, p := range r.URL.Query()["path"] {
+		for _, sub := range strings.Split(p, ":") {
+			sub = strings.Trim(sub, "/")
+			if sub != "" {
+				parts = append(parts, sub)
+			}
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func isEnvName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, c := range s {
+		if c == '_' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+			continue
+		}
+		if i > 0 && c >= '0' && c <= '9' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func loadingBarSize(ref string) int {
@@ -1854,8 +1922,13 @@ func renderDir(w http.ResponseWriter, r *http.Request, fname string, prefix stri
 	}
 	tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
 
+	tarSuffix := filename
+	if filter := tarFilterArgs(r, ref.String()); filter != "" {
+		tarSuffix = filter
+	}
+
 	// TODO: Make filename clickable to go up a directory.
-	header.JQ = crane("export") + " " + ref.String() + " | " + tarlink + " " + filename
+	header.JQ = crane("export") + " " + ref.String() + " | " + tarlink + " " + tarSuffix
 
 	header.SizeLink = fmt.Sprintf("/sizes/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
 
@@ -1888,11 +1961,15 @@ func renderDirSize(w http.ResponseWriter, r *http.Request, size int64, ref name.
 			Child:     ref.Identifier(),
 		}
 
-		tarflags := "tar -tv "
+		tarflags := "tar -tv"
 		if kind == "tar+gzip" {
-			tarflags = "tar -tvz "
+			tarflags = "tar -tvz"
 		} else if kind == "tar+zstd" {
-			tarflags = "tar --zstd -tv "
+			tarflags = "tar --zstd -tv"
+		}
+
+		if filter := tarFilterArgs(r, ref.String()); filter != "" {
+			tarflags += " " + filter
 		}
 
 		ua := r.UserAgent()
