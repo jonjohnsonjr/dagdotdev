@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/dustin/go-humanize"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/jonjohnsonjr/dagdotdev/internal/humanize"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/name"
+	v1 "github.com/jonjohnsonjr/dagdotdev/internal/ggcr/v1"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/remote"
 )
 
 type BlobSum struct {
@@ -72,7 +72,7 @@ func renderDockerfileSchema1(w io.Writer, b []byte, repo name.Repository) error 
 
 			if fsl.BlobSum != "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" {
 				// TODO: Plumb opts.
-				l, err := remote.Layer(repo.Digest(fsl.BlobSum))
+				l, err := remote.NewLayer(repo.Digest(fsl.BlobSum))
 				if err == nil {
 					size, _ = l.Size()
 				}

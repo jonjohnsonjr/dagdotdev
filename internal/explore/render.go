@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dustin/go-humanize"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/internal/humanize"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/name"
+	v1 "github.com/jonjohnsonjr/dagdotdev/internal/ggcr/v1"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/types"
 )
 
 const (

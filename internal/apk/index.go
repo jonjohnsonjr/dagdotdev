@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"chainguard.dev/apko/pkg/apk/apk"
-	"github.com/dustin/go-humanize"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/internal/apk/apkversion"
+	"github.com/jonjohnsonjr/dagdotdev/internal/humanize"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 )
 
@@ -808,13 +808,13 @@ func (h *handler) parseIndex(w http.ResponseWriter, r *http.Request, in io.Reade
 				continue
 			}
 
-			old, err := apk.ParseVersion(got)
+			old, err := apkversion.ParseVersion(got)
 			if err != nil {
 				ptov[pkg.name] = pkg.version
 			} else {
-				new, err := apk.ParseVersion(pkg.version)
+				new, err := apkversion.ParseVersion(pkg.version)
 				if err == nil {
-					if apk.CompareVersions(old, new) < 0 {
+					if apkversion.CompareVersions(old, new) < 0 {
 						ptov[pkg.name] = pkg.version
 					}
 				}

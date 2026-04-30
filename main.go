@@ -8,9 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/gcrane"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/apk"
 	"github.com/jonjohnsonjr/dagdotdev/internal/explore"
 	"github.com/jonjohnsonjr/dagdotdev/internal/git"
@@ -46,11 +45,7 @@ func run(args []string) error {
 
 		opt := []apk.Option{apk.WithUserAgent("dagdotdev")}
 		if *auth || os.Getenv("AUTH") == "keychain" {
-			opt = append(opt, apk.WithKeychain(gcrane.Keychain))
-		}
-		if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
-			cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "apk.cgr.dev")
-			opt = append(opt, apk.WithAuth(cgauth))
+			opt = append(opt, apk.WithKeychain(authn.DefaultKeychain))
 		}
 		if eg := os.Getenv("EXAMPLES"); eg != "" {
 			opt = append(opt, apk.WithExamples(strings.Split(eg, ",")))
@@ -66,13 +61,8 @@ func run(args []string) error {
 
 		opt := []explore.Option{explore.WithUserAgent("dagdotdev")}
 		kcs := []authn.Keychain{}
-		if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
-			log.Printf("saw CHAINGUARD_IDENTITY=%q", cgid)
-			cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "cgr.dev")
-			kcs = append(kcs, cgauth)
-		}
 		if *auth || os.Getenv("AUTH") == "keychain" {
-			kcs = append(kcs, gcrane.Keychain)
+			kcs = append(kcs, authn.DefaultKeychain)
 		}
 
 		if len(kcs) != 0 {

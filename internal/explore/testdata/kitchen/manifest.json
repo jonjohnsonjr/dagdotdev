@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "config": {
+    "mediaType": "application/vnd.oci.image.config.v1+json",
+    "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "size": 100
+  },
+  "layers": [
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "size": 4096,
+      "urls": [
+        "https://mirror.example.com/blob.tar.gz",
+        "http://backup.example.com/blob.tar.gz"
+      ]
+    },
+    {
+      "mediaType": "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
+      "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "size": 256
+    }
+  ],
+  "subject": {
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "size": 248
+  },
+  "name": "pkg:docker/library/alpine@3.19",
+  "uri": "https://example.com/spec",
+  "_type": "https://in-toto.io/Statement/v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "informationUri": "https://docs.example.com/info",
+  "Docker-reference": "alpine:3.19",
+  "docker-reference": "alpine:3.19",
+  "Docker-manifest-digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "docker-manifest-digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "blobSum": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "data": "aGVsbG8gd29ybGQ=",
+  "tag": ["latest", "v1"],
+  "child": ["alpine", "static"],
+  "tags": ["v1.0.0", "v1.1.0"],
+  "next": "https://gcr.io/v2/_catalog?last=foo&n=10",
+  "previous": "https://gcr.io/v2/_catalog?last=bar&n=10",
+  "referenceLocator": "pkg:apk/alpine/curl@8.0.0",
+  "predicateType": "cosign.sigstore.dev/attestation/vuln/v1",
+  "manifest": {
+    "sha256:6666666666666666666666666666666666666666666666666666666666666666": {
+      "imageSizeBytes": "12345678",
+      "mediaType": "application/vnd.oci.image.manifest.v1+json",
+      "tag": ["latest", "v1"],
+      "timeCreatedMs": "1700000000000",
+      "timeUploadedMs": "1700000010000"
+    },
+    "not-a-digest": {
+      "mediaType": "application/vnd.oci.image.manifest.v1+json"
+    }
+  },
+  "history": [
+    {
+      "v1Compatibility": "{\"id\":\"abc123\",\"created\":\"2024-01-01T00:00:00Z\"}"
+    },
+    {
+      "v1Compatibility": "{\"id\":\"def456\",\"created\":\"2024-01-02T00:00:00Z\"}"
+    }
+  ],
+  "io.buildpacks.build.metadata": "eyJrZXkiOiJ2YWx1ZSJ9",
+  "moby.buildkit.buildinfo.v1": "eyJmcm9udGVuZCI6ImRvY2tlcmZpbGUudjAifQ==",
+  "identifier": "https://github.com/docker-library/rabbitmq.git#6cc0f66ec13b06c153a7527c033cf1ad59a97ef3:3.13/ubuntu",
+  "annotations": {
+    "org.opencontainers.image.base.name": "alpine:3.19",
+    "org.opencontainers.image.base.digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "vnd.docker.reference.digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "vnd.docker.reference.type": "attestation-manifest",
+    "org.opencontainers.image.documentation": "https://docs.example.com/widget",
+    "org.opencontainers.image.url": "https://example.com/widget",
+    "org.opencontainers.image.source": "https://github.com/example/widget.git#main:src/dir"
+  }
+}

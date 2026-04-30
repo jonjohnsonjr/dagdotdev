@@ -24,17 +24,16 @@ import (
 	"time"
 
 	"github.com/digitorus/timestamp"
-	"github.com/dustin/go-humanize"
+	"github.com/jonjohnsonjr/dagdotdev/internal/humanize"
 	"github.com/fxamacker/cbor/v2"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/partial"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/name"
+	v1 "github.com/jonjohnsonjr/dagdotdev/internal/ggcr/v1"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/google"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/remote"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/transport"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/types"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/internal/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/internal/gguf"
 	"github.com/jonjohnsonjr/dagdotdev/internal/soci"
@@ -393,7 +392,6 @@ func (h *handler) renderDockerHub(w http.ResponseWriter, r *http.Request, repo s
 	if r.URL.Query().Get("trace") != "" {
 		t = transport.NewTracer(t)
 	}
-	t = transport.Wrap(t)
 
 	if err := headerTmpl.Execute(w, TitleData{repo}); err != nil {
 		return err
@@ -504,7 +502,7 @@ func (h *handler) renderCatalog(w http.ResponseWriter, r *http.Request, repo str
 
 // Render manifests with links to blobs, manifests, etc.
 func (h *handler) renderManifest(w http.ResponseWriter, r *http.Request, image string) error {
-	ref, err := name.ParseReference(image, name.WeakValidation)
+	ref, err := name.ParseReference(image)
 	if err != nil {
 		return err
 	}
@@ -658,7 +656,7 @@ func (h *handler) renderLinks(w http.ResponseWriter, r *http.Request, links stri
 		}
 		newUrl.RawQuery = q.Encode()
 
-		log.Printf("newUrl: %q", newUrl)
+		log.Printf("newUrl: %q", newUrl.String())
 
 		href := fmt.Sprintf("<a href=%q>%s</a>", newUrl.String(), html.EscapeString(clean))
 		withHref := strings.Replace(link, clean, href, 1)
@@ -675,7 +673,7 @@ func (h *handler) renderLinks(w http.ResponseWriter, r *http.Request, links stri
 
 // Render CGR history.
 func (h *handler) renderHistory(w http.ResponseWriter, r *http.Request, image string) error {
-	ref, err := name.ParseReference(image, name.WeakValidation)
+	ref, err := name.ParseReference(image)
 	if err != nil {
 		return err
 	}
@@ -760,17 +758,12 @@ func (h *handler) renderReferrers(w http.ResponseWriter, r *http.Request, src st
 
 	opts := h.remoteOptions(w, r, ref.Context().Name())
 
-	idx, err := remote.Referrers(ref, opts...)
+	desc, err := remote.Referrers(ref, opts...)
 	if err != nil {
 		return err
 	}
 
-	desc, err := partial.Descriptor(idx)
-	if err != nil {
-		return err
-	}
-
-	header := h.manifestHeader(ref.Digest(desc.Digest.String()), *desc)
+	header := h.manifestHeader(ref.Digest(desc.Digest.String()), desc.Descriptor)
 	header.JQ = fmt.Sprintf("curl -sL %s://%s/v2/%s/referrers/%s", ref.Scheme(), ref.RegistryStr(), ref.RepositoryStr(), ref.Identifier())
 	header.Referrers = false
 	header.Subject = ref.Identifier()
@@ -789,10 +782,7 @@ func (h *handler) renderReferrers(w http.ResponseWriter, r *http.Request, src st
 		mt:    string(types.OCIImageIndex),
 	}
 
-	b, err := idx.RawManifest()
-	if err != nil {
-		return err
-	}
+	b := desc.Manifest
 
 	b, err = h.jq(output, b, r, header)
 	if err != nil {
@@ -822,7 +812,7 @@ func (h *handler) renderBlobJSON(w http.ResponseWriter, r *http.Request, blobRef
 	opts := h.remoteOptions(w, r, ref.Context().Name())
 	opts = append(opts, remote.WithMaxSize(tooBig))
 
-	l, err := remote.Layer(ref, opts...)
+	l, err := remote.NewLayer(ref, opts...)
 	if err != nil {
 		return fmt.Errorf("remote.Layer: %w", err)
 	}
@@ -1197,7 +1187,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("fetchBlob: %w", err)
 		}
 
-		index, err = h.createIndex(r.Context(), blob, blob.size, dig.String(), 0, mt)
+		index, err = h.createIndex(r.Context(), blob, blob.size, dig.Identifier(), 0, mt)
 		if err != nil {
 			return fmt.Errorf("createIndex: %w", err)
 		}
@@ -1341,7 +1331,6 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, dig name.Dig
 
 	// For foreign layers, we aren't hitting the registry. We want
 	// to reuse some code from remote.BlobSeeker but without the
-	// ping/token stuff, so we transport.Wrap a plain transport.
 	if foreign {
 		p := r.URL.Path
 		scheme := "https://"
@@ -1365,7 +1354,6 @@ func (h *handler) indexedFS(w http.ResponseWriter, r *http.Request, dig name.Dig
 			if r.URL.Query().Get("trace") != "" {
 				t = transport.NewTracer(t)
 			}
-			t = transport.Wrap(t)
 			opts = append(opts, remote.WithTransport(t))
 		}
 	}
@@ -1437,7 +1425,7 @@ func (h *handler) multiFS(w http.ResponseWriter, r *http.Request, dig name.Diges
 				return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
 			}
 			if index == nil {
-				l, err := remote.Layer(layerRef, opts...)
+				l, err := remote.NewLayer(layerRef, opts...)
 				if err != nil {
 					return err
 				}
@@ -2025,7 +2013,7 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 		}
 		if index == nil {
 			layerRef := dig.Context().Digest(layer.Digest.String())
-			l, err := remote.Layer(layerRef, opts...)
+			l, err := remote.NewLayer(layerRef, opts...)
 			if err != nil {
 				return err
 			}

@@ -17,7 +17,8 @@ import (
 	"sync"
 
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/rsc.io/gitfs"
-	"golang.org/x/exp/maps"
+	"maps"
+	"slices"
 
 	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp"
 )
@@ -452,7 +453,7 @@ func (h *handler) serve(w http.ResponseWriter, r *http.Request, fsys fs.FS, u st
 
 					mod, ok := modules[path.Join(p, de.Name())]
 					if !ok {
-						return fmt.Errorf("no module for %q, have %v", p, maps.Keys(modules))
+						return fmt.Errorf("no module for %q, have %v", p, slices.Collect(maps.Keys(modules)))
 					}
 
 					href := fmt.Sprintf("/?url=%s@%s", mod, e.Hash)

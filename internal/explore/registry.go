@@ -10,12 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/name"
+	v1 "github.com/jonjohnsonjr/dagdotdev/internal/ggcr/v1"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/remote"
 	"github.com/jonjohnsonjr/dagdotdev/internal/verify"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
@@ -68,7 +67,13 @@ func (h *handler) remoteOptions(w http.ResponseWriter, r *http.Request, repo str
 			}
 			if h.oauth != nil {
 				ts := h.oauth.TokenSource(r.Context(), tok)
-				auth = google.NewTokenSourceAuthenticator(ts)
+				auth = authn.AuthorizerFunc(func() (*authn.AuthConfig, error) {
+					t, err := ts.Token()
+					if err != nil {
+						return nil, err
+					}
+					return &authn.AuthConfig{Username: "_token", Password: t.AccessToken}, nil
+				})
 			}
 
 		}
@@ -241,7 +246,7 @@ func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, 
 	}
 
 	opts := h.remoteOptions(w, r, blobRef.Context().Name())
-	l, err := remote.Layer(blobRef, opts...)
+	l, err := remote.NewLayer(blobRef, opts...)
 	if err != nil {
 		return nil, "", err
 	}

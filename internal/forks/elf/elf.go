@@ -18,7 +18,7 @@ import (
 	"sync"
 
 	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 const TooBig = 1 << 16

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
 )
 
 type BlobSeeker struct {

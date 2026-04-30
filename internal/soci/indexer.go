@@ -12,7 +12,7 @@ import (
 
 	ogzip "compress/gzip"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/and"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/flate"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/gzip"
@@ -80,7 +80,7 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 
 	i.bw = bw
 	i.zw = zw
-	i.w = &and.WriteCloser{zw, flushClose}
+	i.w = &and.WriteCloser{Writer: zw, CloseFunc: flushClose}
 
 	if kind == "tar+gzip" {
 		i.updates = make(chan *flate.Checkpoint, 10)

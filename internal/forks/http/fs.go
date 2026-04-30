@@ -28,12 +28,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dustin/go-humanize"
+	"github.com/jonjohnsonjr/dagdotdev/internal/humanize"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/elf"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/safefilepath"
 	"github.com/jonjohnsonjr/dagdotdev/internal/xxd"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
-	"golang.org/x/exp/slices"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
+	"slices"
 )
 
 const TooBig = elf.TooBig

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/internal/and"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/flate"
 	"github.com/jonjohnsonjr/dagdotdev/internal/forks/compress/gzip"
@@ -169,8 +169,8 @@ func ExtractFile(ctx context.Context, t Index, bs BlobSeeker, tf *TOCFile) (io.R
 	logs.Debug.Printf("Type = %q", kind)
 	if kind == "tar" {
 		logs.Debug.Printf("ExtractFile: Returning LimitedReader of size %d", cp.File.Size)
-		lr := io.LimitedReader{rc, cp.File.Size}
-		return &and.ReadCloser{&lr, rc.Close}, nil
+		lr := io.LimitedReader{R: rc, N: cp.File.Size}
+		return &and.ReadCloser{Reader: &lr, CloseFunc: rc.Close}, nil
 	}
 
 	var r io.ReadCloser
@@ -199,8 +199,8 @@ func ExtractFile(ctx context.Context, t Index, bs BlobSeeker, tf *TOCFile) (io.R
 	log.Printf("Discarded %d bytes before %q (%s)", n, tf.Name, time.Since(start2))
 
 	logs.Debug.Printf("ExtractFile: Returning LimitedReader of size %d", cp.File.Size)
-	lr := io.LimitedReader{r, cp.File.Size}
-	return &and.ReadCloser{&lr, rc.Close}, nil
+	lr := io.LimitedReader{R: r, N: cp.File.Size}
+	return &and.ReadCloser{Reader: &lr, CloseFunc: rc.Close}, nil
 }
 
 func (t *tree) Locate(name string) (*TOCFile, error) {

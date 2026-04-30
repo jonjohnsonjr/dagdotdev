@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"os"
 )
 
 // GGUFFileReader represents a reader for GGUF files
@@ -142,19 +141,6 @@ func (r *GGUFFileReader) ReadGGUFFile() (*GGUFFile, error) {
 		Header:     *header,
 		MetadataKV: kvs,
 	}, nil
-}
-
-func main() {
-	ggufReader := NewGGUFFileReader(os.Stdin)
-	ggufFile, err := ggufReader.ReadGGUFFile()
-	if err != nil {
-		fmt.Println("Error reading GGUF file:", err)
-		return
-	}
-
-	// Use ggufFile as needed
-	fmt.Printf("GGUF Header: %+v\n", ggufFile.Header)
-	// fmt.Printf("Tensor Infos: %+v\n", ggufFile.TensorInfos)
 }
 
 // ggmlType represents the GGML type enum in Go
@@ -330,12 +316,6 @@ type GGUFHeader struct {
 	Version         uint32
 	TensorCount     uint64
 	MetadataKVCount uint64
-}
-
-// alignOffset calculates the aligned offset in Go
-func alignOffset(offset uint64) uint64 {
-	const alignment = 8 // Assuming ALIGNMENT is 8 in the original code
-	return offset + (alignment-(offset%alignment))%alignment
 }
 
 // GGUFTensorInfo represents the GGUF tensor info in Go

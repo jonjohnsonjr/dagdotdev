@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/logs"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/name"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/google"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/remote"
+	"github.com/jonjohnsonjr/dagdotdev/internal/ggcr/transport"
 	"golang.org/x/oauth2"
 )
 
@@ -34,7 +34,6 @@ func (h *handler) googleOptions(w http.ResponseWriter, r *http.Request, repo str
 		if r.URL.Query().Get("trace") != "" {
 			t = transport.NewTracer(t)
 		}
-		t = transport.Wrap(t)
 		opts = append(opts, google.WithTransport(t))
 		return opts
 	}
@@ -65,7 +64,13 @@ func (h *handler) googleOptions(w http.ResponseWriter, r *http.Request, repo str
 			}
 			if h.oauth != nil {
 				ts := h.oauth.TokenSource(r.Context(), tok)
-				auth = google.NewTokenSourceAuthenticator(ts)
+				auth = authn.AuthorizerFunc(func() (*authn.AuthConfig, error) {
+					t, err := ts.Token()
+					if err != nil {
+						return nil, err
+					}
+					return &authn.AuthConfig{Username: "_token", Password: t.AccessToken}, nil
+				})
 			}
 		}
 	}

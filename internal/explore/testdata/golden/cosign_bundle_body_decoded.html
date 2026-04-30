@@ -1,0 +1,154 @@
+
+<html>
+<head>
+<title>REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/chainguard/crane">REGISTRY/chainguard/crane</a>@<a class="mt" href="/?image=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson">sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</a> <a href="/?referrers=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0">(referrers)</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">application/vnd.oci.image.manifest.v1+json</a><br>
+Docker-Content-Digest: <a class="mt" href="/?image=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson&size=9953">sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</a><br>
+<span title="9.7 KiB">Content-Length: <a class="mt" href="/sizes/REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0?mt=application/vnd.oci.image.manifest.v1+json&size=9953">9953</a></span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/vnd.oci.image.manifest.v1+json",<br>
+&nbsp;&nbsp;"digest": "sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0",<br>
+&nbsp;&nbsp;"size": 9953<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_manifest.md">manifest</a> REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0 | jq -r '.layers[0].annotations["dev.sigstore.cosign/bundle"]' | jq -r '.Payload.body' | base64 -d | jq</h4>
+
+
+<div>{
+<div class="indent">
+  <div>"apiVersion": &#34;0.0.1&#34;,</div>
+  <div>"kind": &#34;hashedrekord&#34;,</div>
+  <div>"spec": {
+  <div class="indent">
+    <div>"data": {
+    <div class="indent">
+      <div>"hash": {
+      <div class="indent">
+        <div>"algorithm": &#34;sha256&#34;,</div>
+        <div>"value": "<a href="/?blob=REGISTRY%2Fchainguard%2Fcrane@sha256:3f31e6a356081361516a8245d13ee94246eae595db8beb1b6135f883c6dd516b">3f31e6a356081361516a8245d13ee94246eae595db8beb1b6135f883c6dd516b</a>"</div>
+      </div>
+      }</div>
+    </div>
+    },</div>
+    <div>"signature": {
+    <div class="indent">
+      <div>"content": &#34;MEQCIBsyZy8/AjrLOrFNgXbK5XPQTKPaeTTJBAhEVllXFq1RAiBYtJENQihjDr1cXRBwMlRuxSxnfLFciP6aiK8TiZLPTw==&#34;,</div>
+      <div>"publicKey": {
+      <div class="indent">
+        <div>"content": "<a href="/?image=REGISTRY%2Fchainguard%2Fcrane%40sha256%3Af1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0&jq=.layers%5B0%5D.annotations%5B%22dev.sigstore.cosign%2Fbundle%22%5D&jq=.Payload.body&jq=base64+-d&jq=jq&jq=.spec.signature.publicKey.content&jq=base64+-d&render=cert">LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUc4akNDQm5tZ0F3SUJBZ0lVSmdrU1FPaUhrR2JWUlBpVFV6QVpzVEZTU2pFd0NnWUlLb1pJemowRUF3TXcKTnpFVk1CTUdBMVVFQ2hNTWMybG5jM1J2Y21VdVpHVjJNUjR3SEFZRFZRUURFeFZ6YVdkemRHOXlaUzFwYm5SbApjbTFsWkdsaGRHVXdIaGNOTWpZd05ETXdNakUwTmpVeVdoY05Nall3TkRNd01qRTFOalV5V2pBQU1Ga3dFd1lICktvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUVtazR6R3NLdUZ2SERXSkFuajZMTU5yK3l1Lzd1YSs0SmJQM2EKZXpYbTJrTHExZ1dBSXBlb1lvL0RVQlpKc2hQcUZwRE9lY2EwSk5ja3JqKzlNZ0NQU0tPQ0JaZ3dnZ1dVTUE0RwpBMVVkRHdFQi93UUVBd0lIZ0RBVEJnTlZIU1VFRERBS0JnZ3JCZ0VGQlFjREF6QWRCZ05WSFE0RUZnUVVqMllLCmxKR1JQeTJ5RWtiRW1helFOcWdSUWdjd0h3WURWUjBqQkJnd0ZvQVUzOVBwejFZa0VaYjVxTmpwS0ZXaXhpNFkKWkQ4d2FBWURWUjBSQVFIL0JGNHdYSVphYUhSMGNITTZMeTluYVhSb2RXSXVZMjl0TDJOb1lXbHVaM1ZoY21RdAphVzFoWjJWekwybHRZV2RsY3k4dVoybDBhSFZpTDNkdmNtdG1iRzkzY3k5eVpXeGxZWE5sTG5saGJXeEFjbVZtCmN5OW9aV0ZrY3k5dFlXbHVNRGtHQ2lzR0FRUUJnNzh3QVFFRUsyaDBkSEJ6T2k4dmRHOXJaVzR1WVdOMGFXOXUKY3k1bmFYUm9kV0oxYzJWeVkyOXVkR1Z1ZEM1amIyMHdFZ1lLS3dZQkJBR0R2ekFCQWdRRWNIVnphREEyQmdvcgpCZ0VFQVlPL01BRURCQ2hsTkRNMk1XRTBabUkwTkdGbVltVXdPRFJoTkdJd01qSm1aalkxTUdaaU9ETTFNemMyCk5HVXlNQ3dHQ2lzR0FRUUJnNzh3QVFRRUhpNW5hWFJvZFdJdmQyOXlhMlpzYjNkekwzSmxiR1ZoYzJVdWVXRnQKYkRBbUJnb3JCZ0VFQVlPL01BRUZCQmhqYUdGcGJtZDFZWEprTFdsdFlXZGxjeTlwYldGblpYTXdIUVlLS3dZQgpCQUdEdnpBQkJnUVBjbVZtY3k5b1pXRmtjeTl0WVdsdU1Ec0dDaXNHQVFRQmc3OHdBUWdFTFF3cmFIUjBjSE02Ckx5OTBiMnRsYmk1aFkzUnBiMjV6TG1kcGRHaDFZblZ6WlhKamIyNTBaVzUwTG1OdmJUQnFCZ29yQmdFRUFZTy8KTUFFSkJGd01XbWgwZEhCek9pOHZaMmwwYUhWaUxtTnZiUzlqYUdGcGJtZDFZWEprTFdsdFlXZGxjeTlwYldGbgpaWE12TG1kcGRHaDFZaTkzYjNKclpteHZkM012Y21Wc1pXRnpaUzU1WVcxc1FISmxabk12YUdWaFpITXZiV0ZwCmJqQTRCZ29yQmdFRUFZTy9NQUVLQkNvTUtHVTBNell4WVRSbVlqUTBZV1ppWlRBNE5HRTBZakF5TW1abU5qVXcKWm1JNE16VXpOelkwWlRJd0hRWUtLd1lCQkFHRHZ6QUJDd1FQREExbmFYUm9kV0l0YUc5emRHVmtNRHNHQ2lzRwpBUVFCZzc4d0FRd0VMUXdyYUhSMGNITTZMeTluYVhSb2RXSXVZMjl0TDJOb1lXbHVaM1ZoY21RdGFXMWhaMlZ6CkwybHRZV2RsY3pBNEJnb3JCZ0VFQVlPL01BRU5CQ29NS0dVME16WXhZVFJtWWpRMFlXWmlaVEE0TkdFMFlqQXkKTW1abU5qVXdabUk0TXpVek56WTBaVEl3SHdZS0t3WUJCQUdEdnpBQkRnUVJEQTl5WldaekwyaGxZV1J6TDIxaAphVzR3R1FZS0t3WUJCQUdEdnpBQkR3UUxEQWsxTmpNMU1UQTVOVEl3TkFZS0t3WUJCQUdEdnpBQkVBUW1EQ1JvCmRIUndjem92TDJkcGRHaDFZaTVqYjIwdlkyaGhhVzVuZFdGeVpDMXBiV0ZuWlhNd0dRWUtLd1lCQkFHRHZ6QUIKRVFRTERBa3hNVE14T1RnMU5EVXdhZ1lLS3dZQkJBR0R2ekFCRWdSY0RGcG9kSFJ3Y3pvdkwyZHBkR2gxWWk1agpiMjB2WTJoaGFXNW5kV0Z5WkMxcGJXRm5aWE12YVcxaFoyVnpMeTVuYVhSb2RXSXZkMjl5YTJac2IzZHpMM0psCmJHVmhjMlV1ZVdGdGJFQnlaV1p6TDJobFlXUnpMMjFoYVc0d09BWUtLd1lCQkFHRHZ6QUJFd1FxRENobE5ETTIKTVdFMFptSTBOR0ZtWW1Vd09EUmhOR0l3TWpKbVpqWTFNR1ppT0RNMU16YzJOR1V5TUJRR0Npc0dBUVFCZzc4dwpBUlFFQmd3RWNIVnphREJmQmdvckJnRUVBWU8vTUFFVkJGRU1UMmgwZEhCek9pOHZaMmwwYUhWaUxtTnZiUzlqCmFHRnBibWQxWVhKa0xXbHRZV2RsY3k5cGJXRm5aWE12WVdOMGFXOXVjeTl5ZFc1ekx6STFNVGt3Tmprek5qYzUKTDJGMGRHVnRjSFJ6THpFd0ZnWUtLd1lCQkFHRHZ6QUJGZ1FJREFad2RXSnNhV013Z1lzR0Npc0dBUVFCMW5rQwpCQUlFZlFSN0FIa0Fkd0RkUFRCcXhzY1JNbU1aSGh5Wlp6Y0Nva3BldU40OHJmK0hpbktBTHludWpnQUFBWjNnClcrV3NBQUFFQXdCSU1FWUNJUUNnT1FBK09iUWtobG84aHhHalY1bEJtamtqWVFYUGY0T1VrbGFCQU9rUlJBSWgKQUk2bDViY2gvR3F6QjhVaU5YTEdUd0Npd0lKVW8wUHh3dmlzZE5YV1ZaZXVNQW9HQ0NxR1NNNDlCQU1EQTJjQQpNR1FDTURpcTA1WDB1eHphNGIzcGpEYmNnQ2ozQjVTOGlQUEJrR2lyOUcwMmhhWEVKQWNhQUExeDRkd0ZaSFlOCmtQYWhaZ0l3TkVydmFRTktBbHhMSmtvSndGdHFLYkdBNGFPZEd3cWtpbjlRNW4zTCtyWHVVL3NSMkYvODF2ODAKTnNKdE5iTWQKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=</a>"</div>
+      </div>
+      }</div>
+    </div>
+    }</div>
+  </div>
+  }</div>
+</div>
+}</div>
+</body>
+</html>

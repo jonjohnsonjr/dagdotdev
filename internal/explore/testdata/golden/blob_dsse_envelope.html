@@ -1,0 +1,140 @@
+
+<html>
+<head>
+<title>REGISTRY/alpha/widget@sha256:f20f2bd4d11301f699050690661411e44dfd59e8e70d1219eb85c2a9c77d58a4</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/alpha/widget">REGISTRY/alpha/widget</a>@<a class="mt" href="/?blob=REGISTRY/alpha/widget@sha256:f20f2bd4d11301f699050690661411e44dfd59e8e70d1219eb85c2a9c77d58a4&mt=application%2Fvnd.dsse.envelope.v1%2Bjson">sha256:f20f2bd4d11301f699050690661411e44dfd59e8e70d1219eb85c2a9c77d58a4</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/secure-systems-lab/dsse/blob/469c6e9fa6c4b7252fb71101084561cfc4cd0fa5/envelope.md">application/vnd.dsse.envelope.v1+json</a><br>
+Docker-Content-Digest: <a class="mt" href="/?blob=REGISTRY/alpha/widget@sha256:f20f2bd4d11301f699050690661411e44dfd59e8e70d1219eb85c2a9c77d58a4&mt=application%2Fvnd.dsse.envelope.v1%2Bjson&size=354">sha256:f20f2bd4d11301f699050690661411e44dfd59e8e70d1219eb85c2a9c77d58a4</a><br>
+<span title="354 B">Content-Length: 354</span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/vnd.dsse.envelope.v1+json",<br>
+&nbsp;&nbsp;"digest": "sha256:f20f2bd4d11301f699050690661411e44dfd59e8e70d1219eb85c2a9c77d58a4",<br>
+&nbsp;&nbsp;"size": 354<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_blob.md">blob</a> REGISTRY/alpha/widget@sha256:f20f2bd4d11301f699050690661411e44dfd59e8e70d1219eb85c2a9c77d58a4 | jq .</h4>
+
+
+<div>{
+<div class="indent">
+  <div>"payload": "<a href="/?blob=REGISTRY%2Falpha%2Fwidget%40sha256%3Af20f2bd4d11301f699050690661411e44dfd59e8e70d1219eb85c2a9c77d58a4&jq=.payload&jq=base64+-d&jq=jq&mt=application%2Fvnd.dsse.envelope.v1%2Bjson">eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYnVpbGRUeXBlIjoidGVzdCJ9LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9zbHNhLmRldi9wcm92ZW5hbmNlL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6IjAwMDAifSwibmFtZSI6ImFscGhhL3dpZGdldCJ9XX0=</a>",</div>
+  <div>"payloadType": <a class="mt" href="https://github.com/in-toto/attestation/blob/a7a9d0712d5115af3e8e1f6b3564158a1bbb73e4/spec/v1/statement.md">&#34;application/vnd.in-toto+json&#34;</a>,</div>
+  <div>"signatures": [
+  <div class="indent">
+    <div>{
+    <div class="indent">
+      <div>"keyid": &#34;k1&#34;,</div>
+      <div>"sig": &#34;FAKE&#34;</div>
+    </div>
+    }</div>
+  </div>
+  ]</div>
+</div>
+}</div>
+</body>
+</html>

@@ -82,7 +82,6 @@ func (l *Lexer) NextItem() Item {
 			l.state = l.state(l)
 		}
 	}
-	panic("not reached")
 }
 
 // next returns the next rune in the input.
@@ -115,19 +114,9 @@ func (l *Lexer) peek() rune {
 	return rune
 }
 
-// accept consumes the next rune
-// if it's from the valid set.
-func (l *Lexer) accept(valid string) bool {
-	if strings.IndexRune(valid, l.next()) >= 0 {
-		return true
-	}
-	l.backup()
-	return false
-}
-
 // acceptRun consumes a run of runes from the valid set.
 func (l *Lexer) acceptRun(valid string) {
-	for strings.IndexRune(valid, l.next()) >= 0 {
+	for strings.ContainsRune(valid, l.next()) {
 	}
 	l.backup()
 }
@@ -177,7 +166,6 @@ func lexExpression(l *Lexer) stateFn {
 			return lexSentinel
 		}
 	}
-	return nil // Stop the run loop.
 }
 
 func lexInsideBrackets(l *Lexer) stateFn {
@@ -194,7 +182,6 @@ func lexInsideBrackets(l *Lexer) stateFn {
 			return l.errorf("unexpected bracket: %s", string(r))
 		}
 	}
-	panic("not reached")
 }
 
 func lexRightBracket(l *Lexer) stateFn {
@@ -241,15 +228,6 @@ func lexIdentifier(l *Lexer) stateFn {
 	l.backup()
 
 	l.emit(ItemAccessor)
-	return lexExpression
-}
-
-func lexPipe(l *Lexer) stateFn {
-	for isSentinel(l.next()) {
-	}
-	l.backup()
-
-	l.emit(ItemSentinel)
 	return lexExpression
 }
 

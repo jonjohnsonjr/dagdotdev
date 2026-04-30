@@ -1,0 +1,160 @@
+
+<html>
+<head>
+<title>REGISTRY/alpha/widget@sha256:b8dc868a41be1e1a48691594f6e47b6c3fff8fd4ebc4ce78061e69628d502434</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/alpha/widget">REGISTRY/alpha/widget</a>@<a class="mt" href="/blob/REGISTRY/alpha/widget@sha256:b8dc868a41be1e1a48691594f6e47b6c3fff8fd4ebc4ce78061e69628d502434?mt=application%2Fpkix-cert">sha256:b8dc868a41be1e1a48691594f6e47b6c3fff8fd4ebc4ce78061e69628d502434</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/media-types.md">application/pkix-cert</a><br>
+Docker-Content-Digest: <a class="mt" href="/blob/REGISTRY/alpha/widget@sha256:b8dc868a41be1e1a48691594f6e47b6c3fff8fd4ebc4ce78061e69628d502434?mt=application%2Fpkix-cert&size=415">sha256:b8dc868a41be1e1a48691594f6e47b6c3fff8fd4ebc4ce78061e69628d502434</a><br>
+<span title="415 B">Content-Length: 415</span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/pkix-cert",<br>
+&nbsp;&nbsp;"digest": "sha256:b8dc868a41be1e1a48691594f6e47b6c3fff8fd4ebc4ce78061e69628d502434",<br>
+&nbsp;&nbsp;"size": 415<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_blob.md">blob</a> REGISTRY/alpha/widget@sha256:b8dc868a41be1e1a48691594f6e47b6c3fff8fd4ebc4ce78061e69628d502434 | jq . | openssl x509 -inform der -text -noout</h4>
+
+
+<pre>Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            de:ad:be:ef
+        Signature Algorithm: ecdsa-with-SHA256
+        Issuer: O = dagdotdev-tests, CN = test
+        Validity
+            Not Before: Apr 30 20:31:07 2026 GMT
+            Not After : Apr  6 20:31:07 2126 GMT
+        Subject: O = dagdotdev-tests, CN = test
+        Subject Public Key Info:
+            Public Key Algorithm: id-ecPublicKey
+                Public-Key: (256 bit)
+                pub:
+                    04:41:5b:0f:2d:99:ae:9d:8d:b7:b2:0b:46:12:08:
+                    e1:25:ba:0c:b7:b2:dc:b9:2e:c2:de:7f:35:cc:45:
+                    3a:7c:ac:95:16:57:86:da:20:57:5a:5c:65:ac:c9:
+                    6d:b8:55:27:c3:a4:63:69:fe:df:b7:31:4f:4a:02:
+                    96:c0:b4:fc:22
+                ASN1 OID: prime256v1
+                NIST CURVE: P-256
+        X509v3 extensions:
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.2">X509v3 Subject Key Identifier</a>: 
+                3A:CA:2D:42:AE:E7:DF:5C:59:95:94:0B:01:0B:C4:F6:02:E1:85:15
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.1">X509v3 Authority Key Identifier</a>: 
+                3A:CA:2D:42:AE:E7:DF:5C:59:95:94:0B:01:0B:C4:F6:02:E1:85:15
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.9">X509v3 Basic Constraints</a>: critical
+                CA:TRUE
+    Signature Algorithm: ecdsa-with-SHA256
+    Signature Value:
+        30:46:02:21:00:88:b5:e5:10:9b:47:59:29:c8:19:c0:f8:e4:
+        13:29:c9:d5:2e:e1:6c:70:bb:c7:72:bb:d0:e1:4a:d5:a3:06:
+        3d:02:21:00:ae:92:46:aa:74:cf:d4:a2:70:83:07:dc:1d:ba:
+        10:d6:2b:3a:cc:54:74:5b:20:ac:2a:b1:f4:14:f2:95:08:00
+</pre>
+</body>
+</html>
