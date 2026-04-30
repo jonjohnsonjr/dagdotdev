@@ -1,9 +1,0 @@
-**/*~
-.project
-bazel*
-.idea
-*.iml
-
-cmd/crane/crane
-cmd/gcrane/gcrane
-cmd/krane/krane

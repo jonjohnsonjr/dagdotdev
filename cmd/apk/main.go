@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto"
 	"flag"
 	"fmt"
 	"log"
@@ -9,19 +8,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/gcrane"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dagdotdev/internal/apk"
-
-	sha256simd "github.com/minio/sha256-simd"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/apk"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 )
 
 var auth = flag.Bool("auth", false, "use docker credentials")
 var verbose = flag.Bool("v", false, "verbose logs")
-
-func init() {
-	crypto.RegisterHash(crypto.SHA256, sha256simd.New)
-}
 
 func main() {
 	flag.Parse()
@@ -50,11 +43,7 @@ func main() {
 	// TODO: Auth.
 	opt := []apk.Option{apk.WithUserAgent(userAgent)}
 	if *auth || os.Getenv("AUTH") == "keychain" {
-		opt = append(opt, apk.WithKeychain(gcrane.Keychain))
-	}
-	if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
-		cgauth := apk.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "apk.cgr.dev")
-		opt = append(opt, apk.WithAuth(cgauth))
+		opt = append(opt, apk.WithKeychain(authn.DefaultKeychain))
 	}
 	if eg := os.Getenv("EXAMPLES"); eg != "" {
 		opt = append(opt, apk.WithExamples(strings.Split(eg, ",")))

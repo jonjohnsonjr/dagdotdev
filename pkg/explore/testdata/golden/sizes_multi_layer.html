@@ -1,0 +1,130 @@
+
+<html>
+<head>
+<title>REGISTRY/alpha/widget@sha256:fc856f0260d256c89f7d0a95d85065fc19d53f661152fb9ffc967a6c3102b620</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/alpha/widget">REGISTRY/alpha/widget</a>@<a class="mt" href="/?image=REGISTRY/alpha/widget@sha256:fc856f0260d256c89f7d0a95d85065fc19d53f661152fb9ffc967a6c3102b620&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson">sha256:fc856f0260d256c89f7d0a95d85065fc19d53f661152fb9ffc967a6c3102b620</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">application/vnd.oci.image.manifest.v1+json</a><br>
+Docker-Content-Digest: <a class="mt" href="/?image=REGISTRY/alpha/widget@sha256:fc856f0260d256c89f7d0a95d85065fc19d53f661152fb9ffc967a6c3102b620&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson&size=555">sha256:fc856f0260d256c89f7d0a95d85065fc19d53f661152fb9ffc967a6c3102b620</a><br>
+<span title="555 B">Content-Length: 555</span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/vnd.oci.image.manifest.v1+json",<br>
+&nbsp;&nbsp;"digest": "sha256:fc856f0260d256c89f7d0a95d85065fc19d53f661152fb9ffc967a6c3102b620",<br>
+&nbsp;&nbsp;"size": 555<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_export.md">export</a> REGISTRY/alpha/widget@sha256:fc856f0260d256c89f7d0a95d85065fc19d53f661152fb9ffc967a6c3102b620 | tar -tv | sort -n -r -k3</h4>
+
+
+<pre>
+<small>1592f02d</small> -rw-r--r-- 0/0 <span title="4.0 KiB">           4096</span> 1970-01-01 00:00 var/data.bin
+<small>82721bb8</small> -rw-r--r-- 0/0 <span title="2.0 KiB">           2048</span> 1970-01-01 00:00 etc/baseline.cfg
+<small>1592f02d</small> -rw-r--r-- 0/0 <span title="64 B">             64</span> 1970-01-01 00:00 var/log.txt
+<small>82721bb8</small> -rw-r--r-- 0/0 <span title="4 B">              4</span> 1970-01-01 00:00 etc/small.txt
+</pre>
+</body>
+</html>

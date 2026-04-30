@@ -1,0 +1,139 @@
+
+<html>
+<head>
+<title>REGISTRY/alpha/widget@sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/alpha/widget">REGISTRY/alpha/widget</a>@<a class="mt" href="/blob/REGISTRY/alpha/widget@sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff?mt=application%2Fvnd.oci.image.layer.v1.tar%2Bzstd">sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/media-types.md">application/vnd.oci.image.layer.v1.tar+zstd</a><br>
+Docker-Content-Digest: <a class="mt" href="/blob/REGISTRY/alpha/widget@sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff?mt=application%2Fvnd.oci.image.layer.v1.tar%2Bzstd&size=153">sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff</a><br>
+<span title="153 B">Content-Length: <a class="mt" href="/size/REGISTRY/alpha/widget@sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff?mt=application/vnd.oci.image.layer.v1.tar+zstd&size=153">153</a></span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/vnd.oci.image.layer.v1.tar+zstd",<br>
+&nbsp;&nbsp;"digest": "sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff",<br>
+&nbsp;&nbsp;"size": 153<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_blob.md">blob</a> REGISTRY/alpha/widget@sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff | <a class="mt" href="/fs/REGISTRY/alpha/widget@sha256:46b936b992209e473c05181728c997ec6a603bf100b58a0fd41b6cf352c04dff/?all=true&mt=application%2Fvnd.oci.image.layer.v1.tar%2Bzstd&size=153">tar --zstd -tv</a> </h4>
+
+
+<div><template shadowrootmode="open"><style>
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes twist-up {
+  to {
+    transform: rotateX(360deg);
+  }
+}</style><p><slot name="message"><span style="line-height: .707em; width: .707em; display: inline-block; animation: spin 1.0s infinite linear;">🤐</span> Loading<span><slot name="progress"></slot></span></slot></p><pre><slot name="file"></slot></pre></template><span slot="file">drwxr-xr-x 0/0 <span title="0 B">              0</span> 1970-01-01 00:00 <a href="etc/">etc/</a>
+</span><span slot="progress">.</span>
+<p slot="message">Indexed in DURATION</p>
+</div>
+</body>
+</html>

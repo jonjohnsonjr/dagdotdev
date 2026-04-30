@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/jonjohnsonjr/dagdotdev/internal/git"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/git"
 )
 
 func main() {

@@ -1,0 +1,160 @@
+
+<html>
+<head>
+<title>REGISTRY/alpha/multi@sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/alpha/multi">REGISTRY/alpha/multi</a>@<a class="mt" href="/?image=REGISTRY/alpha/multi@sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30&mt=application%2Fvnd.oci.image.index.v1%2Bjson">sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30</a> <a href="/?referrers=REGISTRY/alpha/multi@sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30">(referrers)</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/image-index.md">application/vnd.oci.image.index.v1+json</a><br>
+Docker-Content-Digest: <a class="mt" href="/?image=REGISTRY/alpha/multi@sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30&mt=application%2Fvnd.oci.image.index.v1%2Bjson&size=491">sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30</a><br>
+<span title="491 B">Content-Length: <a class="mt" href="/sizes/REGISTRY/alpha/multi@sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30?mt=application/vnd.oci.image.index.v1+json&size=491">491</a></span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/vnd.oci.image.index.v1+json",<br>
+&nbsp;&nbsp;"digest": "sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30",<br>
+&nbsp;&nbsp;"size": 491<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_manifest.md">manifest</a> REGISTRY/alpha/multi@sha256:4a2adb2eb624f96a72bfa3f025059f41be957e3f751a05a9c08efbabf4e0ab30 | jq .</h4>
+
+
+<div>{
+<div class="indent">
+  <div>"schemaVersion": 2,</div>
+  <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/image-index.md">&#34;application/vnd.oci.image.index.v1+json&#34;</a>,</div>
+  <div>"manifests": [
+  <div class="indent">
+    <div>{
+    <div class="indent">
+      <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">&#34;application/vnd.oci.image.manifest.v1+json&#34;</a>,</div>
+      <div>"digest": "<a href="/?image=REGISTRY/alpha/multi@sha256:a2191213e61bc0d0c8cd31173e44d51f247a770c5716a38b6291b305b8af2b3a&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson&size=248">sha256:a2191213e61bc0d0c8cd31173e44d51f247a770c5716a38b6291b305b8af2b3a</a>",</div>
+      <div>"size": <span title="248 B">248</span>,</div>
+      <div>"platform": {
+      <div class="indent">
+        <div>"architecture": &#34;amd64&#34;,</div>
+        <div>"os": &#34;linux&#34;</div>
+      </div>
+      }</div>
+    </div>
+    },</div>
+    <div>{
+    <div class="indent">
+      <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">&#34;application/vnd.oci.image.manifest.v1+json&#34;</a>,</div>
+      <div>"digest": "<a href="/?image=REGISTRY/alpha/multi@sha256:26e15f7297d3769319b451ce9dc89ba08305f3d9f71701d939662ba296cfaca4&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson&size=248">sha256:26e15f7297d3769319b451ce9dc89ba08305f3d9f71701d939662ba296cfaca4</a>",</div>
+      <div>"size": <span title="248 B">248</span>,</div>
+      <div>"platform": {
+      <div class="indent">
+        <div>"architecture": &#34;arm64&#34;,</div>
+        <div>"os": &#34;linux&#34;</div>
+      </div>
+      }</div>
+    </div>
+    }</div>
+  </div>
+  ]</div>
+</div>
+}</div>
+</body>
+</html>

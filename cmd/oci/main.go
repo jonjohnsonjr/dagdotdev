@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto"
 	"flag"
 	"fmt"
 	"log"
@@ -9,21 +8,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/authn"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/gcrane"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/logs"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/google/go-containerregistry/pkg/name"
-	"github.com/jonjohnsonjr/dagdotdev/internal/explore"
-
-	sha256simd "github.com/minio/sha256-simd"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/explore"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
 )
 
 var auth = flag.Bool("auth", false, "use docker credentials")
 var verbose = flag.Bool("v", false, "verbose logs")
-
-func init() {
-	crypto.RegisterHash(crypto.SHA256, sha256simd.New)
-}
 
 func main() {
 	flag.Parse()
@@ -51,12 +43,8 @@ func main() {
 
 	opt := []explore.Option{explore.WithUserAgent(userAgent)}
 	kcs := []authn.Keychain{}
-	if cgid := os.Getenv("CHAINGUARD_IDENTITY"); cgid != "" {
-		cgauth := explore.NewChainguardIdentityAuth(cgid, "https://issuer.enforce.dev", "cgr.dev")
-		kcs = append(kcs, cgauth)
-	}
 	if *auth || os.Getenv("AUTH") == "keychain" {
-		kcs = append(kcs, gcrane.Keychain)
+		kcs = append(kcs, authn.DefaultKeychain)
 	}
 
 	if dh := os.Getenv("DOCKERHUB_AUTH"); dh != "" {

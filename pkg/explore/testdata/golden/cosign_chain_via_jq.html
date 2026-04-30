@@ -1,0 +1,207 @@
+
+<html>
+<head>
+<title>REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/chainguard/crane">REGISTRY/chainguard/crane</a>@<a class="mt" href="/?image=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson">sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</a> <a href="/?referrers=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0">(referrers)</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">application/vnd.oci.image.manifest.v1+json</a><br>
+Docker-Content-Digest: <a class="mt" href="/?image=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson&size=9953">sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</a><br>
+<span title="9.7 KiB">Content-Length: <a class="mt" href="/sizes/REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0?mt=application/vnd.oci.image.manifest.v1+json&size=9953">9953</a></span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/vnd.oci.image.manifest.v1+json",<br>
+&nbsp;&nbsp;"digest": "sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0",<br>
+&nbsp;&nbsp;"size": 9953<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_manifest.md">manifest</a> REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0 | jq -r '.layers[0].annotations["dev.sigstore.cosign/chain"]' | while openssl x509 -text -noout 2>/dev/null; do :; done</h4>
+
+
+<pre>Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            b9:d5:89:57:e7:53:46:eb:25:ab:26:46:41:eb:9f:f5:27:7d:a4
+        Signature Algorithm: ecdsa-with-SHA384
+        Issuer: O = sigstore.dev, CN = sigstore
+        Validity
+            Not Before: Apr 13 20:06:15 2022 GMT
+            Not After : Oct  5 13:56:58 2031 GMT
+        Subject: O = sigstore.dev, CN = sigstore-intermediate
+        Subject Public Key Info:
+            Public Key Algorithm: id-ecPublicKey
+                Public-Key: (384 bit)
+                pub:
+                    04:f1:15:52:ff:2b:07:f8:d3:af:b8:36:72:3c:86:
+                    6d:8a:58:14:17:d3:65:6a:b6:29:01:df:47:3f:5b:
+                    c1:04:7d:54:e4:25:7b:ec:b4:92:ee:cd:19:88:7e:
+                    27:13:b1:ef:ee:9b:52:e8:bb:ef:47:f4:93:93:bf:
+                    7c:2d:58:0c:cc:b9:49:e0:77:88:7c:5d:ed:1d:26:
+                    9e:c4:b7:18:a5:20:12:af:59:12:d0:df:d1:80:12:
+                    73:ff:d8:d6:0a:25:e7
+                NIST CURVE: P-384
+        X509v3 extensions:
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.3">X509v3 Key Usage</a>: critical
+                Certificate Sign, CRL Sign
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.12">X509v3 Extended Key Usage</a>: 
+                Code Signing
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.9">X509v3 Basic Constraints</a>: critical
+                CA:TRUE, pathlen:0
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.2">X509v3 Subject Key Identifier</a>: 
+                DF:D3:E9:CF:56:24:11:96:F9:A8:D8:E9:28:55:A2:C6:2E:18:64:3F
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.1">X509v3 Authority Key Identifier</a>: 
+                58:C0:1E:5F:91:45:A5:66:A9:7A:CC:90:A1:93:22:D0:2A:C5:C5:FA
+    Signature Algorithm: ecdsa-with-SHA384
+    Signature Value:
+        30:64:02:30:3c:2b:10:2b:80:d8:89:96:03:3c:86:83:8b:91:
+        c5:2a:77:f1:5f:1e:80:49:25:66:11:17:ec:ca:76:01:89:7d:
+        97:e9:22:51:9d:95:3c:e3:ff:43:65:d9:c5:be:fc:66:02:30:
+        4e:b7:a4:29:06:57:38:27:fd:03:c6:f9:13:0a:aa:5c:96:fc:
+        e2:2f:a0:42:08:f9:e3:76:52:01:dc:fb:b7:07:1b:0f:9b:28:
+        14:63:b2:22:db:36:dd:09:d9:62:8a:8c
+</pre><pre>Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            b6:4d:00:f1:5d:c4:73:f0:8d:e0:e5:a0:3c:32:60:28:40:3b:fe
+        Signature Algorithm: ecdsa-with-SHA384
+        Issuer: O = sigstore.dev, CN = sigstore
+        Validity
+            Not Before: Oct  7 13:56:59 2021 GMT
+            Not After : Oct  5 13:56:58 2031 GMT
+        Subject: O = sigstore.dev, CN = sigstore
+        Subject Public Key Info:
+            Public Key Algorithm: id-ecPublicKey
+                Public-Key: (384 bit)
+                pub:
+                    04:fb:5d:e1:53:e2:b6:f7:3d:01:b0:4b:82:1a:8e:
+                    d2:e4:df:f3:a5:9e:98:1a:9e:06:81:72:56:29:b1:
+                    80:6b:e6:2f:b8:ca:70:74:ed:c7:9b:dc:b3:f4:38:
+                    83:99:77:17:b1:5f:af:5c:e6:25:6e:c8:94:50:f8:
+                    7c:f4:e7:28:be:50:5d:ee:05:60:25:1e:98:92:e6:
+                    c8:74:f8:7d:86:1c:4e:d2:5e:b9:35:10:2e:66:d5:
+                    3a:f5:f4:bf:60:83:dd
+                NIST CURVE: P-384
+        X509v3 extensions:
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.3">X509v3 Key Usage</a>: critical
+                Certificate Sign, CRL Sign
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.9">X509v3 Basic Constraints</a>: critical
+                CA:TRUE
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.2">X509v3 Subject Key Identifier</a>: 
+                58:C0:1E:5F:91:45:A5:66:A9:7A:CC:90:A1:93:22:D0:2A:C5:C5:FA
+            <a href="https://www.rfc-editor.org/rfc/rfc5280.html#section-4.2.1.1">X509v3 Authority Key Identifier</a>: 
+                58:C0:1E:5F:91:45:A5:66:A9:7A:CC:90:A1:93:22:D0:2A:C5:C5:FA
+    Signature Algorithm: ecdsa-with-SHA384
+    Signature Value:
+        30:66:02:31:00:8f:59:c7:79:76:69:fb:5d:cd:58:13:5a:f8:
+        40:ec:0c:ff:06:d5:65:a0:d6:d0:8c:58:ff:d6:1c:fa:a9:69:
+        5a:34:8e:1b:30:78:d1:59:81:2b:34:78:4e:f0:60:8e:2a:02:
+        31:00:d9:60:7d:a2:df:7c:b0:89:28:17:7b:d9:61:d7:77:fd:
+        5b:56:07:96:fd:4c:d3:1e:6b:b2:31:fe:cb:49:e5:37:dc:2c:
+        b7:80:04:b1:38:04:d2:4e:b1:0e:2f:9c:11:c9
+</pre>
+</body>
+</html>

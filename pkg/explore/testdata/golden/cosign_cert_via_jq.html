@@ -1,0 +1,167 @@
+
+<html>
+<head>
+<title>REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/chainguard/crane">REGISTRY/chainguard/crane</a>@<a class="mt" href="/?image=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson">sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</a> <a href="/?referrers=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0">(referrers)</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">application/vnd.oci.image.manifest.v1+json</a><br>
+Docker-Content-Digest: <a class="mt" href="/?image=REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson&size=9953">sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0</a><br>
+<span title="9.7 KiB">Content-Length: <a class="mt" href="/sizes/REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0?mt=application/vnd.oci.image.manifest.v1+json&size=9953">9953</a></span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/vnd.oci.image.manifest.v1+json",<br>
+&nbsp;&nbsp;"digest": "sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0",<br>
+&nbsp;&nbsp;"size": 9953<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_manifest.md">manifest</a> REGISTRY/chainguard/crane@sha256:f1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0 | jq -r '.layers[0].annotations["dev.sigstore.cosign/certificate"]'</h4>
+
+
+<div><a href="/?image=REGISTRY%2Fchainguard%2Fcrane%40sha256%3Af1c37cd32210dfc5312d39fb6817990a5af24d1f046deab23e03ee310d7b4ad0&jq=.layers%5B0%5D.annotations%5B%22dev.sigstore.cosign%2Fcertificate%22%5D&render=x509">-----BEGIN CERTIFICATE-----<br>
+MIIG8jCCBnmgAwIBAgIUJgkSQOiHkGbVRPiTUzAZsTFSSjEwCgYIKoZIzj0EAwMw<br>
+NzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRl<br>
+cm1lZGlhdGUwHhcNMjYwNDMwMjE0NjUyWhcNMjYwNDMwMjE1NjUyWjAAMFkwEwYH<br>
+KoZIzj0CAQYIKoZIzj0DAQcDQgAEmk4zGsKuFvHDWJAnj6LMNr+yu/7ua+4JbP3a<br>
+ezXm2kLq1gWAIpeoYo/DUBZJshPqFpDOeca0JNckrj+9MgCPSKOCBZgwggWUMA4G<br>
+A1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzAdBgNVHQ4EFgQUj2YK<br>
+lJGRPy2yEkbEmazQNqgRQgcwHwYDVR0jBBgwFoAU39Ppz1YkEZb5qNjpKFWixi4Y<br>
+ZD8waAYDVR0RAQH/BF4wXIZaaHR0cHM6Ly9naXRodWIuY29tL2NoYWluZ3VhcmQt<br>
+aW1hZ2VzL2ltYWdlcy8uZ2l0aHViL3dvcmtmbG93cy9yZWxlYXNlLnlhbWxAcmVm<br>
+cy9oZWFkcy9tYWluMDkGCisGAQQBg78wAQEEK2h0dHBzOi8vdG9rZW4uYWN0aW9u<br>
+cy5naXRodWJ1c2VyY29udGVudC5jb20wEgYKKwYBBAGDvzABAgQEcHVzaDA2Bgor<br>
+BgEEAYO/MAEDBChlNDM2MWE0ZmI0NGFmYmUwODRhNGIwMjJmZjY1MGZiODM1Mzc2<br>
+NGUyMCwGCisGAQQBg78wAQQEHi5naXRodWIvd29ya2Zsb3dzL3JlbGVhc2UueWFt<br>
+bDAmBgorBgEEAYO/MAEFBBhjaGFpbmd1YXJkLWltYWdlcy9pbWFnZXMwHQYKKwYB<br>
+BAGDvzABBgQPcmVmcy9oZWFkcy9tYWluMDsGCisGAQQBg78wAQgELQwraHR0cHM6<br>
+Ly90b2tlbi5hY3Rpb25zLmdpdGh1YnVzZXJjb250ZW50LmNvbTBqBgorBgEEAYO/<br>
+MAEJBFwMWmh0dHBzOi8vZ2l0aHViLmNvbS9jaGFpbmd1YXJkLWltYWdlcy9pbWFn<br>
+ZXMvLmdpdGh1Yi93b3JrZmxvd3MvcmVsZWFzZS55YW1sQHJlZnMvaGVhZHMvbWFp<br>
+bjA4BgorBgEEAYO/MAEKBCoMKGU0MzYxYTRmYjQ0YWZiZTA4NGE0YjAyMmZmNjUw<br>
+ZmI4MzUzNzY0ZTIwHQYKKwYBBAGDvzABCwQPDA1naXRodWItaG9zdGVkMDsGCisG<br>
+AQQBg78wAQwELQwraHR0cHM6Ly9naXRodWIuY29tL2NoYWluZ3VhcmQtaW1hZ2Vz<br>
+L2ltYWdlczA4BgorBgEEAYO/MAENBCoMKGU0MzYxYTRmYjQ0YWZiZTA4NGE0YjAy<br>
+MmZmNjUwZmI4MzUzNzY0ZTIwHwYKKwYBBAGDvzABDgQRDA9yZWZzL2hlYWRzL21h<br>
+aW4wGQYKKwYBBAGDvzABDwQLDAk1NjM1MTA5NTIwNAYKKwYBBAGDvzABEAQmDCRo<br>
+dHRwczovL2dpdGh1Yi5jb20vY2hhaW5ndWFyZC1pbWFnZXMwGQYKKwYBBAGDvzAB<br>
+EQQLDAkxMTMxOTg1NDUwagYKKwYBBAGDvzABEgRcDFpodHRwczovL2dpdGh1Yi5j<br>
+b20vY2hhaW5ndWFyZC1pbWFnZXMvaW1hZ2VzLy5naXRodWIvd29ya2Zsb3dzL3Jl<br>
+bGVhc2UueWFtbEByZWZzL2hlYWRzL21haW4wOAYKKwYBBAGDvzABEwQqDChlNDM2<br>
+MWE0ZmI0NGFmYmUwODRhNGIwMjJmZjY1MGZiODM1Mzc2NGUyMBQGCisGAQQBg78w<br>
+ARQEBgwEcHVzaDBfBgorBgEEAYO/MAEVBFEMT2h0dHBzOi8vZ2l0aHViLmNvbS9j<br>
+aGFpbmd1YXJkLWltYWdlcy9pbWFnZXMvYWN0aW9ucy9ydW5zLzI1MTkwNjkzNjc5<br>
+L2F0dGVtcHRzLzEwFgYKKwYBBAGDvzABFgQIDAZwdWJsaWMwgYsGCisGAQQB1nkC<br>
+BAIEfQR7AHkAdwDdPTBqxscRMmMZHhyZZzcCokpeuN48rf+HinKALynujgAAAZ3g<br>
+W+WsAAAEAwBIMEYCIQCgOQA+ObQkhlo8hxGjV5lBmjkjYQXPf4OUklaBAOkRRAIh<br>
+AI6l5bch/GqzB8UiNXLGTwCiwIJUo0PxwvisdNXWVZeuMAoGCCqGSM49BAMDA2cA<br>
+MGQCMDiq05X0uxza4b3pjDbcgCj3B5S8iPPBkGir9G02haXEJAcaAA1x4dwFZHYN<br>
+kPahZgIwNErvaQNKAlxLJkoJwFtqKbGA4aOdGwqkin9Q5n3L+rXuU/sR2F/81v80<br>
+NsJtNbMd<br>
+-----END CERTIFICATE-----<br>
+<br>
+</a>
+</div>
+</body>
+</html>

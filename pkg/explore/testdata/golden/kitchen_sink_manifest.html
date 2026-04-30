@@ -1,0 +1,252 @@
+
+<html>
+<head>
+<title>REGISTRY/alpha/widget@sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+.mt:hover {
+	text-decoration: underline;
+}
+
+.mt {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+.link {
+	position: relative;
+	bottom: .125em;
+}
+
+.crane {
+	height: 1em;
+	width: 1em;
+}
+
+.top {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+	font-family: monospace;
+	width: fit-content;
+	overflow-wrap: anywhere;
+	padding: 12px;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+.indent {
+	margin-left: 2em;
+}
+
+.noselect {
+	user-select: none;
+	-webkit-user-select: none;
+	width: fit-content;
+	overflow-wrap: none;
+	padding-right: 1em;
+	text-align: right;
+	white-space: nowrap;
+}
+
+td {
+	vertical-align: top;
+}
+
+// Adapted from https://medium.com/allenhwkim/how-to-build-tabs-only-with-css-844718d7de2f
+input + label { display: inline-block } /* show labels in line */
+input { display: none; }                /* hide radio buttons */
+input ~ .tab { display: none }          /* hide contents */
+
+/* show contents only for selected tab */
+#tab1:checked ~ .tab.content1,
+#tab2:checked ~ .tab.content2 { display: block; }
+
+input + label {             /* box with rounded corner */
+	display: inline-block;
+  border: 1px solid #999;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  top: 1px;
+  opacity: 50%;
+}
+input:checked + label {     /* white background for selected tab */
+  opacity: 100%;
+}
+input ~ .tab {          /* grey line between tab and contents */
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+</style>
+</head>
+
+<body>
+<div>
+<h1><a class="top" href="/"><img class="crane" src="/favicon.svg"/> <span class="link">Registry Explorer</span></a></h1>
+
+<h2><a class="mt" href="/?repo=REGISTRY/alpha/widget">REGISTRY/alpha/widget</a>@<a class="mt" href="/?image=REGISTRY/alpha/widget@sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson">sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8</a> <a href="/?referrers=REGISTRY/alpha/widget@sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8">(referrers)</a></h2>
+
+
+<input type="radio" name="tabs" id="tab1" checked />
+<label for="tab1">HTTP</label>
+<input type="radio" name="tabs" id="tab2" />
+<label for="tab2">OCI</label>
+<div class="tab content1">
+Content-Type: <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">application/vnd.oci.image.manifest.v1+json</a><br>
+Docker-Content-Digest: <a class="mt" href="/?image=REGISTRY/alpha/widget@sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson&size=3432">sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8</a><br>
+<span title="3.4 KiB">Content-Length: <a class="mt" href="/sizes/REGISTRY/alpha/widget@sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8?mt=application/vnd.oci.image.manifest.v1+json&size=3432">3432</a></span><br>
+
+</div>
+<div class="tab content2">
+{<br>
+&nbsp;&nbsp;"mediaType": "application/vnd.oci.image.manifest.v1+json",<br>
+&nbsp;&nbsp;"digest": "sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8",<br>
+&nbsp;&nbsp;"size": 3432<br>
+}<br>
+</div>
+
+
+</div>
+
+<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_manifest.md">manifest</a> REGISTRY/alpha/widget@sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8 | jq .</h4>
+
+
+<div>{
+<div class="indent">
+  <div>"schemaVersion": 2,</div>
+  <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">&#34;application/vnd.oci.image.manifest.v1+json&#34;</a>,</div>
+  <div>"config": {
+  <div class="indent">
+    <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/config.md">&#34;application/vnd.oci.image.config.v1+json&#34;</a>,</div>
+    <div>"digest": "<a href="/?blob=REGISTRY/alpha/widget@sha256:0000000000000000000000000000000000000000000000000000000000000000&mt=application%2Fvnd.oci.image.config.v1%2Bjson&size=100&manifest=REGISTRY/alpha/widget@sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8">sha256:0000000000000000000000000000000000000000000000000000000000000000</a>",</div>
+    <div>"size": <span title="100 B">100</span></div>
+  </div>
+  },</div>
+  <div>"<a href="/layers/REGISTRY/alpha/widget@sha256:3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8/">layers</a>": [
+  <div class="indent">
+    <div>{
+    <div class="indent">
+      <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/layer.md">&#34;application/vnd.oci.image.layer.v1.tar+gzip&#34;</a>,</div>
+      <div>"digest": "<a href="/fs/REGISTRY/alpha/widget@sha256:1111111111111111111111111111111111111111111111111111111111111111/?mt=application%2Fvnd.oci.image.layer.v1.tar%2Bgzip&size=4096">sha256:1111111111111111111111111111111111111111111111111111111111111111</a>",</div>
+      <div>"size": <a href="/size/REGISTRY/alpha/widget@sha256:1111111111111111111111111111111111111111111111111111111111111111?mt=application/vnd.oci.image.layer.v1.tar+gzip&size=4096"><span title="4.0 KiB">4096</span></a>,</div>
+      <div>"urls": [
+      <div class="indent">
+        <div>"<a href="/https/mirror.example.com%2Fblob.tar.gz@sha256:1111111111111111111111111111111111111111111111111111111111111111/">https://mirror.example.com/blob.tar.gz</a>",</div>
+        <div>"<a href="/http/backup.example.com%2Fblob.tar.gz@sha256:1111111111111111111111111111111111111111111111111111111111111111/">http://backup.example.com/blob.tar.gz</a>"</div>
+      </div>
+      ]</div>
+    </div>
+    },</div>
+    <div>{
+    <div class="indent">
+      <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/layer.md#non-distributable-layers">&#34;application/vnd.docker.image.rootfs.foreign.diff.tar.gzip&#34;</a>,</div>
+      <div>"digest": "<a href="/fs/REGISTRY/alpha/widget@sha256:2222222222222222222222222222222222222222222222222222222222222222/?mt=application%2Fvnd.docker.image.rootfs.foreign.diff.tar.gzip&size=256">sha256:2222222222222222222222222222222222222222222222222222222222222222</a>",</div>
+      <div>"size": <a href="/size/REGISTRY/alpha/widget@sha256:2222222222222222222222222222222222222222222222222222222222222222?mt=application/vnd.docker.image.rootfs.foreign.diff.tar.gzip&size=256"><span title="256 B">256</span></a></div>
+    </div>
+    }</div>
+  </div>
+  ],</div>
+  <div>"subject": {
+  <div class="indent">
+    <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">&#34;application/vnd.oci.image.manifest.v1+json&#34;</a>,</div>
+    <div>"digest": "<a href="/?image=REGISTRY/alpha/widget@sha256:5555555555555555555555555555555555555555555555555555555555555555&mt=application%2Fvnd.oci.image.manifest.v1%2Bjson&size=248">sha256:5555555555555555555555555555555555555555555555555555555555555555</a>",</div>
+    <div>"size": <span title="248 B">248</span></div>
+  </div>
+  },</div>
+  <div>"name": "<a href="/?image=index.docker.io/library/alpine:3.19">pkg:docker/library/alpine@3.19</a>",</div>
+  <div>"annotations": {
+  <div class="indent">
+    <div>"org.opencontainers.image.base.digest": "<a href="/?image=index.docker.io%2Flibrary%2Falpine@sha256:6666666666666666666666666666666666666666666666666666666666666666">sha256:6666666666666666666666666666666666666666666666666666666666666666</a>",</div>
+    <div>"org.opencontainers.image.base.name": "<a href="/?image=alpine:3.19">alpine:3.19</a>",</div>
+    <div>"org.opencontainers.image.documentation": "<a href="https://docs.example.com/widget">https://docs.example.com/widget</a>",</div>
+    <div>"org.opencontainers.image.source": "<a href="https://github.com/example/widget/tree/main/src/dir">https://github.com/example/widget.git#main:src/dir</a>",</div>
+    <div>"org.opencontainers.image.url": "<a href="https://example.com/widget">https://example.com/widget</a>",</div>
+    <div>"vnd.docker.reference.digest": "<a href="/?image=REGISTRY%2Falpha%2Fwidget@sha256:7777777777777777777777777777777777777777777777777777777777777777">sha256:7777777777777777777777777777777777777777777777777777777777777777</a>",</div>
+    <div>"vnd.docker.reference.type": <a class="mt" href="https://github.com/moby/buildkit/blob/master/docs/attestations/attestation-storage.md">&#34;attestation-manifest&#34;</a></div>
+  </div>
+  },</div>
+  <div>"_type": "<a href="https://in-toto.io/Statement/v1">https://in-toto.io/Statement/v1</a>",</div>
+  <div>"predicateType": <a class="mt" href="https://github.com/sigstore/cosign/blob/b01a173cab389e93c5f3b46d50fe503f9c2454c2/specs/COSIGN_VULN_ATTESTATION_SPEC.md">&#34;cosign.sigstore.dev/attestation/vuln/v1&#34;</a>,</div>
+  <div>"child": [
+  <div class="indent">
+    <div>"<a href="/?repo=REGISTRY%2Falpha%2Fwidget%2Falpine">alpine</a>",</div>
+    <div>"<a href="/?repo=REGISTRY%2Falpha%2Fwidget%2Fstatic">static</a>"</div>
+  </div>
+  ],</div>
+  <div>"tags": [
+  <div class="indent">
+    <div>"<a href="/?image=REGISTRY%2Falpha%2Fwidget:v1.0.0">v1.0.0</a>",</div>
+    <div>"<a href="/?image=REGISTRY%2Falpha%2Fwidget:v1.1.0">v1.1.0</a>"</div>
+  </div>
+  ],</div>
+  <div>"manifest": {
+  <div class="indent">
+    <div>"not-a-digest": {
+    <div class="indent">
+      <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">&#34;application/vnd.oci.image.manifest.v1+json&#34;</a></div>
+    </div>
+    },</div>
+    <div>"<a href="?image=REGISTRY/alpha/widget@sha256:6666666666666666666666666666666666666666666666666666666666666666">sha256:6666666666666666666666666666666666666666666666666666666666666666</a>": {
+    <div class="indent">
+      <div>"mediaType": <a class="mt" href="https://github.com/opencontainers/image-spec/blob/main/manifest.md">&#34;application/vnd.oci.image.manifest.v1+json&#34;</a>,</div>
+      <div>"imageSizeBytes": "<span title="12 MiB">12345678</span>",</div>
+      <div>"tag": [
+      <div class="indent">
+        <div>"<a href="/?image=REGISTRY%2Falpha%2Fwidget:latest@sha256:6666666666666666666666666666666666666666666666666666666666666666">latest</a>",</div>
+        <div>"<a href="/?image=REGISTRY%2Falpha%2Fwidget:v1@sha256:6666666666666666666666666666666666666666666666666666666666666666">v1</a>"</div>
+      </div>
+      ],</div>
+      <div>"timeCreatedMs": "<span title="2023-11-14 22:13:20 +0000 UTC">1700000000000</span>",</div>
+      <div>"timeUploadedMs": "<span title="2023-11-14 22:13:30 +0000 UTC">1700000010000</span>"</div>
+    </div>
+    }</div>
+  </div>
+  },</div>
+  <div>"$schema": "<a href="https://json-schema.org/draft/2020-12/schema">https://json-schema.org/draft/2020-12/schema</a>",</div>
+  <div>"Docker-manifest-digest": "<a href="/?image=REGISTRY/alpha/widget@sha256:3333333333333333333333333333333333333333333333333333333333333333&mt=application%2Fvnd.dev.ggcr.magic%2Fcosign-thing%2Bjson">sha256:3333333333333333333333333333333333333333333333333333333333333333</a>",</div>
+  <div>"Docker-reference": "<a href="/?image=alpine:3.19">alpine:3.19</a>",</div>
+  <div>"blobSum": "<a href="/fs/REGISTRY/alpha/widget@sha256:4444444444444444444444444444444444444444444444444444444444444444/?mt=application%2Fvnd.docker.image.rootfs.diff.tar.gzip">sha256:4444444444444444444444444444444444444444444444444444444444444444</a>",</div>
+  <div>"data": "<a href="/?image=REGISTRY%2Falpha%2Fwidget%40sha256%3A3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&jq=.data&jq=base64+-d&render=raw">aGVsbG8gd29ybGQ=</a>",</div>
+  <div>"docker-manifest-digest": "<a href="/?image=REGISTRY/alpha/widget@sha256:3333333333333333333333333333333333333333333333333333333333333333&mt=application%2Fvnd.dev.ggcr.magic%2Fcosign-thing%2Bjson">sha256:3333333333333333333333333333333333333333333333333333333333333333</a>",</div>
+  <div>"docker-reference": "<a href="/?image=alpine:3.19">alpine:3.19</a>",</div>
+  <div>"history": [
+  <div class="indent">
+    <div>{
+    <div class="indent">
+      <div>"v1Compatibility": "<a href="/?image=REGISTRY%2Falpha%2Fwidget%40sha256%3A3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&jq=.history%5B0%5D.v1Compatibility">{\&#34;id\&#34;:\&#34;abc123\&#34;,\&#34;created\&#34;:\&#34;2024-01-01T00:00:00Z\&#34;}</a>"</div>
+    </div>
+    },</div>
+    <div>{
+    <div class="indent">
+      <div>"v1Compatibility": "<a href="/?image=REGISTRY%2Falpha%2Fwidget%40sha256%3A3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&jq=.history%5B1%5D.v1Compatibility">{\&#34;id\&#34;:\&#34;def456\&#34;,\&#34;created\&#34;:\&#34;2024-01-02T00:00:00Z\&#34;}</a>"</div>
+    </div>
+    }</div>
+  </div>
+  ],</div>
+  <div>"identifier": "<a href="https://github.com/docker-library/rabbitmq/tree/6cc0f66ec13b06c153a7527c033cf1ad59a97ef3/3.13/ubuntu">https://github.com/docker-library/rabbitmq.git#6cc0f66ec13b06c153a7527c033cf1ad59a97ef3:3.13/ubuntu</a>",</div>
+  <div>"informationUri": "<a href="https://docs.example.com/info">https://docs.example.com/info</a>",</div>
+  <div>"io.buildpacks.build.metadata": "<a href="/?image=REGISTRY%2Falpha%2Fwidget%40sha256%3A3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&jq=.%5B%22io.buildpacks.build.metadata%22%5D">eyJrZXkiOiJ2YWx1ZSJ9</a>",</div>
+  <div>"moby.buildkit.buildinfo.v1": "<a href="/?image=REGISTRY%2Falpha%2Fwidget%40sha256%3A3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&jq=.%5B%22moby.buildkit.buildinfo.v1%22%5D&jq=base64+-d&jq=jq+.">eyJmcm9udGVuZCI6ImRvY2tlcmZpbGUudjAifQ==</a>",</div>
+  <div>"next": "<a href="/?image=REGISTRY%2Falpha%2Fwidget%40sha256%3A3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&next=https%3A%2F%2Fgcr.io%2Fv2%2F_catalog%3Flast%3Dfoo%26n%3D10">https://gcr.io/v2/_catalog?last=foo&amp;n=10</a>",</div>
+  <div>"previous": "<a href="/?image=REGISTRY%2Falpha%2Fwidget%40sha256%3A3461fad08bed4da1358a4e52863d6b56cff60fa2b1a0b551d0dea8a26ea7e9e8&next=https%3A%2F%2Fgcr.io%2Fv2%2F_catalog%3Flast%3Dbar%26n%3D10">https://gcr.io/v2/_catalog?last=bar&amp;n=10</a>",</div>
+  <div>"referenceLocator": "<a href="https://apk.dag.dev/https/dl-cdn.alpinelinux.org/alpine/edge/main//curl-8.0.0.apk">pkg:apk/alpine/curl@8.0.0</a>",</div>
+  <div>"tag": [
+  <div class="indent">
+    <div>"<a href="/?image=REGISTRY%2Falpha%2Fwidget:latest">latest</a>",</div>
+    <div>"<a href="/?image=REGISTRY%2Falpha%2Fwidget:v1">v1</a>"</div>
+  </div>
+  ],</div>
+  <div>"uri": "<a href="https://example.com/spec">https://example.com/spec</a>"</div>
+</div>
+}</div>
+</body>
+</html>
