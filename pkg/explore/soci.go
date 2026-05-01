@@ -1,10 +1,6 @@
 package explore
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,74 +12,59 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/types"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/soci"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
 )
 
-// 5 MB.
-const threshold = (1 << 20) * 5
 const spanSize = 1 << 22
 
-func indexKey(prefix string, idx int) string {
-	return fmt.Sprintf("%s.%d", prefix, idx)
-}
-
-// Attempt to create a new index. If we fail, both readclosers will be nil.
-// TODO: Dedupe with createIndex.
+// tryNewIndex serves a layer's tar contents while building (or piggy-backing
+// on) an index for it. The first concurrent request for a given key drives
+// indexing via the StreamingIndex returned from NewStreaming; subsequent
+// concurrent requests for the same key skip the indexing setup and stream
+// from their own blob copy — the user gets to browse files as they're
+// loaded without paying the full peek/Writer setup again.
+//
+// FIXME: the inflight check-then-insert is racy. Two requests can both
+// observe inflight=false and both run NewStreaming, so under contention we
+// occasionally do 2× indexing work for the same key (correct output, just
+// wasted CPU + a redundant cache write). A real fix would pre-claim the
+// slot under the lock with a "ready" channel that the producer closes once
+// the indexer is set; left for a follow-up since the cost is bounded.
 func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.Digest, ref string, blob *sizeBlob) (string, io.ReadCloser, io.ReadCloser, error) {
-	key := indexKey(dig.Identifier(), 0)
-
+	key := soci.IndexKey(dig.Identifier(), 0)
 	mt := r.URL.Query().Get("mt")
 
 	var (
-		tr      tarReader
-		indexer *soci.Indexer
-		kind    string
+		tr   soci.TarReader
+		si   *soci.Streaming
+		kind string
 	)
 
 	h.Lock()
-	idx, inflight := h.inflight[key]
+	inflightIdx, inflight := h.inflight[key]
 	h.Unlock()
 
 	if inflight {
 		logs.Debug.Printf("inflight[%q] exists, not indexing", key)
-		kind = idx.Type()
-		switch kind {
-		case "tar+gzip":
-			zr, err := gzip.NewReader(blob)
-			if err != nil {
-				return "", nil, nil, fmt.Errorf("gzip.NewReader: %w", err)
-			}
-			tr = tar.NewReader(zr)
-		case "tar+zstd":
-			zr, err := zstd.NewReader(blob)
-			if err != nil {
-				return "", nil, nil, fmt.Errorf("zstd.NewReader: %w", err)
-			}
-			tr = tar.NewReader(zr)
-		case "tar":
-			tr = tar.NewReader(blob)
+		kind = inflightIdx.Type()
+		var err error
+		tr, err = soci.OpenTar(blob, kind)
+		if err != nil {
+			return "", nil, nil, err
 		}
 	} else {
-		// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
-		cw, err := h.indexCache.Writer(r.Context(), key)
-		if err != nil {
-			return "", nil, nil, fmt.Errorf("indexCache.Writer: %w", err)
-		}
-		defer cw.Close()
-
-		idx, _, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
-		if idx == nil {
+		var pr, tpr io.ReadCloser
+		var err error
+		si, pr, tpr, err = h.indexes.NewStreaming(r.Context(), dig.Identifier(), blob, mt)
+		if si.Indexer == nil {
 			logs.Debug.Printf("nil indexer")
 			return kind, pr, tpr, err
 		}
-		indexer = idx
-		tr = idx
-		kind = idx.Type()
+		kind = si.Kind
+		tr = si.TR
 
 		h.Lock()
-		h.inflight[key] = indexer
+		h.inflight[key] = si.Indexer
 		h.Unlock()
-
 		defer func() {
 			h.Lock()
 			delete(h.inflight, key)
@@ -91,7 +72,6 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 		}()
 	}
 
-	// Render FS the old way while generating the index.
 	fs := h.newLayerFS(tr, blob.size, ref, dig.String(), kind, types.MediaType(mt))
 
 	if !inflight {
@@ -106,153 +86,13 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 		flusher.Flush()
 	}
 
-	if indexer != nil {
-		for {
-			// Make sure we hit the end.
-			_, err := indexer.Next()
-			if errors.Is(err, io.EOF) {
-				break
-			} else if err != nil {
-				return "", nil, nil, fmt.Errorf("indexer.Next: %w", err)
-			}
+	if si != nil {
+		if err := si.Done(r.Context()); err != nil {
+			return kind, nil, nil, fmt.Errorf("Streaming.Done: %w", err)
 		}
-
-		toc, err := indexer.TOC()
-		if err != nil {
-			return kind, nil, nil, fmt.Errorf("TOC(): %w", err)
-		}
-		if h.tocCache != nil {
-			if err := h.tocCache.Put(r.Context(), key, toc); err != nil {
-				logs.Debug.Printf("cache.Put(%q) = %v", key, err)
-			}
-		}
-
-		logs.Debug.Printf("index size: %d", indexer.Size())
 	}
 
 	return kind, nil, nil, nil
-}
-
-// Returns nil index if it's incomplete.
-func (h *handler) getIndex(ctx context.Context, prefix string) (soci.Index, error) {
-	if h.indexCache == nil {
-		return nil, nil
-	}
-	index, err := h.getIndexN(ctx, prefix, 0)
-	if errors.Is(err, io.EOF) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: Remove the need for this.
-	if index.TOC() == nil {
-		return nil, nil
-	}
-
-	return index, nil
-}
-
-func (h *handler) getIndexN(ctx context.Context, prefix string, idx int) (index soci.Index, err error) {
-	key := indexKey(prefix, idx)
-	bs := &cacheSeeker{h.indexCache, key}
-
-	var (
-		toc  *soci.TOC
-		size int64
-	)
-	// Avoid calling cache.Size if we can.
-	if h.tocCache != nil {
-		toc, err = h.tocCache.Get(ctx, key)
-		if err != nil {
-			logs.Debug.Printf("cache.Get(%q) = %v", key, err)
-			defer func() {
-				if err == nil {
-					if err := h.tocCache.Put(ctx, key, index.TOC()); err != nil {
-						logs.Debug.Printf("cache.Put(%q) = %v", key, err)
-					}
-				}
-			}()
-		} else {
-			size = toc.Size
-			logs.Debug.Printf("cache.Get(%q) = hit", key)
-		}
-	}
-
-	// Handle in-memory index under a certain size.
-	if size == 0 {
-		size, err = h.indexCache.Size(ctx, key)
-		if err != nil {
-			return nil, fmt.Errorf("indexCache.Size: %w", err)
-		}
-	}
-	if size <= threshold {
-		return soci.NewIndex(bs, toc, nil)
-	}
-
-	// Index is too big to hold in memory, fetch or create an index of the index.
-	sub, err := h.getIndexN(ctx, prefix, idx+1)
-	if err != nil {
-		logs.Debug.Printf("getIndexN(%q, %d) = %v", prefix, idx+1, err)
-		rc, err := h.indexCache.Reader(ctx, key)
-		if err != nil {
-			return nil, fmt.Errorf("indexCache.Reader: %w", err)
-		}
-		sub, err = h.createIndex(ctx, rc, size, prefix, idx+1, "application/tar+gzip")
-		if err != nil {
-			return nil, fmt.Errorf("createIndex(%q, %d): %w", prefix, idx+1, err)
-		}
-		if sub == nil {
-			return nil, fmt.Errorf("createIndex returned nil, not a tar.gz file")
-		}
-	}
-
-	return soci.NewIndex(bs, toc, sub)
-}
-
-func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64, prefix string, idx int, mediaType string) (soci.Index, error) {
-	key := indexKey(prefix, idx)
-	cw, err := h.indexCache.Writer(ctx, key)
-	if err != nil {
-		return nil, fmt.Errorf("indexCache.Writer: %w", err)
-	}
-	defer cw.Close()
-
-	// TODO: Better?
-	indexer, _, _, _, err := soci.NewIndexer(rc, cw, spanSize, mediaType)
-	if err != nil {
-		return nil, fmt.Errorf("TODO: don't return this error: %w", err)
-	}
-	if indexer == nil {
-		return nil, nil
-	}
-	for {
-		// Make sure we hit the end.
-		_, err := indexer.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, fmt.Errorf("indexer.Next: %w", err)
-		}
-	}
-
-	toc, err := indexer.TOC()
-	if err != nil {
-		return nil, fmt.Errorf("TOC: %w", err)
-	}
-	if h.tocCache != nil {
-		if err := h.tocCache.Put(ctx, key, toc); err != nil {
-			logs.Debug.Printf("cache.Put(%q) = %v", key, err)
-		}
-	}
-	logs.Debug.Printf("index size: %d", indexer.Size())
-
-	if err := cw.Close(); err != nil {
-		return nil, fmt.Errorf("cw.Close: %w", err)
-	}
-
-	return h.getIndexN(ctx, prefix, idx)
 }
 
 func (h *handler) createFs(w http.ResponseWriter, r *http.Request, ref string, dig name.Digest, index soci.Index, size int64, mt types.MediaType, urls []string, opts []remote.Option) (*soci.SociFS, error) {

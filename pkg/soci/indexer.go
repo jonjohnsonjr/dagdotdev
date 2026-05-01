@@ -21,6 +21,7 @@ import (
 
 type Indexer struct {
 	toc      *TOC
+	live     *LiveTOC // mirror of toc.Files + toc.Checkpoints, safe for concurrent readers
 	updates  chan *flate.Checkpoint
 	zupdates chan *zstd.Checkpoint
 	g        errgroup.Group
@@ -35,6 +36,11 @@ type Indexer struct {
 	finished bool
 	written  bool
 }
+
+// LiveTOC returns the indexer's live TOC view. Concurrent readers can use
+// it to query files/checkpoints that have been indexed so far without
+// waiting for the indexer to finish.
+func (i *Indexer) LiveTOC() *LiveTOC { return i.live }
 
 // Returns:
 // Indexer (if non-nil, everything else is nil)
@@ -108,6 +114,7 @@ func NewIndexer(rc io.ReadCloser, w io.Writer, span int64, mediaType string) (*I
 	}
 
 	i.toc.Type = kind
+	i.live = NewLiveTOC(i.toc)
 
 	i.cw = &countWriter{i.w, 0}
 	i.tw = tar.NewWriter(i.cw)
@@ -122,6 +129,7 @@ func (i *Indexer) Next() (*tar.Header, error) {
 	if errors.Is(err, io.EOF) {
 		if !i.finished {
 			if _, err := io.Copy(io.Discard, i.zr); err != nil {
+				i.live.MarkDone(err)
 				return nil, err
 			}
 			if i.updates != nil {
@@ -130,15 +138,18 @@ func (i *Indexer) Next() (*tar.Header, error) {
 				close(i.zupdates)
 			}
 			i.finished = true
+			i.live.UpdateCounts(i.zr.CompressedCount(), i.zr.UncompressedCount())
+			i.live.MarkDone(nil)
 		}
 		return nil, err
 	} else if err != nil {
+		i.live.MarkDone(err)
 		return nil, err
 	}
 	f := FromTar(header)
 	f.Offset = i.zr.UncompressedCount()
-	// logs.Debug.Printf("file: %q, read: %d", header.Name, f.Offset)
-	i.toc.Files = append(i.toc.Files, *f)
+	i.live.AppendFile(*f)
+	i.live.UpdateCounts(i.zr.CompressedCount(), i.zr.UncompressedCount())
 	return header, err
 }
 
@@ -167,10 +178,14 @@ func (i *Indexer) TOC() (*TOC, error) {
 		return nil, err
 	}
 
+	// Guard the field writes against concurrent LiveIndex readers; by the
+	// time TOC() runs, MarkDone has fired but Snapshot calls may still be
+	// in flight from waiters that haven't switched to the cached path yet.
+	i.live.mu.Lock()
 	i.toc.Csize = i.zr.CompressedCount()
 	i.toc.Usize = i.zr.UncompressedCount()
-
 	b, err := json.Marshal(i.toc)
+	i.live.mu.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -199,9 +214,11 @@ func (i *Indexer) TOC() (*TOC, error) {
 		return nil, err
 	}
 
+	i.live.mu.Lock()
 	i.written = true
 	i.toc.ArchiveSize = i.cw.n
 	i.toc.Size = tocSize
+	i.live.mu.Unlock()
 
 	return i.toc, nil
 }
@@ -211,9 +228,14 @@ func (i *Indexer) processUpdates() error {
 		for update := range i.updates {
 			u := update
 
+			var hist []byte
 			if !u.Empty {
 				b := u.Hist
-				f := dictFile(len(i.toc.Checkpoints))
+				// Retain a copy for live readers (Indexer.LiveTOC().Dict()).
+				// We can't share the slice with the tar writer below — it
+				// nils u.Hist and may reuse the buffer.
+				hist = append([]byte(nil), b...)
+				f := dictFile(i.live.checkpointCount())
 
 				if err := i.tw.WriteHeader(&tar.Header{
 					Name: f,
@@ -234,7 +256,7 @@ func (i *Indexer) processUpdates() error {
 				u.Hist = nil
 			}
 
-			i.toc.Checkpoints = append(i.toc.Checkpoints, u)
+			i.live.AppendCheckpoint(u, hist)
 		}
 	}
 	// TODO: uhhh
@@ -245,7 +267,7 @@ func (i *Indexer) processUpdates() error {
 				Out:   update.Out,
 				Empty: update.Empty,
 			}
-			i.toc.Checkpoints = append(i.toc.Checkpoints, &u)
+			i.live.AppendCheckpoint(&u, nil)
 		}
 	}
 	return nil

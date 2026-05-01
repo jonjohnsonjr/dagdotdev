@@ -69,8 +69,7 @@ type handler struct {
 	// blob.Digest() -> url
 	redirects map[string]string
 
-	tocCache   cache
-	indexCache cache
+	indexes *soci.IndexStore
 
 	sync.Mutex
 	sawTags  map[string][]string
@@ -95,15 +94,18 @@ func WithUserAgent(ua string) Option {
 
 func New(opts ...Option) http.Handler {
 	h := handler{
-		manifests:  map[string]*remote.Descriptor{},
-		pings:      map[string]*transport.PingResp{},
-		tokens:     map[string]token{},
-		redirects:  map[string]string{},
-		sawTags:    map[string][]string{},
-		inflight:   map[string]*soci.Indexer{},
-		tocCache:   buildTocCache(),
-		indexCache: buildIndexCache(),
-		oauth:      buildOauth(),
+		manifests: map[string]*remote.Descriptor{},
+		pings:     map[string]*transport.PingResp{},
+		tokens:    map[string]token{},
+		redirects: map[string]string{},
+		sawTags:   map[string][]string{},
+		inflight:  map[string]*soci.Indexer{},
+		oauth:     buildOauth(),
+		indexes: &soci.IndexStore{
+			Blobs:    buildIndexCache(),
+			TOCs:     buildTocCache(),
+			SpanSize: spanSize,
+		},
 	}
 
 	for _, opt := range opts {
@@ -1095,9 +1097,9 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		return h.renderImage(w, r, dig, mt)
 	}
 
-	index, err := h.getIndex(r.Context(), dig.Identifier())
+	index, err := h.indexes.Get(r.Context(), dig.Identifier())
 	if err != nil {
-		return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
+		return fmt.Errorf("indexes.Get(%q) = %w", dig.Identifier(), err)
 	}
 	if index != nil {
 		fs, err := h.indexedFS(w, r, dig, ref, index)
@@ -1175,9 +1177,9 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("getDigest: %w", err)
 	}
 
-	index, err := h.getIndex(r.Context(), dig.Identifier())
+	index, err := h.indexes.Get(r.Context(), dig.Identifier())
 	if err != nil {
-		return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
+		return fmt.Errorf("indexes.Get(%q) = %w", dig.Identifier(), err)
 	}
 
 	if index == nil {
@@ -1187,7 +1189,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("fetchBlob: %w", err)
 		}
 
-		index, err = h.createIndex(r.Context(), blob, blob.size, dig.Identifier(), 0, mt)
+		index, err = h.indexes.Create(r.Context(), dig.Identifier(), blob, mt)
 		if err != nil {
 			return fmt.Errorf("createIndex: %w", err)
 		}
@@ -1420,9 +1422,9 @@ func (h *handler) multiFS(w http.ResponseWriter, r *http.Request, dig name.Diges
 		}
 
 		g.Go(func() error {
-			index, err := h.getIndex(r.Context(), digest.String())
+			index, err := h.indexes.Get(r.Context(), digest.String())
 			if err != nil {
-				return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
+				return fmt.Errorf("indexes.Get(%q) = %w", dig.Identifier(), err)
 			}
 			if index == nil {
 				l, err := remote.NewLayer(layerRef, opts...)
@@ -1434,7 +1436,7 @@ func (h *handler) multiFS(w http.ResponseWriter, r *http.Request, dig name.Diges
 					return err
 				}
 
-				index, err = h.createIndex(r.Context(), rc, size, digest.String(), 0, string(mediaType))
+				index, err = h.indexes.Create(r.Context(), digest.String(), rc, string(mediaType))
 				if err != nil {
 					return fmt.Errorf("createIndex: %w", err)
 				}
@@ -1500,14 +1502,14 @@ func (h *handler) renderIndex(w http.ResponseWriter, r *http.Request) error {
 	} else {
 		idx = int(parsed)
 	}
-	key := indexKey(dig.Identifier(), idx)
-	size, err := h.indexCache.Size(ctx, key)
+	key := soci.IndexKey(dig.Identifier(), idx)
+	size, err := h.indexes.Blobs.Size(ctx, key)
 	if err != nil {
-		return fmt.Errorf("indexCache.Size: %w", err)
+		return fmt.Errorf("Blobs.Size: %w", err)
 	}
-	rc, err := h.indexCache.Reader(ctx, key)
+	rc, err := h.indexes.Blobs.Reader(ctx, key)
 	if err != nil {
-		return fmt.Errorf("indexCache.Reader: %w", err)
+		return fmt.Errorf("Blobs.Reader: %w", err)
 	}
 	defer rc.Close()
 	zr, err := gzip.NewReader(rc)
@@ -2007,9 +2009,9 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 	for i := len(layers) - 1; i >= 0; i-- {
 		layer := layers[i]
 		digest := layer.Digest
-		index, err := h.getIndex(r.Context(), digest.String())
+		index, err := h.indexes.Get(r.Context(), digest.String())
 		if err != nil {
-			return fmt.Errorf("indexCache.Index(%q) = %w", dig.Identifier(), err)
+			return fmt.Errorf("indexes.Get(%q) = %w", dig.Identifier(), err)
 		}
 		if index == nil {
 			layerRef := dig.Context().Digest(layer.Digest.String())
@@ -2022,7 +2024,7 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 				return err
 			}
 
-			index, err = h.createIndex(r.Context(), rc, layer.Size, digest.String(), 0, string(layer.MediaType))
+			index, err = h.indexes.Create(r.Context(), digest.String(), rc, string(layer.MediaType))
 			if err != nil {
 				return fmt.Errorf("createIndex: %w", err)
 			}

@@ -16,6 +16,7 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/types"
 	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/soci"
 )
 
 // Lots of debugging that we don't want to compile into the binary.
@@ -30,15 +31,10 @@ func debugf(s string, i ...interface{}) {
 // More than enough for FileServer to Peek at file contents.
 const bufferLen = 2 << 16
 
-type tarReader interface {
-	io.Reader
-	Next() (*tar.Header, error)
-}
-
 // Implements http.FileSystem.
 type layerFS struct {
 	prefix  string
-	tr      tarReader
+	tr      soci.TarReader
 	headers []*tar.Header
 
 	ref  string
@@ -47,7 +43,7 @@ type layerFS struct {
 	mt   types.MediaType
 }
 
-func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string, mt types.MediaType) *layerFS {
+func (h *handler) newLayerFS(tr soci.TarReader, size int64, prefix, ref, kind string, mt types.MediaType) *layerFS {
 	logs.Debug.Printf("size: %d, prefix: %q, ref: %q, kind: %q", size, prefix, ref, kind)
 	return &layerFS{
 		tr:      tr,

@@ -78,9 +78,8 @@ type handler struct {
 
 	examples []string
 
-	tocCache   cache
-	indexCache cache
-	apkCache   *apkCache
+	indexes  *soci.IndexStore
+	apkCache *apkCache
 
 	sync.Mutex
 	inflight map[string]*soci.Indexer
@@ -116,12 +115,15 @@ func WithExamples(examples []string) Option {
 
 func New(args []string, opts ...Option) http.Handler {
 	h := handler{
-		args:       args,
-		inflight:   map[string]*soci.Indexer{},
-		tocCache:   buildTocCache(),
-		indexCache: buildIndexCache(),
-		apkCache:   buildApkCache(),
-		examples:   defaultExamples,
+		args:     args,
+		inflight: map[string]*soci.Indexer{},
+		apkCache: buildApkCache(),
+		examples: defaultExamples,
+		indexes: &soci.IndexStore{
+			Blobs:    buildIndexCache(),
+			TOCs:     buildTocCache(),
+			SpanSize: spanSize,
+		},
 	}
 
 	for _, opt := range opts {
@@ -464,9 +466,9 @@ func (h *handler) renderFS(w http.ResponseWriter, r *http.Request) error {
 		ref = root + ref
 	}
 
-	index, err := h.getIndex(r.Context(), ref)
+	index, err := h.indexes.Get(r.Context(), indexPrefix(ref))
 	if err != nil {
-		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
+		return fmt.Errorf("indexes.Get(%q) = %w", ref, err)
 	}
 	if index != nil {
 		fs, err := h.indexedFS(r, ref, index)
@@ -628,9 +630,9 @@ func (h *handler) renderLocalFS(w http.ResponseWriter, r *http.Request) error {
 		ref = root + ref
 	}
 
-	index, err := h.getIndex(r.Context(), ref)
+	index, err := h.indexes.Get(r.Context(), indexPrefix(ref))
 	if err != nil {
-		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
+		return fmt.Errorf("indexes.Get(%q) = %w", ref, err)
 	}
 	if index != nil {
 		fs, err := h.indexedFS(r, ref, index)
@@ -1205,9 +1207,9 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 
 	ref = root + ref
 
-	index, err := h.getIndex(r.Context(), ref)
+	index, err := h.indexes.Get(r.Context(), indexPrefix(ref))
 	if err != nil {
-		return fmt.Errorf("indexCache.Index(%q) = %w", ref, err)
+		return fmt.Errorf("indexes.Get(%q) = %w", ref, err)
 	}
 
 	if index == nil {
@@ -1217,7 +1219,7 @@ func (h *handler) renderFat(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("fetchBlob: %w", err)
 		}
 
-		index, err = h.createIndex(r.Context(), blob, blob.size, ref, 0, mt)
+		index, err = h.indexes.Create(r.Context(), indexPrefix(ref), blob, mt)
 		if err != nil {
 			return fmt.Errorf("createIndex: %w", err)
 		}
