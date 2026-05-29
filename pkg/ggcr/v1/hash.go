@@ -101,13 +101,21 @@ func (h *Hash) parse(unquoted string) error {
 
 // SHA256 computes the Hash of the provided io.Reader's content.
 func SHA256(r io.Reader) (Hash, int64, error) {
-	hasher := crypto.SHA256.New()
+	return HashWith("sha256", r)
+}
+
+// HashWith computes the Hash of the provided io.Reader's content using the named algorithm.
+func HashWith(algorithm string, r io.Reader) (Hash, int64, error) {
+	hasher, err := Hasher(algorithm)
+	if err != nil {
+		return Hash{}, 0, err
+	}
 	n, err := io.Copy(hasher, r)
 	if err != nil {
 		return Hash{}, 0, err
 	}
 	return Hash{
-		Algorithm: "sha256",
-		Hex:       hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size()))),
+		Algorithm: algorithm,
+		Hex:       hex.EncodeToString(hasher.Sum(nil)),
 	}, n, nil
 }

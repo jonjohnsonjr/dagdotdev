@@ -251,7 +251,15 @@ func (f *fetcher) fetchManifest(ref name.Reference, acceptable []types.MediaType
 		return nil, nil, fmt.Errorf("manifest is bigger than %d", f.options.maxSize)
 	}
 
-	digest, size, err := v1.SHA256(bytes.NewReader(manifest))
+	// When pulling by digest, use the same algorithm as requested so the
+	// comparison succeeds for non-sha256 algorithms (e.g. sha512).
+	algorithm := "sha256"
+	if dgst, ok := ref.(name.Digest); ok {
+		if h, err := v1.NewHash(dgst.DigestStr()); err == nil {
+			algorithm = h.Algorithm
+		}
+	}
+	digest, size, err := v1.HashWith(algorithm, bytes.NewReader(manifest))
 	if err != nil {
 		return nil, nil, err
 	}

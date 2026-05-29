@@ -103,6 +103,38 @@ func TestHashJSON(t *testing.T) {
 	}
 }
 
+func TestHashWith(t *testing.T) {
+	// sha256 via HashWith must match SHA256.
+	want, wantN, err := SHA256(strings.NewReader("hello world"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, gotN, err := HashWith("sha256", strings.NewReader("hello world"))
+	if err != nil {
+		t.Fatalf("HashWith(sha256): %v", err)
+	}
+	if got != want || gotN != wantN {
+		t.Errorf("HashWith(sha256) = %v/%d, want %v/%d", got, gotN, want, wantN)
+	}
+
+	// sha512 of the empty string has a well-known value.
+	const wantSHA512Empty = "sha512:cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+	h, n, err := HashWith("sha512", strings.NewReader(""))
+	if err != nil {
+		t.Fatalf("HashWith(sha512, empty): %v", err)
+	}
+	if h.String() != wantSHA512Empty {
+		t.Errorf("HashWith(sha512, empty) = %q, want %q", h.String(), wantSHA512Empty)
+	}
+	if n != 0 {
+		t.Errorf("HashWith(sha512, empty) size = %d, want 0", n)
+	}
+
+	if _, _, err := HashWith("md5", strings.NewReader("")); err == nil {
+		t.Error("HashWith(md5) should fail")
+	}
+}
+
 func TestHasher(t *testing.T) {
 	if h, err := Hasher("sha256"); err != nil || h == nil || h.Size() != 32 {
 		t.Errorf("Hasher(sha256) = %v, err = %v", h, err)
