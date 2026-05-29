@@ -39,7 +39,7 @@ func mustHash(s string, t *testing.T) v1.Hash {
 }
 
 func TestVerificationFailure(t *testing.T) {
-	for _, algo := range []string{"sha256", "sha512"} {
+	for _, algo := range []string{"sha256", "sha512", "blake3"} {
 		t.Run(algo, func(t *testing.T) {
 			want := "This is the input string."
 			buf := bytes.NewBufferString(want)
@@ -56,7 +56,7 @@ func TestVerificationFailure(t *testing.T) {
 }
 
 func TestVerification(t *testing.T) {
-	for _, algo := range []string{"sha256", "sha512"} {
+	for _, algo := range []string{"sha256", "sha512", "blake3"} {
 		t.Run(algo, func(t *testing.T) {
 			want := "This is the input string."
 			buf := bytes.NewBufferString(want)
@@ -73,7 +73,7 @@ func TestVerification(t *testing.T) {
 }
 
 func TestVerificationSizeUnknown(t *testing.T) {
-	for _, algo := range []string{"sha256", "sha512"} {
+	for _, algo := range []string{"sha256", "sha512", "blake3"} {
 		t.Run(algo, func(t *testing.T) {
 			want := "This is the input string."
 			buf := bytes.NewBufferString(want)
@@ -163,6 +163,24 @@ func TestDescriptor(t *testing.T) {
 			Digest: v1.Hash{
 				Algorithm: "sha512",
 				Hex:       "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
+			},
+		},
+	}, {
+		err: errors.New("error verifying Size; got 3, want 0"),
+		desc: v1.Descriptor{
+			Data: []byte("abc"),
+			Digest: v1.Hash{
+				Algorithm: "blake3",
+				Hex:       "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85",
+			},
+		},
+	}, {
+		desc: v1.Descriptor{
+			Data: []byte("abc"),
+			Size: 3,
+			Digest: v1.Hash{
+				Algorithm: "blake3",
+				Hex:       "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85",
 			},
 		},
 	}} {

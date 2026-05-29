@@ -13,8 +13,8 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/authn"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/remote"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/verify"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
@@ -198,6 +198,24 @@ func (h *handler) listCatalog(w http.ResponseWriter, r *http.Request, ref name.R
 	}, err
 }
 
+// extractDigest extracts the leading digest token (e.g. "sha256:abc…" or "blake3:def…")
+// from s, which may have a trailing path component after the hex digits.
+func extractDigest(s string) (string, error) {
+	algo, _, ok := strings.Cut(s, ":")
+	if !ok {
+		return "", fmt.Errorf("no colon in digest: %q", s)
+	}
+	hasher, err := v1.Hasher(algo)
+	if err != nil {
+		return "", err
+	}
+	n := len(algo) + 1 + hasher.Size()*2
+	if len(s) < n {
+		return "", fmt.Errorf("digest too short: %q", s)
+	}
+	return s[:n], nil
+}
+
 // Fetch blob from registry or URL.
 func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, string, error) {
 	path, root, err := splitFsURL(r.URL.Path)
@@ -219,16 +237,9 @@ func (h *handler) fetchBlob(w http.ResponseWriter, r *http.Request) (*sizeBlob, 
 	if len(chunks) != 2 {
 		return nil, "", fmt.Errorf("not enough chunks: %s", path)
 	}
-	// 71 = len("sha256:") + 64
-	if len(chunks[1]) < 71 {
-		return nil, "", fmt.Errorf("second chunk too short: %s", chunks[1])
-	}
-
-	digest := ""
-	if strings.HasPrefix(chunks[1], "sha256:") {
-		digest = chunks[1][:71]
-	} else if strings.HasPrefix(chunks[1], "sha512:") {
-		digest = chunks[1][:135]
+	digest, err := extractDigest(chunks[1])
+	if err != nil {
+		return nil, "", err
 	}
 
 	ref := strings.Join([]string{chunks[0], digest}, "@")
@@ -278,16 +289,9 @@ func (h *handler) resolveUrl(w http.ResponseWriter, r *http.Request) (string, er
 	if len(chunks) != 2 {
 		return "", fmt.Errorf("not enough chunks: %s", path)
 	}
-	// 71 = len("sha256:") + 64
-	if len(chunks[1]) < 71 {
-		return "", fmt.Errorf("second chunk too short: %s", chunks[1])
-	}
-
-	digest := ""
-	if strings.HasPrefix(chunks[1], "sha256:") {
-		digest = chunks[1][:71]
-	} else if strings.HasPrefix(chunks[1], "sha512:") {
-		digest = chunks[1][:135]
+	digest, err := extractDigest(chunks[1])
+	if err != nil {
+		return "", err
 	}
 
 	ref := strings.Join([]string{chunks[0], digest}, "@")
@@ -375,16 +379,9 @@ func (h *handler) getDigest(w http.ResponseWriter, r *http.Request) (name.Digest
 	if len(chunks) != 2 {
 		return name.Digest{}, "", fmt.Errorf("not enough chunks: %s", path)
 	}
-	// 71 = len("sha256:") + 64
-	if len(chunks[1]) < 71 {
-		return name.Digest{}, "", fmt.Errorf("second chunk too short: %s", chunks[1])
-	}
-
-	digest := ""
-	if strings.HasPrefix(chunks[1], "sha256:") {
-		digest = chunks[1][:71]
-	} else if strings.HasPrefix(chunks[1], "sha512:") {
-		digest = chunks[1][:135]
+	digest, err := extractDigest(chunks[1])
+	if err != nil {
+		return name.Digest{}, "", err
 	}
 
 	ref := strings.Join([]string{chunks[0], digest}, "@")

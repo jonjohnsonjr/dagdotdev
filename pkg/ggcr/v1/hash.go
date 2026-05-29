@@ -25,6 +25,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/zeebo/blake3"
 )
 
 // Hash is an unqualified digest of some content, e.g. sha256:deadbeef
@@ -71,6 +73,8 @@ func Hasher(name string) (hash.Hash, error) {
 		return crypto.SHA256.New(), nil
 	case "sha512":
 		return crypto.SHA512.New(), nil
+	case "blake3":
+		return blake3.New(), nil
 	default:
 		return nil, fmt.Errorf("unsupported hash: %q", name)
 	}
