@@ -27,9 +27,9 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/internal/redact"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/internal/verify"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/transport"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/types"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 )
 
 var (
@@ -251,22 +251,28 @@ func (f *fetcher) fetchManifest(ref name.Reference, acceptable []types.MediaType
 		return nil, nil, fmt.Errorf("manifest is bigger than %d", f.options.maxSize)
 	}
 
-	// When pulling by digest, use the same algorithm as requested so the
-	// comparison succeeds for non-sha256 algorithms (e.g. sha512).
+	mediaType := types.MediaType(resp.Header.Get("Content-Type"))
+	contentDigest, contentDigestErr := v1.NewHash(resp.Header.Get("Docker-Content-Digest"))
+
+	// When pulling by digest, use the same algorithm as the requested digest so
+	// the comparison succeeds for non-sha256 algorithms (e.g. sha512).
+	// When pulling by tag, use the algorithm from the Docker-Content-Digest
+	// header so the reported digest matches what the registry uses.
+	// Fall back to sha256 if neither applies.
 	algorithm := "sha256"
 	if dgst, ok := ref.(name.Digest); ok {
 		if h, err := v1.NewHash(dgst.DigestStr()); err == nil {
 			algorithm = h.Algorithm
 		}
+	} else if contentDigestErr == nil {
+		algorithm = contentDigest.Algorithm
 	}
 	digest, size, err := v1.HashWith(algorithm, bytes.NewReader(manifest))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	mediaType := types.MediaType(resp.Header.Get("Content-Type"))
-	contentDigest, err := v1.NewHash(resp.Header.Get("Docker-Content-Digest"))
-	if err == nil && mediaType == types.DockerManifestSchema1Signed {
+	if contentDigestErr == nil && mediaType == types.DockerManifestSchema1Signed {
 		// If we can parse the digest from the header, and it's a signed schema 1
 		// manifest, let's use that for the digest to appease older registries.
 		digest = contentDigest
@@ -434,4 +440,3 @@ func (f *fetcher) headBlob(h v1.Hash) (*http.Response, error) {
 
 	return resp, nil
 }
-
