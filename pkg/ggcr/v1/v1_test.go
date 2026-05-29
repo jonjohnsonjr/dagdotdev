@@ -51,6 +51,12 @@ func TestNewHash(t *testing.T) {
 	if _, err := NewHash(validSha512); err != nil {
 		t.Errorf("NewHash sha512: %v", err)
 	}
+
+	// blake3 outputs 32 bytes = 64 hex chars, same width as sha256.
+	const validBlake3 = "blake3:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	if _, err := NewHash(validBlake3); err != nil {
+		t.Errorf("NewHash blake3: %v", err)
+	}
 }
 
 func TestNewHashErrors(t *testing.T) {
@@ -128,6 +134,19 @@ func TestHashWith(t *testing.T) {
 		t.Errorf("HashWith(sha512, empty) size = %d, want 0", n)
 	}
 
+	// blake3 of the empty input has a well-known value.
+	const wantBlake3Empty = "blake3:af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+	h, n, err = HashWith("blake3", strings.NewReader(""))
+	if err != nil {
+		t.Fatalf("HashWith(blake3, empty): %v", err)
+	}
+	if h.String() != wantBlake3Empty {
+		t.Errorf("HashWith(blake3, empty) = %q, want %q", h.String(), wantBlake3Empty)
+	}
+	if n != 0 {
+		t.Errorf("HashWith(blake3, empty) size = %d, want 0", n)
+	}
+
 	if _, _, err := HashWith("md5", strings.NewReader("")); err == nil {
 		t.Error("HashWith(md5) should fail")
 	}
@@ -139,6 +158,9 @@ func TestHasher(t *testing.T) {
 	}
 	if h, err := Hasher("sha512"); err != nil || h == nil || h.Size() != 64 {
 		t.Errorf("Hasher(sha512) = %v, err = %v", h, err)
+	}
+	if h, err := Hasher("blake3"); err != nil || h == nil || h.Size() != 32 {
+		t.Errorf("Hasher(blake3) = %v, err = %v", h, err)
 	}
 	if _, err := Hasher("md5"); err == nil {
 		t.Errorf("Hasher(md5) should fail")
