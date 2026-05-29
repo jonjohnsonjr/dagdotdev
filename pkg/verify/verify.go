@@ -24,8 +24,8 @@ import (
 	"hash"
 	"io"
 
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/and"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 )
 
 // SizeUnknown is a sentinel value to indicate that the expected size is not known.
@@ -107,7 +107,7 @@ func Descriptor(d v1.Descriptor) error {
 		return errors.New("error verifying descriptor; Data == nil")
 	}
 
-	h, sz, err := v1.SHA256(bytes.NewReader(d.Data))
+	h, sz, err := v1.HashWith(d.Digest.Algorithm, bytes.NewReader(d.Data))
 	if err != nil {
 		return err
 	}

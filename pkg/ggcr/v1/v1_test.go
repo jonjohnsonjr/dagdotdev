@@ -2,8 +2,6 @@ package v1
 
 import (
 	"bytes"
-	_ "crypto/sha256"
-	_ "crypto/sha512"
 	"encoding/json"
 	"strings"
 	"testing"

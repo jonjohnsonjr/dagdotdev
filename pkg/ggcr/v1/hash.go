@@ -16,6 +16,8 @@ package v1
 
 import (
 	"crypto"
+	_ "crypto/sha256"
+	_ "crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"

@@ -25,51 +25,67 @@ import (
 	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 )
 
-func mustHash(s string, t *testing.T) v1.Hash {
-	h, _, err := v1.SHA256(strings.NewReader(s))
+func mustHashWith(algo, s string, t *testing.T) v1.Hash {
+	h, _, err := v1.HashWith(algo, strings.NewReader(s))
 	if err != nil {
-		t.Fatalf("v1.SHA256(%s) = %v", s, err)
+		t.Fatalf("v1.HashWith(%s, %s) = %v", algo, s, err)
 	}
 	t.Logf("Hashed: %q -> %q", s, h)
 	return h
 }
 
-func TestVerificationFailure(t *testing.T) {
-	want := "This is the input string."
-	buf := bytes.NewBufferString(want)
+func mustHash(s string, t *testing.T) v1.Hash {
+	return mustHashWith("sha256", s, t)
+}
 
-	verified, err := ReadCloser(io.NopCloser(buf), int64(len(want)), mustHash("not the same", t))
-	if err != nil {
-		t.Fatal("ReadCloser() =", err)
-	}
-	if b, err := io.ReadAll(verified); err == nil {
-		t.Errorf("ReadAll() = %q; want verification error", string(b))
+func TestVerificationFailure(t *testing.T) {
+	for _, algo := range []string{"sha256", "sha512"} {
+		t.Run(algo, func(t *testing.T) {
+			want := "This is the input string."
+			buf := bytes.NewBufferString(want)
+
+			verified, err := ReadCloser(io.NopCloser(buf), int64(len(want)), mustHashWith(algo, "not the same", t))
+			if err != nil {
+				t.Fatal("ReadCloser() =", err)
+			}
+			if b, err := io.ReadAll(verified); err == nil {
+				t.Errorf("ReadAll() = %q; want verification error", string(b))
+			}
+		})
 	}
 }
 
 func TestVerification(t *testing.T) {
-	want := "This is the input string."
-	buf := bytes.NewBufferString(want)
+	for _, algo := range []string{"sha256", "sha512"} {
+		t.Run(algo, func(t *testing.T) {
+			want := "This is the input string."
+			buf := bytes.NewBufferString(want)
 
-	verified, err := ReadCloser(io.NopCloser(buf), int64(len(want)), mustHash(want, t))
-	if err != nil {
-		t.Fatal("ReadCloser() =", err)
-	}
-	if _, err := io.ReadAll(verified); err != nil {
-		t.Error("ReadAll() =", err)
+			verified, err := ReadCloser(io.NopCloser(buf), int64(len(want)), mustHashWith(algo, want, t))
+			if err != nil {
+				t.Fatal("ReadCloser() =", err)
+			}
+			if _, err := io.ReadAll(verified); err != nil {
+				t.Error("ReadAll() =", err)
+			}
+		})
 	}
 }
 
 func TestVerificationSizeUnknown(t *testing.T) {
-	want := "This is the input string."
-	buf := bytes.NewBufferString(want)
+	for _, algo := range []string{"sha256", "sha512"} {
+		t.Run(algo, func(t *testing.T) {
+			want := "This is the input string."
+			buf := bytes.NewBufferString(want)
 
-	verified, err := ReadCloser(io.NopCloser(buf), SizeUnknown, mustHash(want, t))
-	if err != nil {
-		t.Fatal("ReadCloser() =", err)
-	}
-	if _, err := io.ReadAll(verified); err != nil {
-		t.Error("ReadAll() =", err)
+			verified, err := ReadCloser(io.NopCloser(buf), SizeUnknown, mustHashWith(algo, want, t))
+			if err != nil {
+				t.Fatal("ReadCloser() =", err)
+			}
+			if _, err := io.ReadAll(verified); err != nil {
+				t.Error("ReadAll() =", err)
+			}
+		})
 	}
 }
 
@@ -109,7 +125,7 @@ func TestDescriptor(t *testing.T) {
 	}{{
 		err: errors.New("error verifying descriptor; Data == nil"),
 	}, {
-		err: errors.New(`error verifying Digest; got "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", want ":"`),
+		err: errors.New(`unsupported hash: ""`),
 		desc: v1.Descriptor{
 			Data: []byte("abc"),
 		},
@@ -129,6 +145,24 @@ func TestDescriptor(t *testing.T) {
 			Digest: v1.Hash{
 				Algorithm: "sha256",
 				Hex:       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+			},
+		},
+	}, {
+		err: errors.New("error verifying Size; got 3, want 0"),
+		desc: v1.Descriptor{
+			Data: []byte("abc"),
+			Digest: v1.Hash{
+				Algorithm: "sha512",
+				Hex:       "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
+			},
+		},
+	}, {
+		desc: v1.Descriptor{
+			Data: []byte("abc"),
+			Size: 3,
+			Digest: v1.Hash{
+				Algorithm: "sha512",
+				Hex:       "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
 			},
 		},
 	}} {
