@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -28,16 +29,16 @@ import (
 	"maps"
 
 	"github.com/digitorus/timestamp"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/elf"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp"
+	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/authn"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/types"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/elf"
-	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/soci"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/xxd"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp"
 )
 
 // We should not buffer blobs greater than 2MB
@@ -45,6 +46,12 @@ const tooBig = 1 << 24
 const respTooBig = 1 << 25
 
 const printToken = ` -u "user:$(chainctl auth token --audience apk.cgr.dev)"`
+
+//go:embed favicon.svg
+var faviconSVG []byte
+
+//go:embed robots.txt
+var robotsTXT []byte
 
 var defaultExamples = []string{
 	"packages.wolfi.dev/os/aarch64",
@@ -169,12 +176,14 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/favicon.svg" || r.URL.Path == "/favicon.ico" {
 		w.Header().Set("Cache-Control", "max-age=3600")
-		http.ServeFile(w, r, filepath.Join(os.Getenv("KO_DATA_PATH"), "favicon.svg"))
+		w.Header().Set("Content-Type", "image/svg+xml")
+		http.ServeContent(w, r, "favicon.svg", time.Time{}, bytes.NewReader(faviconSVG))
 		return
 	}
 	if r.URL.Path == "/robots.txt" {
 		w.Header().Set("Cache-Control", "max-age=3600")
-		http.ServeFile(w, r, filepath.Join(os.Getenv("KO_DATA_PATH"), "robots.txt"))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		http.ServeContent(w, r, "robots.txt", time.Time{}, bytes.NewReader(robotsTXT))
 		return
 	}
 

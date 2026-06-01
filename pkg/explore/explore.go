@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -15,30 +16,28 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/digitorus/timestamp"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/humanize"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp"
+	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/google"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
-	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/google"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/remote"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/transport"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/types"
-	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
+	v1 "github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/v1"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/gguf"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/humanize"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/soci"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/xxd"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/gzhttp"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 )
@@ -46,6 +45,12 @@ import (
 // We should not buffer blobs greater than 4MB
 const tooBig = 1 << 22
 const respTooBig = 1 << 25
+
+//go:embed favicon.svg
+var faviconSVG []byte
+
+//go:embed robots.txt
+var robotsTXT []byte
 
 type token struct {
 	Expires       time.Time
@@ -165,12 +170,14 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/favicon.svg" || r.URL.Path == "/favicon.ico" {
 		w.Header().Set("Cache-Control", "max-age=3600")
-		http.ServeFile(w, r, filepath.Join(os.Getenv("KO_DATA_PATH"), "favicon.svg"))
+		w.Header().Set("Content-Type", "image/svg+xml")
+		http.ServeContent(w, r, "favicon.svg", time.Time{}, bytes.NewReader(faviconSVG))
 		return
 	}
 	if r.URL.Path == "/robots.txt" {
 		w.Header().Set("Cache-Control", "max-age=3600")
-		http.ServeFile(w, r, filepath.Join(os.Getenv("KO_DATA_PATH"), "robots.txt"))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		http.ServeContent(w, r, "robots.txt", time.Time{}, bytes.NewReader(robotsTXT))
 		return
 	}
 
@@ -1800,11 +1807,11 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 // tarFilterArgs returns the suffix to append after `tar -tv` so the displayed
 // shell command actually filters to what the page is showing. Two flavors:
 //
-//  - ?env=PATH (or another env name) returns a $(crane config ... | jq ...)
-//    subshell that extracts the first matching env var, splits on ":", strips
-//    leading slashes, and joins with spaces — matching the manual incantation
-//    in https://github.com/jonjohnsonjr/dagdotdev/issues/112.
-//  - ?path=... returns the literal paths space-joined.
+//   - ?env=PATH (or another env name) returns a $(crane config ... | jq ...)
+//     subshell that extracts the first matching env var, splits on ":", strips
+//     leading slashes, and joins with spaces — matching the manual incantation
+//     in https://github.com/jonjohnsonjr/dagdotdev/issues/112.
+//   - ?path=... returns the literal paths space-joined.
 //
 // Returns "" when no filter is in play.
 func tarFilterArgs(r *http.Request, ref string) string {
