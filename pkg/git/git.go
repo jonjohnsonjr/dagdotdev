@@ -3,6 +3,7 @@ package git
 import (
 	"bufio"
 	"bytes"
+	_ "embed"
 	"fmt"
 	"html"
 	"io"
@@ -10,11 +11,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/rsc.io/gitfs"
 	"maps"
@@ -26,6 +26,12 @@ import (
 // We should not buffer blobs greater than 2MB
 const tooBig = 1024 * 1024
 const respTooBig = 1 << 25
+
+//go:embed favicon.svg
+var faviconSVG []byte
+
+//go:embed robots.txt
+var robotsTXT []byte
 
 type handler struct {
 	mux       http.Handler
@@ -83,12 +89,14 @@ func splitFsURL(p string) (string, string, error) {
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/favicon.svg" || r.URL.Path == "/favicon.ico" {
 		w.Header().Set("Cache-Control", "max-age=3600")
-		http.ServeFile(w, r, filepath.Join(os.Getenv("KO_DATA_PATH"), "favicon.svg"))
+		w.Header().Set("Content-Type", "image/svg+xml")
+		http.ServeContent(w, r, "favicon.svg", time.Time{}, bytes.NewReader(faviconSVG))
 		return
 	}
 	if r.URL.Path == "/robots.txt" {
 		w.Header().Set("Cache-Control", "max-age=3600")
-		http.ServeFile(w, r, filepath.Join(os.Getenv("KO_DATA_PATH"), "robots.txt"))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		http.ServeContent(w, r, "robots.txt", time.Time{}, bytes.NewReader(robotsTXT))
 		return
 	}
 
