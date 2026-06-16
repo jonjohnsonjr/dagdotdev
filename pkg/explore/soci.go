@@ -20,8 +20,10 @@ import (
 )
 
 // 5 MB.
-const threshold = (1 << 20) * 5
-const spanSize = 1 << 22
+const (
+	threshold = (1 << 20) * 5
+	spanSize  = 1 << 22
+)
 
 func indexKey(prefix string, idx int) string {
 	return fmt.Sprintf("%s.%d", prefix, idx)
@@ -38,6 +40,7 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 		tr      tarReader
 		indexer *soci.Indexer
 		kind    string
+		cw      io.WriteCloser
 	)
 
 	h.Lock()
@@ -65,14 +68,17 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 		}
 	} else {
 		// TODO: Plumb this down into NewIndexer so we don't create it until we need to.
-		cw, err := h.indexCache.Writer(r.Context(), key)
+		var err error
+		cw, err = h.indexCache.Writer(r.Context(), key)
 		if err != nil {
 			return "", nil, nil, fmt.Errorf("indexCache.Writer: %w", err)
 		}
-		defer cw.Close()
 
 		idx, _, pr, tpr, err := soci.NewIndexer(blob, cw, spanSize, mt)
 		if idx == nil {
+			if err := cw.Close(); err != nil {
+				logs.Debug.Printf("cw.Close(%q): %v", key, err)
+			}
 			logs.Debug.Printf("nil indexer")
 			return kind, pr, tpr, err
 		}
@@ -113,13 +119,23 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 			if errors.Is(err, io.EOF) {
 				break
 			} else if err != nil {
+				if err := cw.Close(); err != nil {
+					logs.Debug.Printf("cw.Close(%q): %v", key, err)
+				}
 				return "", nil, nil, fmt.Errorf("indexer.Next: %w", err)
 			}
 		}
 
 		toc, err := indexer.TOC()
 		if err != nil {
+			if err := cw.Close(); err != nil {
+				logs.Debug.Printf("cw.Close(%q): %v", key, err)
+			}
 			return kind, nil, nil, fmt.Errorf("TOC(): %w", err)
+		}
+
+		if err := cw.Close(); err != nil {
+			return kind, nil, nil, fmt.Errorf("cw.Close: %w", err)
 		}
 		if h.tocCache != nil {
 			if err := h.tocCache.Put(r.Context(), key, toc); err != nil {
@@ -217,14 +233,19 @@ func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64,
 	if err != nil {
 		return nil, fmt.Errorf("indexCache.Writer: %w", err)
 	}
-	defer cw.Close()
 
 	// TODO: Better?
 	indexer, _, _, _, err := soci.NewIndexer(rc, cw, spanSize, mediaType)
 	if err != nil {
+		if err := cw.Close(); err != nil {
+			logs.Debug.Printf("cw.Close(%q): %v", key, err)
+		}
 		return nil, fmt.Errorf("TODO: don't return this error: %w", err)
 	}
 	if indexer == nil {
+		if err := cw.Close(); err != nil {
+			logs.Debug.Printf("cw.Close(%q): %v", key, err)
+		}
 		return nil, nil
 	}
 	for {
@@ -233,13 +254,22 @@ func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64,
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
+			if err := cw.Close(); err != nil {
+				logs.Debug.Printf("cw.Close(%q): %v", key, err)
+			}
 			return nil, fmt.Errorf("indexer.Next: %w", err)
 		}
 	}
 
 	toc, err := indexer.TOC()
 	if err != nil {
+		if err := cw.Close(); err != nil {
+			logs.Debug.Printf("cw.Close(%q): %v", key, err)
+		}
 		return nil, fmt.Errorf("TOC: %w", err)
+	}
+	if err := cw.Close(); err != nil {
+		return nil, fmt.Errorf("cw.Close: %w", err)
 	}
 	if h.tocCache != nil {
 		if err := h.tocCache.Put(ctx, key, toc); err != nil {
@@ -248,10 +278,7 @@ func (h *handler) createIndex(ctx context.Context, rc io.ReadCloser, size int64,
 	}
 	logs.Debug.Printf("index size: %d", indexer.Size())
 
-	if err := cw.Close(); err != nil {
-		return nil, fmt.Errorf("cw.Close: %w", err)
-	}
-
+	// TODO: Figure out how to simplify getIndexN?
 	return h.getIndexN(ctx, prefix, idx)
 }
 
