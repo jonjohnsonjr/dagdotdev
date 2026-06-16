@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/jonjohnsonjr/dagdotdev/pkg/gzip"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/zstd"
@@ -38,26 +39,56 @@ type sizeBlob struct {
 	n int64
 
 	w http.ResponseWriter
-	h *handler
 
 	progress int
 	total    int
+	started  bool
+	start    time.Time
 }
 
 func (s *sizeBlob) Read(p []byte) (int, error) {
 	n, err := s.rc.Read(p)
 	s.n += int64(n)
 
-	if s.h != nil && s.w != nil {
-		if next := int(float64(s.total) * (float64(s.n) / float64(s.size))); next > s.progress {
-			fmt.Fprintf(s.w, "<span slot=\"progress\">.</span>\n")
-			s.progress = next
-			if flusher, ok := s.w.(http.Flusher); ok {
-				flusher.Flush()
-			}
-		}
+	if s.started && s.w != nil {
+		s.flushProgress()
 	}
 	return n, err
+}
+
+func (s *sizeBlob) StartLoading() {
+	s.started = true
+	if s.start.IsZero() {
+		s.start = time.Now()
+	}
+	if flusher, ok := s.w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (s *sizeBlob) StopLoading() {
+	s.started = false
+}
+
+func (s *sizeBlob) LoadingDuration() time.Duration {
+	if s.start.IsZero() {
+		return 0
+	}
+	return time.Since(s.start)
+}
+
+func (s *sizeBlob) flushProgress() {
+	if s.w == nil || s.size <= 0 {
+		return
+	}
+	next := int(float64(s.total) * (float64(s.n) / float64(s.size)))
+	if next > s.progress {
+		fmt.Fprintf(s.w, "<span slot=\"progress\">.</span>\n")
+		s.progress = next
+	}
+	if flusher, ok := s.w.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 func (s *sizeBlob) Size() int64 {

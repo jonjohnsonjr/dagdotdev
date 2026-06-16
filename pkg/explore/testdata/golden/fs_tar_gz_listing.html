@@ -117,9 +117,6 @@ Docker-Content-Digest: <a class="mt" href="/fs/REGISTRY/alpha/widget@sha256:d5fb
 
 </div>
 
-<h4><span style="padding:0;" class="noselect">$ </span><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_blob.md">blob</a> REGISTRY/alpha/widget@sha256:d5fbaf42b9fbdbbecaccb0a9b8897076f4b1afdbb29fb0fc86d7c2eec1a1d19b | <a class="mt" href="/fs/REGISTRY/alpha/widget@sha256:d5fbaf42b9fbdbbecaccb0a9b8897076f4b1afdbb29fb0fc86d7c2eec1a1d19b/?all=true&mt=application%2Fvnd.oci.image.layer.v1.tar%2Bgzip&size=205">tar -tvz</a> </h4>
-
-
 <div><template shadowrootmode="open"><style>
 @keyframes spin {
   to {
@@ -131,9 +128,21 @@ Docker-Content-Digest: <a class="mt" href="/fs/REGISTRY/alpha/widget@sha256:d5fb
   to {
     transform: rotateX(360deg);
   }
-}</style><p><slot name="message"><span style="line-height: .707em; width: .707em; display: inline-block; animation: spin 1.0s infinite linear;">🤐</span> Loading<span><slot name="progress"></slot></span></slot></p><pre><slot name="file"></slot></pre></template><span slot="file">drwxr-xr-x 0/0 <span title="0 B">              0</span> 1970-01-01 00:00 <a href="etc/">etc/</a>
+}
+#file {
+  display: block;
+  font-family: monospace;
+  white-space: pre;
+}
+#file::slotted(*) {
+  font-family: monospace;
+  white-space: pre;
+}
+#file::slotted(pre) {
+  margin: 0;
+}</style><h4><span style="padding:0;" class="noselect">$ </span><slot name="cmd"><a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/README.md">crane</a> <a class="mt" href="https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_blob.md">blob</a> REGISTRY/alpha/widget@sha256:d5fbaf42b9fbdbbecaccb0a9b8897076f4b1afdbb29fb0fc86d7c2eec1a1d19b | <a class="mt" href="/fs/REGISTRY/alpha/widget@sha256:d5fbaf42b9fbdbbecaccb0a9b8897076f4b1afdbb29fb0fc86d7c2eec1a1d19b/?all=true&mt=application%2Fvnd.oci.image.layer.v1.tar%2Bgzip&size=205">tar -tvz</a> </slot></h4><p id="loading"><slot name="message"><span style="line-height: .707em; width: .707em; display: inline-block; animation: spin 1.0s infinite linear;">🤐</span> Loading<span><slot name="progress"></slot></span></slot></p><slot id="file" name="file"></slot></template><span slot="file">drwxr-xr-x 0/0 <span title="0 B">              0</span> 1970-01-01 00:00 <a href="etc/">etc/</a>
 </span><span slot="progress">.</span>
-<p slot="message">Indexed in DURATION</p>
+<span slot="message">Indexed in DURATION</span>
 </div>
 </body>
 </html>

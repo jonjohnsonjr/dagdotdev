@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
+	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/remote"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/types"
-	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/soci"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/github.com/klauspost/compress/zstd"
 )
 
 // 5 MB.
@@ -95,9 +95,9 @@ func (h *handler) tryNewIndex(w http.ResponseWriter, r *http.Request, dig name.D
 	fs := h.newLayerFS(tr, blob.size, ref, dig.String(), kind, types.MediaType(mt))
 
 	if !inflight {
-		blob.h = h
 		blob.w = w
 		blob.total = loadingBarSize(dig.String())
+		fs.progress = blob
 	}
 
 	httpserve.FileServer(fs).ServeHTTP(w, r)

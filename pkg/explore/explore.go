@@ -1669,45 +1669,27 @@ func humanizeSize(size int64) string {
 	return humanize.IBytes(uint64(size))
 }
 
-func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, refs string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
-	log.Printf("ctype=%q", ctype)
-	ref, err := name.ParseReference(refs)
-	if err != nil {
-		return err
-	}
-	stat, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := headerTmpl.Execute(w, TitleData{ref.String()}); err != nil {
-		return err
-	}
-
-	filename := strings.TrimPrefix(fname, "/"+prefix)
-	filename = strings.TrimPrefix(filename, "/")
-
-	tarh, ok := stat.Sys().(*tar.Header)
-	if ok {
-		filename = tarh.Name
-	} else {
-		if !stat.IsDir() {
-			logs.Debug.Printf("not a tar header or directory")
-		}
-	}
-
-	tarflags := "tar -Ox "
+func tarExtractFlags(kind string) string {
 	if kind == "tar+gzip" {
-		tarflags = "tar -Oxz "
-	} else if kind == "tar+zstd" {
-		tarflags = "tar --zstd -Ox "
+		return "tar -Oxz "
 	}
-
-	hash, err := v1.NewHash(ref.Identifier())
-	if err != nil {
-		return err
+	if kind == "tar+zstd" {
+		return "tar --zstd -Ox "
 	}
+	return "tar -Ox "
+}
 
+func tarListFlags(kind string) string {
+	if kind == "tar+gzip" {
+		return "tar -tvz"
+	}
+	if kind == "tar+zstd" {
+		return "tar --zstd -tv"
+	}
+	return "tar -tv"
+}
+
+func tarFileLink(prefix, filename string) string {
 	filelink := filename
 
 	// Compute links for JQ
@@ -1728,7 +1710,100 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 		dirlink := fmt.Sprintf(`<a class="mt" href="/%s">%s</a>`, href, htext)
 		filelink = dirlink + base
 	}
+	return filelink
+}
 
+func fileCommand(r *http.Request, fname string, prefix string, refs string, kind string, f httpserve.File, ctype string) (string, error) {
+	ref, err := name.ParseReference(refs)
+	if err != nil {
+		return "", err
+	}
+	filename := strings.TrimPrefix(fname, "/"+prefix)
+	filename = strings.TrimPrefix(filename, "/")
+
+	var stat fs.FileInfo
+	if f != nil {
+		stat, err = f.Stat()
+		if err != nil {
+			return "", err
+		}
+		if tarh, ok := stat.Sys().(*tar.Header); ok {
+			filename = tarh.Name
+		} else if !stat.IsDir() {
+			logs.Debug.Printf("not a tar header or directory")
+		}
+	}
+
+	filelink := tarFileLink(prefix, filename)
+	cmd := crane("blob") + " " + ref.String() + " | " + tarExtractFlags(kind) + " " + filelink
+
+	if r.URL.Query().Get("render") == "elf" {
+		cmd += " | objdump -x -"
+	} else if stat != nil {
+		if stat.Size() > httpserve.TooBig {
+			cmd += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
+		}
+		if ctype == "application/octet-stream" || ctype == "elf" {
+			cmd += " | xxd"
+		}
+	}
+
+	if stat != nil && stat.IsDir() {
+		q := r.URL.Query()
+		if q.Get("all") == "true" {
+			q.Del("all")
+		} else {
+			q.Set("all", "true")
+		}
+		tarhref := r.URL.Path
+		if enc := q.Encode(); enc != "" {
+			tarhref += "?" + enc
+		}
+		tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarListFlags(kind))
+
+		tarSuffix := filelink
+		if filter := tarFilterArgs(r, ref.String()); filter != "" {
+			tarSuffix = filter
+		}
+
+		cmd = crane("blob") + " " + ref.String() + " | " + tarlink + " " + tarSuffix
+	}
+	return cmd, nil
+}
+
+func renderBeforeOpen(w http.ResponseWriter, r *http.Request, fname string, prefix string, refs string, kind string, mediaType types.MediaType, size int64) error {
+	ref, header, err := layerHeader(refs, mediaType, size)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := headerTmpl.Execute(w, TitleData{ref.String()}); err != nil {
+		return err
+	}
+
+	cmd, err := fileCommand(r, fname, prefix, refs, kind, nil, "")
+	if err != nil {
+		return err
+	}
+	if err := bodyTmpl.Execute(w, header); err != nil {
+		return err
+	}
+	writeLoadingShell(w, cmd)
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	return nil
+}
+
+func layerHeader(refs string, mediaType types.MediaType, size int64) (name.Reference, *HeaderData, error) {
+	ref, err := name.ParseReference(refs)
+	if err != nil {
+		return nil, nil, err
+	}
+	hash, err := v1.NewHash(ref.Identifier())
+	if err != nil {
+		return nil, nil, err
+	}
 	desc := v1.Descriptor{
 		Size:      size,
 		Digest:    hash,
@@ -1740,54 +1815,12 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
 		Separator: "@",
 		Child:     ref.Identifier(),
 	}
-	header.JQ = crane("blob") + " " + ref.String() + " | " + tarflags + " " + filelink
-
-	if r.URL.Query().Get("render") == "elf" {
-		header.JQ += " | objdump -x -"
-	} else {
-		if stat.Size() > httpserve.TooBig {
-			header.JQ += fmt.Sprintf(" | head -c %d", httpserve.TooBig)
-		}
-		if ctype == "application/octet-stream" || ctype == "elf" {
-			header.JQ += " | xxd"
-		}
-	}
-
-	if stat.IsDir() {
-		tarflags = "tar -tv"
-		if kind == "tar+gzip" {
-			tarflags = "tar -tvz"
-		} else if kind == "tar+zstd" {
-			tarflags = "tar --zstd -tv"
-		}
-
-		q := r.URL.Query()
-		if q.Get("all") == "true" {
-			q.Del("all")
-		} else {
-			q.Set("all", "true")
-		}
-		tarhref := r.URL.Path
-		if enc := q.Encode(); enc != "" {
-			tarhref += "?" + enc
-		}
-		tarlink := fmt.Sprintf("<a class=%q href=%q>%s</a>", "mt", tarhref, tarflags)
-
-		tarSuffix := filelink
-		if filter := tarFilterArgs(r, ref.String()); filter != "" {
-			tarSuffix = filter
-		}
-
-		header.JQ = crane("blob") + " " + ref.String() + " | " + tarlink + " " + tarSuffix
-	}
 	header.SizeLink = fmt.Sprintf("/size/%s?mt=%s&size=%d", ref.Context().Digest(hash.String()).String(), mediaType, int64(size))
+	return ref, header, nil
+}
 
-	if err := bodyTmpl.Execute(w, header); err != nil {
-		return err
-	}
-
-	if _, ok := f.(httpserve.Files); ok {
-		fmt.Fprintf(w, `<div><template shadowrootmode="open"><style>
+func writeLoadingShell(w io.Writer, cmd string) {
+	fmt.Fprintf(w, `<div><template shadowrootmode="open"><style>
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1798,7 +1831,53 @@ func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix s
   to {
     transform: rotateX(360deg);
   }
-}</style><p><slot name="message"><span style="line-height: .707em; width: .707em; display: inline-block; animation: spin 1.0s infinite linear;">🤐</span> Loading<span><slot name="progress"></slot></span></slot></p><pre><slot name="file"></slot></pre></template>`)
+}
+#file {
+  display: block;
+  font-family: monospace;
+  white-space: pre;
+}
+#file::slotted(*) {
+  font-family: monospace;
+  white-space: pre;
+}
+#file::slotted(pre) {
+  margin: 0;
+}</style><h4><span style="padding:0;" class="noselect">$ </span><slot name="cmd">%s</slot></h4><p id="loading"><slot name="message"><span style="line-height: .707em; width: .707em; display: inline-block; animation: spin 1.0s infinite linear;">🤐</span> Loading<span><slot name="progress"></slot></span></slot></p><slot id="file" name="file"></slot></template>`, cmd)
+}
+
+func renderHeader(w http.ResponseWriter, r *http.Request, fname string, prefix string, refs string, kind string, mediaType types.MediaType, size int64, f httpserve.File, ctype string) error {
+	log.Printf("ctype=%q", ctype)
+	ref, header, err := layerHeader(refs, mediaType, size)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := headerTmpl.Execute(w, TitleData{ref.String()}); err != nil {
+		return err
+	}
+
+	cmd, err := fileCommand(r, fname, prefix, refs, kind, f, ctype)
+	if err != nil {
+		return err
+	}
+	loading, _ := f.(interface {
+		Loading() bool
+		StartLoading()
+	})
+	if loading != nil && loading.Loading() {
+		header.JQ = ""
+	} else {
+		header.JQ = cmd
+	}
+
+	if err := bodyTmpl.Execute(w, header); err != nil {
+		return err
+	}
+
+	if loading != nil && loading.Loading() {
+		writeLoadingShell(w, cmd)
+		loading.StartLoading()
 	}
 
 	return nil

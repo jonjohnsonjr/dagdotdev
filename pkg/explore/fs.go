@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/types"
-	httpserve "github.com/jonjohnsonjr/dagdotdev/pkg/forks/http"
 )
 
 // Lots of debugging that we don't want to compile into the binary.
@@ -45,6 +45,8 @@ type layerFS struct {
 	size int64
 	kind string
 	mt   types.MediaType
+
+	progress *sizeBlob
 }
 
 func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string, mt types.MediaType) *layerFS {
@@ -60,8 +62,54 @@ func (h *handler) newLayerFS(tr tarReader, size int64, prefix, ref, kind string,
 	}
 }
 
+func (fs *layerFS) startLoading() {
+	if fs.progress != nil {
+		fs.progress.StartLoading()
+	}
+}
+
+func (fs *layerFS) stopLoading() {
+	if fs.progress != nil {
+		fs.progress.StopLoading()
+	}
+}
+
+func (fs *layerFS) loadingDuration() time.Duration {
+	if fs.progress == nil {
+		return 0
+	}
+	return fs.progress.LoadingDuration()
+}
+
 func (fs *layerFS) RenderHeader(w http.ResponseWriter, r *http.Request, fname string, f httpserve.File, ctype string) error {
 	return renderHeader(w, r, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size, f, ctype)
+}
+
+func (fs *layerFS) RenderBeforeOpen(w http.ResponseWriter, r *http.Request, fname string) (bool, error) {
+	if fs.progress == nil || r.URL.Query().Get("dl") != "" || r.Method == http.MethodHead {
+		return false, nil
+	}
+	name := strings.TrimPrefix(fname, fs.prefix)
+	name = strings.TrimPrefix(name, "/")
+	if name == "" || name == "." || strings.HasSuffix(fname, "/") || path.Base(name) == "index.html" {
+		return false, nil
+	}
+	if err := renderBeforeOpen(w, r, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, fs.mt, fs.size); err != nil {
+		return false, err
+	}
+	fs.startLoading()
+	return true, nil
+}
+
+func (fs *layerFS) RenderCommand(w http.ResponseWriter, r *http.Request, fname string, f httpserve.File, ctype string) error {
+	cmd, err := fileCommand(r, fname, strings.Trim(fs.prefix, "/"), fs.ref, fs.kind, f, ctype)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, `<span slot="cmd">%s</span>`, cmd)
+	fs.stopLoading()
+	fmt.Fprintf(w, `<span slot="message">Indexed in %s</span>`, fs.loadingDuration())
+	return nil
 }
 
 func (fs *layerFS) Open(original string) (httpserve.File, error) {
@@ -245,6 +293,22 @@ func (f *layerFile) Stat() (os.FileInfo, error) {
 
 func (f *layerFile) Root() bool {
 	return f.name == "" || f.name == "/" || f.name == "/index.html"
+}
+
+func (f *layerFile) Loading() bool {
+	return f.fs != nil && f.fs.progress != nil
+}
+
+func (f *layerFile) StartLoading() {
+	if f.fs != nil {
+		f.fs.startLoading()
+	}
+}
+
+func (f *layerFile) StopLoading() {
+	if f.fs != nil {
+		f.fs.stopLoading()
+	}
 }
 
 // Implements os.FileInfo for empty directory.

@@ -23,17 +23,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/humanize"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/elf"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/forks/safefilepath"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/xxd"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
-	"slices"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/humanize"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/xxd"
 )
 
 const TooBig = elf.TooBig
@@ -41,6 +41,16 @@ const TooBig = elf.TooBig
 // HeaderRenderer renders a header for a FileSystem.
 type HeaderRenderer interface {
 	RenderHeader(w http.ResponseWriter, r *http.Request, name string, f File, ctype string) error
+}
+
+// BeforeOpenRenderer renders a response shell before FileSystem.Open.
+type BeforeOpenRenderer interface {
+	RenderBeforeOpen(w http.ResponseWriter, r *http.Request, name string) (bool, error)
+}
+
+// CommandRenderer renders a late-bound command hint for a FileSystem.
+type CommandRenderer interface {
+	RenderCommand(w http.ResponseWriter, r *http.Request, name string, f File, ctype string) error
 }
 
 // A Dir implements FileSystem using the native file system restricted to a
@@ -168,18 +178,21 @@ func (d dirEntryDirs) layer(i int) string {
 	}
 	return ""
 }
+
 func (d dirEntryDirs) whiteout(i int) string {
 	if se, ok := d[i].(sociEntry); ok {
 		return se.Whiteout()
 	}
 	return ""
 }
+
 func (d dirEntryDirs) overwritten(i int) string {
 	if se, ok := d[i].(sociEntry); ok {
 		return se.Overwritten()
 	}
 	return ""
 }
+
 func (d dirEntryDirs) index(i int) int {
 	if se, ok := d[i].(sociEntry); ok {
 		return se.Index()
@@ -823,21 +836,21 @@ func modeStr(hdr *tar.Header) string {
 	mode[0] = typeStr(hdr.Typeflag)
 
 	if mm&fs.ModeSetuid != 0 {
-		if mm&0100 != 0 {
+		if mm&0o100 != 0 {
 			mode[3] = 's'
 		} else {
 			mode[3] = 'S'
 		}
 	}
 	if mm&fs.ModeSetgid != 0 {
-		if mm&0010 != 0 {
+		if mm&0o010 != 0 {
 			mode[6] = 's'
 		} else {
 			mode[6] = 'S'
 		}
 	}
 	if mm&fs.ModeSticky != 0 {
-		if mm&0001 != 0 {
+		if mm&0o001 != 0 {
 			mode[9] = 't'
 		} else {
 			mode[9] = 'T'
@@ -911,7 +924,7 @@ func ServeContent(w http.ResponseWriter, req *http.Request, name string, modtime
 		}
 		return size, nil
 	}
-	serveContent(w, req, name, modtime, sizeFunc, content, render)
+	serveContent(w, req, name, modtime, sizeFunc, content, render, nil, false)
 }
 
 // errSeeker is returned by ServeContent's sizeFunc when the content
@@ -931,7 +944,7 @@ type renderFunc func(w http.ResponseWriter, r *http.Request, ctype string) error
 // if modtime.IsZero(), modtime is unknown.
 // content must be seeked to the beginning of the file.
 // The sizeFunc is called at most once. Its error, if any, is sent in the HTTP response.
-func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker, render renderFunc) {
+func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker, render renderFunc, renderCommand renderFunc, rendered bool) {
 	setLastModified(w, modtime)
 	done, rangeReq := checkPreconditions(w, r, modtime)
 	if done {
@@ -940,6 +953,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 
 	code := http.StatusOK
 	br := bufio.NewReaderSize(content, sniffLen)
+	renderHTML := render != nil && r.URL.Query().Get("dl") == ""
+	slotted := rendered
 
 	isElf := false
 	// If Content-Type isn't set, use the file's extension to find it, but
@@ -969,7 +984,9 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 		} else {
 			logs.Debug.Printf("ByExtension = %s", ctype)
 		}
-		w.Header().Set("Content-Type", ctype)
+		if !rendered {
+			w.Header().Set("Content-Type", ctype)
+		}
 	} else if len(ctypes) > 0 {
 		ctype = ctypes[0]
 	}
@@ -1067,11 +1084,21 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 		}()
 	}
 
-	if render != nil && r.URL.Query().Get("dl") == "" {
-		if err := render(w, r, ctype); err != nil {
-			logs.Debug.Printf("render(w): %v", err)
+	if renderHTML {
+		if !rendered {
+			if err := render(w, r, ctype); err != nil {
+				logs.Debug.Printf("render(w): %v", err)
+			} else {
+				rendered = true
+				fmt.Fprintf(w, "<pre>")
+			}
 		} else {
-			fmt.Fprintf(w, "<pre>")
+			if renderCommand != nil {
+				if err := renderCommand(w, r, ctype); err != nil {
+					logs.Debug.Printf("renderCommand(w): %v", err)
+				}
+			}
+			fmt.Fprintf(w, `<pre slot="file">`)
 		}
 	} else {
 		w.Header().Set("Accept-Ranges", "bytes")
@@ -1085,7 +1112,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	}
 
 	if r.Method != "HEAD" {
-		if render != nil && r.URL.Query().Get("dl") == "" {
+		if renderHTML {
 			logs.Debug.Printf("ctype=%q", ctype)
 			if sendSize < 0 || sendSize > TooBig {
 				sendSize = TooBig
@@ -1149,8 +1176,12 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 		}
 	}
 
-	if render != nil && r.URL.Query().Get("dl") == "" {
-		fmt.Fprintf(w, "</pre>\n</body>\n</html>\n")
+	if renderHTML {
+		if slotted {
+			fmt.Fprintf(w, "</pre>\n</div>\n</body>\n</html>\n")
+		} else {
+			fmt.Fprintf(w, "</pre>\n</body>\n</html>\n")
+		}
 	}
 }
 
@@ -1401,6 +1432,16 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, modtime time.Tim
 
 // name is '/'-separated, not filepath.Separator.
 func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name string, redirect bool) {
+	rendered := false
+	if br, ok := fsys.(BeforeOpenRenderer); ok {
+		var err error
+		rendered, err = br.RenderBeforeOpen(w, r, name)
+		if err != nil {
+			logs.Debug.Printf("RenderBeforeOpen: %v", err)
+			return
+		}
+	}
+
 	f, err := fsys.Open(name)
 	if err != nil {
 		logs.Debug.Printf("serveFile: %v", err)
@@ -1418,7 +1459,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 		return
 	}
 
-	if redirect {
+	if redirect && !rendered {
 		// redirect to canonical path: / at end of directory url
 		// r.URL.Path always begins with /
 		url := r.URL.Path
@@ -1435,7 +1476,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 		}
 	}
 
-	if d.IsDir() {
+	if d.IsDir() && !rendered {
 		url := r.URL.Path
 		// redirect if the directory name doesn't end in a slash
 		if url == "" || url[len(url)-1] != '/' {
@@ -1446,6 +1487,12 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 
 	render := func(w http.ResponseWriter, r *http.Request, ctype string) error {
 		return fsys.RenderHeader(w, r, name, f, ctype)
+	}
+	var renderCommand renderFunc
+	if cr, ok := fsys.(CommandRenderer); ok {
+		renderCommand = func(w http.ResponseWriter, r *http.Request, ctype string) error {
+			return cr.RenderCommand(w, r, name, f, ctype)
+		}
 	}
 
 	// Still a directory? (we didn't find an index.html file)
@@ -1487,7 +1534,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys FileSystem, name str
 
 	// serveContent will check modification time
 	sizeFunc := func() (int64, error) { return d.Size(), nil }
-	serveContent(w, r, d.Name(), d.ModTime(), sizeFunc, f, render)
+	serveContent(w, r, d.Name(), d.ModTime(), sizeFunc, f, render, renderCommand, rendered)
 }
 
 type Files interface {
@@ -1542,8 +1589,12 @@ func renderFiles(w http.ResponseWriter, r *http.Request, fname string, f File, r
 		}
 	}
 
+	if loading, ok := f.(interface{ StopLoading() }); ok {
+		loading.StopLoading()
+	}
+
 	// We need some kind of indication that we finished indexing, so include some interesting info.
-	fmt.Fprintf(w, `<p slot="message">Indexed in %s</p>`, time.Since(start))
+	fmt.Fprintf(w, `<span slot="message">Indexed in %s</span>`, time.Since(start))
 
 	fmt.Fprintf(w, "\n</div>\n</body>\n</html>")
 }
@@ -1639,6 +1690,21 @@ func (i ioFS) RenderHeader(w http.ResponseWriter, r *http.Request, name string, 
 	return nil
 }
 
+func (i ioFS) RenderBeforeOpen(w http.ResponseWriter, r *http.Request, name string) (bool, error) {
+	if br, ok := i.fsys.(BeforeOpenRenderer); ok {
+		return br.RenderBeforeOpen(w, r, name)
+	}
+	return false, nil
+}
+
+func (i ioFS) RenderCommand(w http.ResponseWriter, r *http.Request, name string, f File, ctype string) error {
+	if cr, ok := i.fsys.(CommandRenderer); ok {
+		return cr.RenderCommand(w, r, name, f, ctype)
+	}
+	logs.Debug.Printf("i.fsys (%T) does not implement RenderCommand", i.fsys)
+	return nil
+}
+
 type ioFile struct {
 	file fs.File
 }
@@ -1662,8 +1728,10 @@ func (f ioFile) Close() error               { return f.file.Close() }
 func (f ioFile) Read(b []byte) (int, error) { return f.file.Read(b) }
 func (f ioFile) Stat() (fs.FileInfo, error) { return f.file.Stat() }
 
-var errMissingSeek = errors.New("io.File missing Seek method")
-var errMissingReadDir = errors.New("io.File directory missing ReadDir method")
+var (
+	errMissingSeek    = errors.New("io.File missing Seek method")
+	errMissingReadDir = errors.New("io.File directory missing ReadDir method")
+)
 
 func (f ioFile) Seek(offset int64, whence int) (int64, error) {
 	s, ok := f.file.(io.Seeker)
