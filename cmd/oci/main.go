@@ -14,8 +14,10 @@ import (
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
 )
 
-var auth = flag.Bool("auth", false, "use docker credentials")
-var verbose = flag.Bool("v", false, "verbose logs")
+var (
+	auth    = flag.Bool("auth", false, "use docker credentials")
+	verbose = flag.Bool("v", false, "verbose logs")
+)
 
 func main() {
 	flag.Parse()
@@ -80,7 +82,7 @@ type keychain struct {
 }
 
 func (k *keychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
-	if r.RegistryStr() != name.DefaultRegistry {
+	if r.RegistryStr() != name.DefaultRegistry && r.RegistryStr() != "dhi.io" {
 		return authn.Anonymous, nil
 	}
 
