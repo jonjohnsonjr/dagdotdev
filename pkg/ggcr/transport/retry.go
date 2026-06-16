@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/internal/retry"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/retry"
 )
 
 // Sleep for 0.1 then 0.3 seconds. This should cover networking blips.

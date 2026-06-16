@@ -84,6 +84,7 @@ func (h *handler) remoteOptions(w http.ResponseWriter, r *http.Request, repo str
 	if t, err := h.transportFromCookie(w, r, repo, auth); err != nil {
 		log.Printf("failed to get transport from cookie: %v", err)
 	} else {
+		logs.Debug.Printf("appending transport %T", t)
 		opts = append(opts, remote.WithTransport(t))
 	}
 

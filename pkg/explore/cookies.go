@@ -1,14 +1,37 @@
 package explore
 
 import (
+	"errors"
+	"io"
 	"net/http"
+	"syscall"
 	"time"
 
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/remote"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/retry"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/transport"
 )
+
+var defaultRetryPredicate retry.Predicate = func(err error) bool {
+	// Various failure modes here, as we're often reading from and writing to
+	// the network.
+	if retry.IsTemporary(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+		logs.Warn.Printf("retrying %v", err)
+		return true
+	}
+	return false
+}
+
+var retryableStatusCodes = []int{
+	http.StatusRequestTimeout,
+	http.StatusInternalServerError,
+	http.StatusBadGateway,
+	http.StatusServiceUnavailable,
+	http.StatusGatewayTimeout,
+}
 
 type RedirectCookie struct {
 	Digest string
@@ -28,19 +51,28 @@ func (h *handler) transportFromCookie(w http.ResponseWriter, r *http.Request, re
 	t = transport.NewUserAgent(t, h.userAgent)
 	if r.URL.Query().Get("trace") != "" {
 		t = transport.NewTracer(t)
+	} else if logs.Enabled(logs.Debug) {
+		t = transport.NewLogger(t)
 	}
+
+	// hoisted this out of ggcr to avoid the double wrapping
+	t = transport.NewRetry(t, transport.WithRetryPredicate(defaultRetryPredicate), transport.WithRetryStatusCodes(retryableStatusCodes...))
 
 	h.Lock()
 	pr, ok := h.pings[reg.String()]
 	h.Unlock()
 	if !ok {
+		logs.Debug.Printf("missed ping for %q", reg.String())
 		pr, err = transport.Ping(r.Context(), reg, t)
 		if err != nil {
 			return nil, err
 		}
 		h.Lock()
+		logs.Debug.Printf("set ping for %q to %v", reg.String(), pr)
 		h.pings[reg.String()] = pr
 		h.Unlock()
+	} else {
+		logs.Debug.Printf("got ping for %q", reg.String())
 	}
 
 	h.Lock()

@@ -18,17 +18,12 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"io"
 	"math"
 	"net"
 	"net/http"
-	"syscall"
 	"time"
 
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/authn"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/internal/retry"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
-	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/transport"
 )
 
 // Option is a functional option for remote operations.
@@ -47,24 +42,6 @@ type options struct {
 
 	// Avoid breaking api because I'm lazy.
 	next string
-}
-
-var defaultRetryPredicate retry.Predicate = func(err error) bool {
-	// Various failure modes here, as we're often reading from and writing to
-	// the network.
-	if retry.IsTemporary(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
-		logs.Warn.Printf("retrying %v", err)
-		return true
-	}
-	return false
-}
-
-var retryableStatusCodes = []int{
-	http.StatusRequestTimeout,
-	http.StatusInternalServerError,
-	http.StatusBadGateway,
-	http.StatusServiceUnavailable,
-	http.StatusGatewayTimeout,
 }
 
 const (
@@ -119,13 +96,6 @@ func makeOptions(target authn.Resource, opts ...Option) (*options, error) {
 	case o.auth == nil:
 		o.auth = authn.Anonymous
 	}
-
-	// Wrap with debug logging only when the Debug logger is actually enabled —
-	// generating the request/response dumps is expensive otherwise.
-	if logs.Enabled(logs.Debug) {
-		o.transport = transport.NewLogger(o.transport)
-	}
-	o.transport = transport.NewRetry(o.transport, transport.WithRetryPredicate(defaultRetryPredicate), transport.WithRetryStatusCodes(retryableStatusCodes...))
 
 	return o, nil
 }

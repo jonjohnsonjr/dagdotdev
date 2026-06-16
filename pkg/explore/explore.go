@@ -43,8 +43,10 @@ import (
 )
 
 // We should not buffer blobs greater than 4MB
-const tooBig = 1 << 22
-const respTooBig = 1 << 25
+const (
+	tooBig     = 1 << 22
+	respTooBig = 1 << 25
+)
 
 //go:embed favicon.svg
 var faviconSVG []byte
@@ -2132,6 +2134,9 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 		cp := toc.Checkpoint(tf)
 
 		dict, err := index.Dict(cp)
+		if err != nil {
+			return err
+		}
 
 		from := cp.Checkpoint
 		from.SetHistory(dict)
@@ -2147,21 +2152,6 @@ func (h *handler) renderZurl(w http.ResponseWriter, r *http.Request) error {
 
 	w.WriteHeader(http.StatusNotFound)
 	return fmt.Errorf("could not find %s", filename)
-}
-
-// server.go
-var htmlReplacer = strings.NewReplacer(
-	"&", "&amp;",
-	"<", "&lt;",
-	">", "&gt;",
-	// "&#34;" is shorter than "&quot;".
-	`"`, "&#34;",
-	// "&#39;" is shorter than "&apos;" and apos was not in HTML until HTML5.
-	"'", "&#39;",
-)
-
-func htmlEscape(s string) string {
-	return htmlReplacer.Replace(s)
 }
 
 type dumbEscaper struct {

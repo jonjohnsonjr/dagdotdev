@@ -20,16 +20,26 @@ import (
 	"net/http"
 
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/authn"
+	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/logs"
 	"github.com/jonjohnsonjr/dagdotdev/pkg/ggcr/name"
 )
 
 // NewWithContext returns an http.RoundTripper that authenticates against
 // `reg` for the given scopes. The handshake is:
-//   1. Ping the registry to discover the auth scheme.
-//   2. For anonymous/basic challenges, wrap with basicTransport.
-//   3. For bearer challenges, exchange basic creds for a bearer token and
-//      wrap with bearerTransport (which refreshes on 401).
+//  1. Ping the registry to discover the auth scheme.
+//  2. For anonymous/basic challenges, wrap with basicTransport.
+//  3. For bearer challenges, exchange basic creds for a bearer token and
+//     wrap with bearerTransport (which refreshes on 401).
 func NewWithContext(ctx context.Context, reg name.Registry, auth authn.Authenticator, t http.RoundTripper, scopes []string) (http.RoundTripper, error) {
+	// Avoid double-wrapping.
+	if bt, ok := t.(*basicTransport); ok {
+		return bt, nil
+	}
+	if bt, ok := t.(*bearerTransport); ok {
+		return bt, nil
+	}
+	logs.Debug.Printf("t is type %T", t)
+
 	pr, err := Ping(ctx, reg, t)
 	if err != nil {
 		return nil, err
