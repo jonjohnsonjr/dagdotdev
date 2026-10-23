@@ -206,6 +206,8 @@ func renderCreatedBy(w io.Writer, b []byte) error {
 		b = bytes.TrimSuffix(b, []byte("]"))
 		b = bytes.Replace(b, []byte("map["), []byte(""), 1)
 		b = bytes.ReplaceAll(b, []byte(":{}"), []byte(""))
+		// Turn the array version into the dockerfile version
+		b = bytes.Replace(b, []byte("["), []byte(""), 1)
 	}
 	if bytes.HasPrefix(b, []byte("|")) {
 		if _, after, ok := bytes.Cut(b, []byte("/bin/sh -c")); ok {
